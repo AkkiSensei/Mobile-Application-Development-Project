@@ -1,0 +1,52 @@
+# Built application files
+*.apk
+*.aar
+*.aab
+
+# Gradle files
+.gradle/
+build/
+
+# Local configuration file (contains local keys, SDK location)
+local.properties
+
+# Log files
+*.log
+
+# Android Studio / IntelliJ IDEA
+.idea/
+*.iml
+.idea/caches/
+.idea/libraries/
+.idea/modules.xml
+.idea/workspace.xml
+.idea/navEditor.xml
+.idea/assetWizardSettings.xml
+
+# Keystore and signing secrets
+*.jks
+*.keystore
+*.key
+signing.properties
+
+# Google Services / Firebase credentials
+google-services.json
+
+# Environment variables & secrets
+.env
+.env.*
+secrets.properties
+
+# Native build caches
+.externalNativeBuild
+.cxx/
+/captures/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Memory profiler dumps & agent IDE temporary configs
+*.hprof
+.vscode/
+.claude/

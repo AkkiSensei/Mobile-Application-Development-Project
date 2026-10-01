@@ -1,0 +1,244 @@
+# ==============================================================================
+# MADVERSE — CANONICAL GIT, COLLABORATION & AGENT GOVERNANCE RULES (.gitrules)
+# ==============================================================================
+# This document is the permanent source of truth for version control, collaboration,
+# security discipline, and AI/IDE agent behavior in the MADVerse repository.
+#
+# AUDIENCE:
+# - Human Developers: Ritunjay Deo, Saanvi, Shraddha
+# - AI Coding Agents: Antigravity, Claude Code, Gemini CLI, Cursor, and any subagents
+# - Development Environments: Android Studio, VS Code, IntelliJ IDEA, Terminal
+#
+# PRECEDENCE RULE:
+# When any instruction or future prompt conflicts with the safety rules defined
+# in this file, .gitrules TAKES PRECEDENCE unless the project owner explicitly
+# grants written authorization to override a specific rule.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. REPOSITORY IDENTITY & ACADEMIC INTEGRITY
+# ------------------------------------------------------------------------------
+Project: MADVerse
+Type: Android Movie Discovery, Personalization, Recommendation & Streaming Guide
+Team Members:
+  - Ritunjay Deo
+  - Saanvi
+  - Shraddha
+
+ACADEMIC EVALUATION NOTICE:
+The Git commit history, commit authorship, branch lifecycles, and pull-request/merge
+records constitute direct, non-negotiable academic evidence of individual student
+contribution. Any action that destroys, squashes, rewrites, falsifies, or obscures
+individual contribution evidence violates academic policy and is strictly forbidden.
+
+# ------------------------------------------------------------------------------
+# 2. GIT SAFETY — ABSOLUTE PRESERVATION RULES
+# ------------------------------------------------------------------------------
+1. NEVER execute `git init` inside this project under any circumstance.
+2. NEVER delete, rename, recreate, or replace the `.git` directory.
+3. NEVER execute destructive resets (`git reset --hard`, `git reset --merge`).
+4. NEVER execute destructive worktree cleans (`git clean -fd`, `git clean -fdx`).
+5. NEVER force-push (`git push --force`, `git push -f`, `git push --force-with-lease`).
+6. NEVER execute rebases or history rewrites on shared branches (`main`, `develop`).
+7. NEVER initialize a nested Git repository within the project tree.
+8. ALWAYS verify `.git` exists and inspect `git status` before beginning work.
+
+# ------------------------------------------------------------------------------
+# 3. BRANCHING STRATEGY
+# ------------------------------------------------------------------------------
+MADVerse uses a deadline-conscious, attributable branch structure suited for 3 students:
+
+Core Branches:
+  - `main`    : Production-ready, stable releases. Protected from direct daily commits.
+  - `develop` : Central integration branch for feature merges and build verification.
+
+Feature Branches:
+  - Format: `feature/<member>-<feature-description>`
+  - Examples:
+      - `feature/ritunjay-discover-carousel`
+      - `feature/ritunjay-movie-details`
+      - `feature/saanvi-movie-search`
+      - `feature/saanvi-streaming-providers`
+      - `feature/shraddha-taste-quiz`
+      - `feature/shraddha-recommendation-engine`
+      - `feature/shraddha-watchlist-room`
+
+Branching Discipline:
+1. NEVER work directly on `main` for regular feature tasks.
+2. NEVER develop directly inside another member's feature branch without prior agreement.
+3. Keep feature branches short-lived and focused on a single logical responsibility.
+4. Future feature branches must NOT be created in advance; create them only when beginning the task.
+5. Delete feature branches only after verified, non-destructive merging into `develop`.
+
+# ------------------------------------------------------------------------------
+# 4. COMMIT RULES & ATTRIBUTION
+# ------------------------------------------------------------------------------
+Commit Message Convention:
+Follow the Conventional Commits structure:
+  `<type>: <clear description>`
+
+Standard Types:
+  - `feat`     : A new user-facing feature or domain capability
+  - `fix`      : A bug fix
+  - `refactor` : Code restructuring without changing external behavior
+  - `test`     : Adding or updating unit/instrumentation tests
+  - `docs`     : Architecture or documentation updates
+  - `chore`    : Build script, dependency, or configuration updates
+
+Examples:
+  - `feat: add TMDB debounced movie search`
+  - `feat: implement deterministic recommendation scoring algorithm`
+  - `feat: persist movie watchlist with Room database`
+  - `fix: handle empty TMDB network response gracefully`
+  - `test: add unit tests for recommendation scoring weights`
+  - `refactor: extract safe streaming intent resolver`
+
+Commit Integrity Rules:
+1. NEVER commit meaningless messages such as "update", "changes", "fix bug", "test", "wip", "stuff".
+2. Commits MUST represent coherent, self-contained units of work.
+3. NEVER make massive "kitchen-sink" commits that bundle unrelated features across domains.
+4. Each member/agent must commit using their own correct authorship configuration.
+5. NEVER impersonate another team member or commit under another member's name.
+6. NEVER squash another student's commits into your own authorship.
+
+# ------------------------------------------------------------------------------
+# 5. COLLABORATION & CONFLICT RESOLUTION
+# ------------------------------------------------------------------------------
+Authorship Respect:
+- Ritunjay's work must remain attributable to Ritunjay.
+- Saanvi's work must remain attributable to Saanvi.
+- Shraddha's work must remain attributable to Shraddha.
+
+Pair Programming & Agent Assistance:
+- If a developer or AI assistant helps another student, the primary author must remain clear.
+- Collaboration should be credited in commit footers (e.g. `Co-authored-by: Name <email>`).
+- NEVER manufacture artificial commits to manipulate contribution metrics.
+
+Merge Conflict Resolution:
+1. NEVER use `git checkout --ours` or `git checkout --theirs` blindly across an entire file.
+2. Carefully inspect both conflicting sections line by line.
+3. Preserve valid logic and tests from both sides.
+4. Run `./gradlew testDebugUnitTest assembleDebug` immediately after resolving conflicts.
+
+# ------------------------------------------------------------------------------
+# 6. MERGE RULES
+# ------------------------------------------------------------------------------
+Before merging any feature branch into `develop` or `main`:
+1. Build Verification: `./gradlew assembleDebug` must complete with 0 errors.
+2. Test Verification: `./gradlew testDebugUnitTest` must pass all tests.
+3. Secret Scan: Scan working tree for accidentally introduced API keys or tokens.
+4. Diff Inspection: Inspect `git diff <target-branch>...HEAD` to verify clean changes.
+5. Non-Destructive Merges: Use standard merge commits (`git merge --no-ff`) to preserve branch history.
+6. NEVER rebase or squash shared integration branches.
+
+# ------------------------------------------------------------------------------
+# 7. PUSH RULES & REMOTE SAFETY
+# ------------------------------------------------------------------------------
+1. NEVER push automatically. AI agents and IDEs MUST obtain explicit human authorization.
+2. Pre-Push Verification Checklist:
+   - Run `git status` — Ensure working directory is clean.
+   - Run `git diff origin/<branch>` — Verify only intended changes are included.
+   - Verify zero API keys (TMDB, Gemini, Firebase, Google Services) are staged.
+   - Verify no machine-specific files (`local.properties`, `.idea`, `*.jks`) are tracked.
+3. Only push to authorized remotes (`origin -> AkkiSensei/Mobile-Application-Development-Project.git`).
+
+# ------------------------------------------------------------------------------
+# 8. SECRET MANAGEMENT & SECURITY BASELINE
+# ------------------------------------------------------------------------------
+1. NEVER hardcode API keys or secret tokens in Kotlin source files (`.kt`).
+2. NEVER hardcode API keys in Jetpack Compose UI files.
+3. NEVER place credentials or tokens in XML resources (`strings.xml`, manifests).
+4. NEVER commit `local.properties`.
+5. NEVER place credentials in README files, markdown documentation, or issue trackers.
+6. NEVER include real credentials or access tokens in test fixtures or mock data.
+7. NEVER commit keystores, signing keys (`*.jks`, `*.keystore`, `*.key`), or `signing.properties`.
+8. NEVER commit `google-services.json` or Firebase service-account private keys.
+9. Injection Mechanism:
+   - Developers copy `local.properties.example` to `local.properties` (git-ignored).
+   - Gradle extracts `TMDB_API_KEY` and `GEMINI_API_KEY` from `local.properties` or environment variables.
+   - Gradle injects keys into `BuildConfig` at compile-time with safe fallback defaults (`""`).
+10. If an accidental secret commit is detected locally, STOP IMMEDIATELY before pushing.
+
+# ------------------------------------------------------------------------------
+# 9. ANDROID & GENERATED FILES DISCIPLINE
+# ------------------------------------------------------------------------------
+1. Strictly respect `.gitignore`.
+2. NEVER commit machine-specific build artifacts:
+   - `build/` (module build directories)
+   - `.gradle/` (Gradle daemon and execution cache)
+   - `.cxx/`, `.externalNativeBuild/` (NDK/C++ artifacts)
+   - `*.apk`, `*.aar`, `*.aab` (compiled binary packages)
+3. NEVER commit IDE configuration caches:
+   - `.idea/caches/`, `.idea/workspace.xml`, `.idea/modules.xml`
+   - `*.iml`
+   - `.vscode/`, `.claude/`
+4. NEVER commit OS-specific files (`.DS_Store`, `Thumbs.db`).
+5. NEVER bypass or modify `.gitignore` simply to make `git status` look clean.
+
+# ------------------------------------------------------------------------------
+# 10. REFERENCE REPOSITORY & ORIGINALITY RULES
+# ------------------------------------------------------------------------------
+Reference Repository: `AhmetOcak/MovieApp`
+Role of Reference: Architectural study, dependency selection, and UX research ONLY.
+
+Strict Academic Prohibitions:
+1. NEVER clone or copy the reference repository's `.git` directory into MADVerse.
+2. NEVER merge the reference repository's Git history into MADVerse.
+3. NEVER copy/paste source files verbatim or perform blind bulk renames.
+4. MADVerse features must be student-implemented with independent branding, original
+   Taste Quiz logic, multi-factor recommendation engine, and distinct Material 3 styling.
+
+# ------------------------------------------------------------------------------
+# 11. BUILD & TEST REQUIREMENTS
+# ------------------------------------------------------------------------------
+Before committing or creating pull requests:
+1. Execute `./gradlew assembleDebug` — Must succeed.
+2. Execute `./gradlew testDebugUnitTest` — All unit tests must pass.
+3. NEVER disable or delete a test simply to make a broken build pass.
+4. Resolve all compiler errors and deprecation warnings introduced by new code.
+5. Maintain documentation comments on public interfaces and domain contracts.
+
+# ------------------------------------------------------------------------------
+# 12. AGENT & IDE GOVERNANCE RULES
+# ------------------------------------------------------------------------------
+All coding agents (Antigravity, Claude Code, Cursor, Copilot, etc.) and IDE environments:
+1. MUST read `.gitrules` and adhere strictly to its constraints.
+2. MUST inspect `git status` and the current branch before modifying files.
+3. MUST keep changes tightly bounded to the user's explicit prompt request.
+4. MUST NOT perform spontaneous wide-scale refactoring outside assigned feature domains.
+5. MUST NOT execute destructive Git commands under any circumstance.
+6. MUST run compilation and test verification after significant code modifications.
+7. MUST report the exact Git status, branch name, and build results at the end of each turn.
+8. MUST STOP and ask the user if an ambiguous or potentially dangerous Git state is detected.
+
+# ------------------------------------------------------------------------------
+# 13. EXPLICITLY PROHIBITED ACTIONS (ZERO TOLERANCE)
+# ------------------------------------------------------------------------------
+The following actions are STRICTLY FORBIDDEN:
+❌ `git init`
+❌ `rmdir /s /q .git` or `rm -rf .git`
+❌ `git reset --hard` (unless explicitly commanded by human project owner)
+❌ `git clean -fd` or `git clean -fdx`
+❌ `git push --force` or `git push --force-with-lease`
+❌ `git rebase` on shared integration branches (`main`, `develop`)
+❌ Deleting another student's branch
+❌ Squashing or rewriting another student's commits
+❌ Committing plaintext API keys, passwords, or service-account secrets
+❌ Importing external repository commit histories
+❌ Altering `.gitrules` to weaken safety constraints without explicit authorization
+
+# ------------------------------------------------------------------------------
+# 14. EMERGENCY ESCALATION PROCEDURE
+# ------------------------------------------------------------------------------
+If any Git operation appears to risk existing history, commits, or branch integrity:
+1. STOP IMMEDIATELY. Do not run further commands.
+2. DO NOT attempt automated "repairs", rebases, or destructive resets.
+3. Gather diagnostics:
+   - Run `git status`
+   - Run `git branch -a`
+   - Run `git log -n 5 --oneline`
+4. Report the exact state to the human project owner with:
+   - The current branch and commit hash
+   - The unexpected state or conflict encountered
+   - The safest non-destructive path forward
+5. Await explicit written instructions before proceeding.
