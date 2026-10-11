@@ -672,4 +672,50 @@ MADVerseNavHost (Screen.Search route)
 - Loading states utilize [`MovieHorizontalSkeleton`](file:///c:/Users/Ritunjay%20Deo/OneDrive/Desktop/MADVerse/app/src/main/java/com/example/madverse/core/designsystem/components/MovieCard.kt#L598).
 - Clicks propagate genuine TMDB movie IDs to `Screen.MovieDetails.createRoute(movieId)`.
 
+---
+
+## 19. R4 Delivery: Movie Details
+
+Implemented by **Ritunjay Deo** on branch `feature/ritunjay-movie-details`.
+
+### 19.1 Architecture & Flow
+
+```
+MADVerseNavHost (Screen.MovieDetails route with ARG_MOVIE_ID)
+  └─ MovieDetailsScreen (Lifecycle-aware via collectAsStateWithLifecycle())
+       ├─ Hero Header (Backdrop, floating back button, poster overlay, rating badge)
+       ├─ Title, Tagline & Meta Badges (Release year, formatted runtime, language, status)
+       ├─ Actions Row (Favorites toggle button & Watchlist toggle button via Room)
+       ├─ Genres & Storyline (Genre chips & overview synopsis)
+       ├─ Cast & Crew Carousel (Top-billed actors with profile photos & character roles)
+       ├─ Trailers & Clips (YouTube video metadata with official trailer prioritization)
+       ├─ Where to Watch / Watch Providers (Subscription flatrate, rent, and buy destinations)
+       └─ Financials & Production Stats (Formatted budget & revenue)
+```
+
+### 19.2 Integration Points for Team Handover
+
+#### For Shraddha — Embedded YouTube Player
+- Video metadata is exposed cleanly via `uiState.videosState: UiState<List<VideoTrailer>>`.
+- Each `VideoTrailer` contains `id`, `key` (YouTube video ID), `name`, `type` ("Trailer", "Teaser", "Clip"), `isOfficial`, `isEmbeddableYouTubeTrailer`, and `youtubeWatchUrl`.
+- Primary trailer accessor `uiState.primaryTrailer` prioritizes official trailers.
+- Current implementation renders interactive trailer cards that launch YouTube URLs via external intent; Shraddha can cleanly mount her `YouTubePlayerView` directly into `VideosSection`.
+
+#### For Shraddha — Favorites & Watchlist Room Persistence
+- Directly integrated with `FavoritesRepository` and `WatchlistRepository` from R1.
+- `MovieDetailsViewModel` exposes reactive `isFavorite: Boolean` and `isInWatchlist: Boolean` states, observed continuously from Room DAOs.
+- Tapping `Favorite` or `Watchlist` buttons triggers `toggleFavorite()` / `toggleWatchlist()`, calling `addToFavorites()` / `removeFromFavorites()` without duplicate persistence layers.
+- `MovieDetails.toMovie()` helper ensures seamless mapping between details and library models.
+
+#### For Saanvi — Streaming Providers & Deep Links
+- Streaming data is exposed via `uiState.watchProvidersState: UiState<MovieWatchProviders>`.
+- Categorized by `flatrate` (subscriptions like Netflix, Disney+, Prime Video), `rent`, and `buy`.
+- Direct TMDB provider link `tmdbWatchPageUrl` enables one-tap regional streaming guides.
+
+### 19.3 Error Resilience & Missing Metadata
+- Invalid IDs (`<= 0`) trigger immediate clear error feedback without making redundant network calls.
+- Missing poster or backdrop images fallback smoothly to stylized obsidian placeholders.
+- Null or missing runtimes, taglines, overviews, and financial figures format safely (`formattedRuntime` returns `"N/A"`, missing financial stats hide gracefully).
+
+
 
