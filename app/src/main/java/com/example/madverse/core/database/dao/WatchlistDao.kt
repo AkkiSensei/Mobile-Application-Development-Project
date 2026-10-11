@@ -20,6 +20,9 @@ interface WatchlistDao {
     @Query("SELECT EXISTS(SELECT 1 FROM watchlist_movies WHERE movie_id = :movieId)")
     fun isMovieInWatchlist(movieId: Int): Flow<Boolean>
 
+    @Query("SELECT EXISTS(SELECT 1 FROM watchlist_movies WHERE movie_id = :movieId)")
+    suspend fun isMovieInWatchlistOnce(movieId: Int): Boolean
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMovie(movie: WatchlistEntity)
 

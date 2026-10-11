@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.Flow
 interface FavoritesRepository {
     fun getFavoriteMovies(): Flow<List<Movie>>
     fun isFavorite(movieId: Int): Flow<Boolean>
+    suspend fun isFavoriteOnce(movieId: Int): Boolean = false
+    suspend fun getFavoriteById(movieId: Int): Movie? = null
     suspend fun addToFavorites(movie: Movie)
     suspend fun removeFromFavorites(movieId: Int)
 }

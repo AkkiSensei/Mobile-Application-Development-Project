@@ -46,4 +46,22 @@ data class FavoriteEntity(
             popularity = 0.0
         )
     }
+
+    companion object {
+        fun fromDomain(
+            movie: Movie,
+            savedTimestamp: Long = System.currentTimeMillis()
+        ): FavoriteEntity {
+            return FavoriteEntity(
+                movieId = movie.id,
+                title = movie.title,
+                posterPath = movie.posterUrl,
+                backdropPath = movie.backdropUrl,
+                releaseDate = movie.releaseDate,
+                voteAverage = movie.voteAverage,
+                overview = movie.overview,
+                savedTimestamp = savedTimestamp
+            )
+        }
+    }
 }

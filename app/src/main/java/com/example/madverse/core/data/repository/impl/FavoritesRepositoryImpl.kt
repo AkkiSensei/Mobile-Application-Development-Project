@@ -29,26 +29,17 @@ class FavoritesRepositoryImpl @Inject constructor(
     override fun isFavorite(movieId: Int): Flow<Boolean> =
         favoriteDao.isFavorite(movieId)
 
+    override suspend fun isFavoriteOnce(movieId: Int): Boolean =
+        favoriteDao.isFavoriteOnce(movieId)
+
+    override suspend fun getFavoriteById(movieId: Int): Movie? =
+        favoriteDao.getFavoriteById(movieId)?.toDomain()
+
     override suspend fun addToFavorites(movie: Movie) {
-        favoriteDao.insertFavorite(movie.toFavoriteEntity())
+        favoriteDao.insertFavorite(FavoriteEntity.fromDomain(movie))
     }
 
     override suspend fun removeFromFavorites(movieId: Int) {
         favoriteDao.deleteFavoriteById(movieId)
     }
-
-    // -------------------------------------------------------------------------
-    // Mapping helpers
-    // -------------------------------------------------------------------------
-
-    private fun Movie.toFavoriteEntity(): FavoriteEntity = FavoriteEntity(
-        movieId = id,
-        title = title,
-        posterPath = posterUrl,
-        backdropPath = backdropUrl,
-        releaseDate = releaseDate,
-        voteAverage = voteAverage,
-        overview = overview,
-        savedTimestamp = System.currentTimeMillis()
-    )
 }

@@ -29,39 +29,17 @@ class WatchlistRepositoryImpl @Inject constructor(
     override fun isMovieInWatchlist(movieId: Int): Flow<Boolean> =
         watchlistDao.isMovieInWatchlist(movieId)
 
+    override suspend fun isMovieInWatchlistOnce(movieId: Int): Boolean =
+        watchlistDao.isMovieInWatchlistOnce(movieId)
+
+    override suspend fun getWatchlistMovieById(movieId: Int): Movie? =
+        watchlistDao.getWatchlistMovieById(movieId)?.toDomain()
+
     override suspend fun addToWatchlist(movie: Movie) {
-        watchlistDao.insertMovie(movie.toWatchlistEntity())
+        watchlistDao.insertMovie(WatchlistEntity.fromDomain(movie))
     }
 
     override suspend fun removeFromWatchlist(movieId: Int) {
         watchlistDao.deleteMovieById(movieId)
     }
-
-    // -------------------------------------------------------------------------
-    // Mapping helpers
-    // -------------------------------------------------------------------------
-
-    private fun Movie.toWatchlistEntity(): WatchlistEntity = WatchlistEntity(
-        movieId = id,
-        title = title,
-        posterPath = posterUrl,
-        backdropPath = backdropUrl,
-        releaseDate = releaseDate,
-        voteAverage = voteAverage,
-        overview = overview,
-        savedTimestamp = System.currentTimeMillis()
-    )
-
-    private fun WatchlistEntity.toDomain(): Movie = Movie(
-        id = movieId,
-        title = title,
-        overview = overview ?: "",
-        posterUrl = posterPath,
-        backdropUrl = backdropPath,
-        releaseDate = releaseDate,
-        voteAverage = voteAverage,
-        voteCount = 0,
-        genreIds = emptyList(),
-        popularity = 0.0
-    )
 }

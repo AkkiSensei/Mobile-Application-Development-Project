@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.Flow
 interface WatchlistRepository {
     fun getWatchlistMovies(): Flow<List<Movie>>
     fun isMovieInWatchlist(movieId: Int): Flow<Boolean>
+    suspend fun isMovieInWatchlistOnce(movieId: Int): Boolean = false
+    suspend fun getWatchlistMovieById(movieId: Int): Movie? = null
     suspend fun addToWatchlist(movie: Movie)
     suspend fun removeFromWatchlist(movieId: Int)
 }

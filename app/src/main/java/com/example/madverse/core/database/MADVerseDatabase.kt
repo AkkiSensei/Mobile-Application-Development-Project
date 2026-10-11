@@ -22,4 +22,16 @@ abstract class MADVerseDatabase : RoomDatabase() {
     abstract fun watchlistDao(): WatchlistDao
     abstract fun favoriteDao(): FavoriteDao
     abstract fun userPreferenceDao(): UserPreferenceDao
+
+    companion object {
+        const val DATABASE_NAME = "madverse_database.db"
+        const val DATABASE_VERSION = 1
+
+        /**
+         * Clean Room migrations registry.
+         * Ensures non-destructive schema evolution so user favorites, watchlist records,
+         * and quiz preferences are never dropped or wiped.
+         */
+        val ALL_MIGRATIONS: Array<androidx.room.migration.Migration> = emptyArray()
+    }
 }

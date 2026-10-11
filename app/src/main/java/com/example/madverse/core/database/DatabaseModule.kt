@@ -16,17 +16,15 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
 
-    private const val DATABASE_NAME = "madverse_database.db"
-
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): MADVerseDatabase {
         return Room.databaseBuilder(
             context,
             MADVerseDatabase::class.java,
-            DATABASE_NAME
+            MADVerseDatabase.DATABASE_NAME
         )
-            .fallbackToDestructiveMigration(true)
+            .addMigrations(*MADVerseDatabase.ALL_MIGRATIONS)
             .build()
     }
 
