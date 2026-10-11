@@ -627,3 +627,49 @@ navController.navigate(Screen.MovieDetails.createRoute(movieId))
 ```
 Using the official TMDB movie ID without creating competing navigation graphs.
 
+---
+
+## 18. R3 Delivery: Movie Search
+
+Implemented by **Ritunjay Deo** on branch `feature/ritunjay-movie-search`.
+
+### 18.1 Architecture & Flow
+
+```
+MADVerseNavHost (Screen.Search route)
+  └─ SearchScreen (Lifecycle-aware via collectAsStateWithLifecycle())
+       ├─ SearchBarInput (Cinematic text field with clear 'X' action & IME Search)
+       ├─ SearchIdleContent (Discovery prompt & quick popular search chips)
+       ├─ SearchLoadingContent (List of MovieHorizontalSkeleton placeholders)
+       ├─ SearchResultsContent (LazyColumn of MovieHorizontalCard with poster, score & overview)
+       └─ SearchEmptyContent / SectionErrorCard (Granular empty states & offline retry)
+```
+
+### 18.2 Debouncing & Obsolete Request Cancellation
+
+- **Debounce Window:** 400ms debounce prevents flooding TMDB API during rapid typing.
+- **Immediate Job Cancellation:** Every new keystroke cancels previous in-flight or delayed search jobs via `Job.cancel()`.
+- **Stale Response Guard:** When a network response arrives, `SearchViewModel` verifies the received query matches the current active input before committing state updates.
+- **Empty / Whitespace Reset:** Empty or blank queries cancel active searches immediately and reset the screen to `isIdle` discovery mode with zero network calls.
+- **Immediate Execution:** Users can trigger instant search without debounce delay via keyboard IME action (Search/Enter) or suggestion chip clicks (`onSearchSubmitted()`).
+
+### 18.3 State Management (`SearchUiState` & `SearchViewModel`)
+
+- **State Model:**
+  ```kotlin
+  data class SearchUiState(
+      val query: String = "",
+      val searchState: UiState<List<Movie>> = UiState.Empty(...),
+      val activeQuery: String = ""
+  )
+  ```
+- **Error & Offline Handling:** Wraps `Resource.Error` into `UiState.Error(isOffline = ...)`.
+- **Manual Retry:** `viewModel.retry()` re-executes search for the current query immediately.
+
+### 18.4 Reusable Component Integration
+
+- Displays results with [`MovieHorizontalCard`](file:///c:/Users/Ritunjay%20Deo/OneDrive/Desktop/MADVerse/app/src/main/java/com/example/madverse/core/designsystem/components/MovieCard.kt#L364).
+- Loading states utilize [`MovieHorizontalSkeleton`](file:///c:/Users/Ritunjay%20Deo/OneDrive/Desktop/MADVerse/app/src/main/java/com/example/madverse/core/designsystem/components/MovieCard.kt#L598).
+- Clicks propagate genuine TMDB movie IDs to `Screen.MovieDetails.createRoute(movieId)`.
+
+
