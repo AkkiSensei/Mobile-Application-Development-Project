@@ -12,18 +12,20 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
- * Deterministic recommendation engine for MADVerse.
+ * Deterministic, testable recommendation engine for MADVerse.
  *
- * Implements the scoring formula defined in ARCHITECTURE.md §8:
+ * Implements R5: Recommendation Engine with transparent multi-factor scoring:
  *
- *   MatchScore = S_genre(40) + S_mood(25) + S_era(15) + S_quality(20)
+ *   MatchScore = S_genre(30) + S_mood(20) + S_era(15) + S_quality(15) + S_language(10) + S_runtime(10)
+ *   Total Normalized Points: 100
  *
- * All computation is local and deterministic — no AI / network calls required.
- * The optional [AiRecommendationEnhancer] layer can decorate results after ranking.
- *
- * TMDB Attribution Note: This engine uses TMDB movie data solely for local,
- * deterministic scoring. It does NOT forward TMDB content to any AI service.
- * This architecture is consistent with TMDB's published API terms.
+ * Key Architectural Properties:
+ * 1. 100% Deterministic: Pure mathematical calculation without randomness or time dependency.
+ * 2. Unambiguous Tie-Breaking: Breaks score ties by voteAverage -> voteCount -> popularity -> id.
+ * 3. Candidate Deduplication: Automatically removes duplicate candidate movies by ID.
+ * 4. Missing Metadata Fairness: Never penalizes movies unfairly for missing optional metadata (language, era, runtime).
+ * 5. Explainable AI / Viva Ready: Generates verifiable reasons directly from scoring factors.
+ * 6. TMDB AI Compliance: Operates entirely locally without forwarding TMDB content to external AI.
  */
 @Singleton
 class DeterministicRecommendationEngine @Inject constructor() : RecommendationEngine {
@@ -33,18 +35,20 @@ class DeterministicRecommendationEngine @Inject constructor() : RecommendationEn
         candidates: List<Movie>,
         limit: Int
     ): List<ScoredMovieRecommendation> {
-        if (candidates.isEmpty()) return emptyList()
+        if (candidates.isEmpty() || limit <= 0) return emptyList()
 
         return candidates
+            .distinctBy { it.id } // Deduplicate candidate movies
             .map { movie -> scoreMovie(movie, profile) }
-            .filter { it.matchPercentage >= MIN_MATCH_THRESHOLD }
-            .sortedByDescending { it.matchPercentage }
+            .sortedWith(
+                compareByDescending<ScoredMovieRecommendation> { it.matchPercentage }
+                    .thenByDescending { it.movie.voteAverage }
+                    .thenByDescending { it.movie.voteCount }
+                    .thenByDescending { it.movie.popularity }
+                    .thenBy { it.movie.id } // Deterministic stable tie-breaker
+            )
             .take(limit)
     }
-
-    // -------------------------------------------------------------------------
-    // Per-Movie Scoring
-    // -------------------------------------------------------------------------
 
     private fun scoreMovie(
         movie: Movie,
@@ -52,17 +56,15 @@ class DeterministicRecommendationEngine @Inject constructor() : RecommendationEn
     ): ScoredMovieRecommendation {
         val reasons = mutableListOf<String>()
 
-        val genreScore  = scoreGenre(movie, profile, reasons)
-        val moodScore   = scoreMood(movie, profile, reasons)
-        val eraScore    = scoreEra(movie, profile, reasons)
-        val qualityScore = scoreQuality(movie, profile, reasons)
-        val runtimeOk   = meetsRuntimeFilter(movie, profile)
+        val genreScore    = scoreGenre(movie, profile, reasons)
+        val moodScore     = scoreMood(movie, profile, reasons)
+        val eraScore      = scoreEra(movie, profile, reasons)
+        val qualityScore  = scoreQuality(movie, profile, reasons)
+        val languageScore = scoreLanguage(movie, profile, reasons)
+        val runtimeScore  = scoreRuntime(movie, profile, reasons)
 
-        // Runtime is a hard filter: movies outside the preferred window get penalised
-        val runtimePenalty = if (runtimeOk) 0 else RUNTIME_PENALTY
-
-        val rawScore  = genreScore + moodScore + eraScore + qualityScore - runtimePenalty
-        val clamped   = min(100, rawScore).coerceAtLeast(0)
+        val rawScore = genreScore + moodScore + eraScore + qualityScore + languageScore + runtimeScore
+        val clamped  = rawScore.coerceIn(0, 100)
 
         return ScoredMovieRecommendation(
             movie = movie,
@@ -72,45 +74,37 @@ class DeterministicRecommendationEngine @Inject constructor() : RecommendationEn
     }
 
     // -------------------------------------------------------------------------
-    // Genre Score  — up to 40 points
+    // 1. Genre Score — up to 30 points
     // -------------------------------------------------------------------------
 
-    /**
-     * Jaccard-style overlap: proportion of the user's selected genres that
-     * appear in the movie's genre list, scaled to 40 points.
-     */
     private fun scoreGenre(
         movie: Movie,
         profile: UserPreferenceProfile,
         reasons: MutableList<String>
     ): Int {
-        if (profile.selectedGenreIds.isEmpty()) return GENRE_MAX_PTS / 2 // neutral default
+        if (profile.selectedGenreIds.isEmpty()) return GENRE_MAX_PTS / 2 // Neutral default
 
         val movieGenreSet = movie.genreIds.toSet()
         val overlap = profile.selectedGenreIds.count { it in movieGenreSet }
         val score = ((overlap.toDouble() / profile.selectedGenreIds.size) * GENRE_MAX_PTS).roundToInt()
 
-        if (score > 0) {
+        if (overlap > 0) {
             reasons += "Matches ${overlap} of your preferred genre${if (overlap > 1) "s" else ""}"
         }
         return score
     }
 
     // -------------------------------------------------------------------------
-    // Mood Score  — up to 25 points
+    // 2. Mood Score — up to 20 points
     // -------------------------------------------------------------------------
 
-    /**
-     * Maps the user's mood enum to a set of associated TMDB genre IDs
-     * (defined on [MovieMood]) and rewards partial and full coverage.
-     */
     private fun scoreMood(
         movie: Movie,
         profile: UserPreferenceProfile,
         reasons: MutableList<String>
     ): Int {
         val mood = profile.mood
-        if (mood == MovieMood.ANY) return MOOD_MAX_PTS / 2 // neutral when no mood selected
+        if (mood == MovieMood.ANY) return MOOD_MAX_PTS / 2 // Neutral when any mood selected
 
         val moodGenres = mood.associatedGenreIds
         if (moodGenres.isEmpty()) return MOOD_MAX_PTS / 2
@@ -119,14 +113,14 @@ class DeterministicRecommendationEngine @Inject constructor() : RecommendationEn
         val overlap = moodGenres.count { it in movieGenreSet }
         val score = ((overlap.toDouble() / moodGenres.size) * MOOD_MAX_PTS).roundToInt()
 
-        if (score > 0) {
+        if (overlap > 0) {
             reasons += "Fits your \"${mood.displayName}\" mood"
         }
         return score
     }
 
     // -------------------------------------------------------------------------
-    // Era Score  — up to 15 points
+    // 3. Era Score — up to 15 points
     // -------------------------------------------------------------------------
 
     private fun scoreEra(
@@ -135,9 +129,12 @@ class DeterministicRecommendationEngine @Inject constructor() : RecommendationEn
         reasons: MutableList<String>
     ): Int {
         val era = profile.era
-        if (era == MovieEra.ANY) return ERA_MAX_PTS // neutral — give full points
+        if (era == MovieEra.ANY) return ERA_MAX_PTS // Neutral — award full era points
 
-        val releaseYear = movie.releaseDate?.take(4)?.toIntOrNull() ?: return 0
+        val releaseYear = movie.releaseDate?.take(4)?.toIntOrNull()
+        // Missing metadata fairness: do not penalize movies with missing release date
+        if (releaseYear == null) return ERA_MAX_PTS
+
         val inEra = when (era) {
             MovieEra.CLASSIC      -> releaseYear <= 1989
             MovieEra.MODERN       -> releaseYear in 1990..2014
@@ -154,13 +151,9 @@ class DeterministicRecommendationEngine @Inject constructor() : RecommendationEn
     }
 
     // -------------------------------------------------------------------------
-    // Quality (Rating) Score  — up to 20 points
+    // 4. Quality (Rating & Popularity) Score — up to 15 points
     // -------------------------------------------------------------------------
 
-    /**
-     * Proportional to the movie's TMDB vote average, with a minimum threshold
-     * filter applied independently.
-     */
     private fun scoreQuality(
         movie: Movie,
         profile: UserPreferenceProfile,
@@ -176,34 +169,81 @@ class DeterministicRecommendationEngine @Inject constructor() : RecommendationEn
         } else if (movie.voteAverage >= 7.0) {
             reasons += "Well-rated (${movie.formattedRating}★)"
         }
+
+        if (movie.popularity >= 100.0 || movie.voteCount >= 10000) {
+            reasons += "Popular with global audiences"
+        }
+
         return score
     }
 
     // -------------------------------------------------------------------------
-    // Runtime Filter  — penalty applied, not a score component
+    // 5. Language Score — up to 10 points
     // -------------------------------------------------------------------------
 
-    private fun meetsRuntimeFilter(
+    private fun scoreLanguage(
         movie: Movie,
-        profile: UserPreferenceProfile
-    ): Boolean {
-        // Runtime is unknown for list-item movies (only full MovieDetails has it).
-        // We trust the user's rating filter and skip the runtime check here.
-        // Runtime filtering is applied server-side (discover endpoint) when building
-        // the candidate pool from MovieRepository.discoverCandidateMovies().
-        return true
+        profile: UserPreferenceProfile,
+        reasons: MutableList<String>
+    ): Int {
+        val preferredLang = profile.preferredLanguage
+        val movieLang = movie.originalLanguage
+
+        // If user didn't specify language or movie lacks language metadata,
+        // do not penalize: award full neutral points.
+        if (preferredLang.isNullOrBlank() || movieLang.isNullOrBlank()) {
+            return LANGUAGE_MAX_PTS
+        }
+
+        return if (movieLang.equals(preferredLang, ignoreCase = true)) {
+            reasons += "Matches your preferred language (${preferredLang.uppercase()})"
+            LANGUAGE_MAX_PTS
+        } else {
+            0
+        }
     }
 
     // -------------------------------------------------------------------------
-    // Constants
+    // 6. Runtime Score — up to 10 points
     // -------------------------------------------------------------------------
 
-    private companion object {
-        private const val GENRE_MAX_PTS       = 40
-        private const val MOOD_MAX_PTS        = 25
-        private const val ERA_MAX_PTS         = 15
-        private const val QUALITY_MAX_PTS     = 20
-        private const val RUNTIME_PENALTY     = 15
-        private const val MIN_MATCH_THRESHOLD = 0  // include all scored movies; callers may filter
+    private fun scoreRuntime(
+        movie: Movie,
+        profile: UserPreferenceProfile,
+        reasons: MutableList<String>
+    ): Int {
+        val pref = profile.runtimePreference
+        if (pref == RuntimePreference.ANY) return RUNTIME_MAX_PTS
+
+        val runtime = movie.runtimeMinutes
+        // Missing metadata fairness: do not penalize movies when runtime is unavailable
+        if (runtime == null || runtime <= 0) return RUNTIME_MAX_PTS
+
+        val inRuntime = when (pref) {
+            RuntimePreference.QUICK    -> runtime < 100
+            RuntimePreference.STANDARD -> runtime in 100..140
+            RuntimePreference.EPIC     -> runtime > 140
+            RuntimePreference.ANY      -> true
+        }
+
+        return if (inRuntime) {
+            reasons += "Matches runtime preference: ${pref.displayName}"
+            RUNTIME_MAX_PTS
+        } else {
+            0
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Scoring Weights Constants
+    // -------------------------------------------------------------------------
+
+    companion object {
+        const val GENRE_MAX_PTS    = 30
+        const val MOOD_MAX_PTS     = 20
+        const val ERA_MAX_PTS      = 15
+        const val QUALITY_MAX_PTS  = 15
+        const val LANGUAGE_MAX_PTS = 10
+        const val RUNTIME_MAX_PTS  = 10
     }
 }
