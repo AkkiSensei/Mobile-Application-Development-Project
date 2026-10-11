@@ -26,6 +26,8 @@ fun MADVerseAppShell() {
         currentRoute == Screen.Search.route -> "Search Movies"
         currentRoute == Screen.Quiz.route -> "Movie Taste Quiz"
         currentRoute == Screen.Library.route -> "My Library"
+        currentRoute == Screen.Favorites.route -> "Favorite Movies"
+        currentRoute == Screen.Watchlist.route -> "My Watchlist"
         currentRoute?.startsWith("movie_details") == true -> "Movie Overview"
         else -> "MADVerse"
     }

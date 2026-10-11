@@ -10,6 +10,10 @@ sealed class Screen(val route: String) {
     data object Quiz : Screen("quiz")
     data object Library : Screen("library")
 
+    // Personal collection sub-destinations
+    data object Favorites : Screen("favorites")
+    data object Watchlist : Screen("watchlist")
+
     // Sub-screens and detail destinations
     data object MovieDetails : Screen("movie_details/{$ARG_MOVIE_ID}") {
         fun createRoute(movieId: Int): String = "movie_details/$movieId"

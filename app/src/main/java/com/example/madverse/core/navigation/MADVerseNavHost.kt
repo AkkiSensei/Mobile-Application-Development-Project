@@ -9,7 +9,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.example.madverse.feature.details.presentation.MovieDetailsScreen
 import com.example.madverse.feature.discover.presentation.DiscoverScreen
+import com.example.madverse.feature.library.presentation.FavoritesScreen
 import com.example.madverse.feature.library.presentation.LibraryScreen
+import com.example.madverse.feature.library.presentation.WatchlistScreen
 import com.example.madverse.feature.quiz.presentation.QuizScreen
 import com.example.madverse.feature.search.presentation.SearchScreen
 
@@ -49,6 +51,22 @@ fun MADVerseNavHost(
 
         composable(route = Screen.Library.route) {
             LibraryScreen(
+                onMovieClick = { movieId ->
+                    navController.navigate(Screen.MovieDetails.createRoute(movieId))
+                }
+            )
+        }
+
+        composable(route = Screen.Favorites.route) {
+            FavoritesScreen(
+                onMovieClick = { movieId ->
+                    navController.navigate(Screen.MovieDetails.createRoute(movieId))
+                }
+            )
+        }
+
+        composable(route = Screen.Watchlist.route) {
+            WatchlistScreen(
                 onMovieClick = { movieId ->
                     navController.navigate(Screen.MovieDetails.createRoute(movieId))
                 }
