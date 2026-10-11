@@ -281,6 +281,141 @@ class MovieDetailsViewModelTest {
         assertEquals(550, domainMovie.id)
     }
 
+    @Test
+    fun loadMovieDetails_sortsAndCategorizesWatchProviders() = runTest(testDispatcher) {
+        val details = createMovieDetails()
+        fakeMovieRepository.detailsResult = Resource.Success(details)
+
+        val unsortedFlatrate = listOf(
+            WatchProvider(providerId = 2, providerName = "Zee5", logoUrl = "/zee.png", type = ProviderType.STREAMING_SUBSCRIPTION),
+            WatchProvider(providerId = 1, providerName = "Amazon Prime Video", logoUrl = "/prime.png", type = ProviderType.STREAMING_SUBSCRIPTION),
+            WatchProvider(providerId = 3, providerName = "Netflix", logoUrl = "/netflix.png", type = ProviderType.STREAMING_SUBSCRIPTION)
+        )
+        val unsortedRent = listOf(
+            WatchProvider(providerId = 5, providerName = "YouTube", logoUrl = "/yt.png", type = ProviderType.RENT),
+            WatchProvider(providerId = 4, providerName = "Apple TV", logoUrl = "/apple.png", type = ProviderType.RENT)
+        )
+        val unsortedBuy = listOf(
+            WatchProvider(providerId = 6, providerName = "Google Play Movies", logoUrl = "/gp.png", type = ProviderType.BUY)
+        )
+
+        fakeMovieRepository.providersResult = Resource.Success(
+            MovieWatchProviders(
+                movieId = 550,
+                tmdbWatchPageUrl = "https://www.themoviedb.org/movie/550/watch?locale=IN",
+                flatrate = unsortedFlatrate,
+                rent = unsortedRent,
+                buy = unsortedBuy
+            )
+        )
+
+        val savedStateHandle = SavedStateHandle(mapOf(Screen.ARG_MOVIE_ID to 550))
+        val viewModel = MovieDetailsViewModel(
+            movieRepository = fakeMovieRepository,
+            favoritesRepository = fakeFavoritesRepository,
+            watchlistRepository = fakeWatchlistRepository,
+            savedStateHandle = savedStateHandle
+        )
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.hasAnyWatchProviders)
+        assertEquals("https://www.themoviedb.org/movie/550/watch?locale=IN", state.tmdbWatchPageUrl)
+
+        // Flatrate sorted alphabetically
+        assertEquals(3, state.flatrateProviders.size)
+        assertEquals("Amazon Prime Video", state.flatrateProviders[0].providerName)
+        assertEquals("Netflix", state.flatrateProviders[1].providerName)
+        assertEquals("Zee5", state.flatrateProviders[2].providerName)
+
+        // Rent sorted alphabetically
+        assertEquals(2, state.rentProviders.size)
+        assertEquals("Apple TV", state.rentProviders[0].providerName)
+        assertEquals("YouTube", state.rentProviders[1].providerName)
+
+        // Buy
+        assertEquals(1, state.buyProviders.size)
+        assertEquals("Google Play Movies", state.buyProviders[0].providerName)
+    }
+
+    @Test
+    fun loadMovieDetails_emptyProviders_setsEmptyStateAndFalseHasProviders() = runTest(testDispatcher) {
+        val details = createMovieDetails()
+        fakeMovieRepository.detailsResult = Resource.Success(details)
+        fakeMovieRepository.providersResult = Resource.Success(
+            MovieWatchProviders(
+                movieId = 550,
+                tmdbWatchPageUrl = "https://www.themoviedb.org/movie/550/watch?locale=IN",
+                flatrate = emptyList(),
+                rent = emptyList(),
+                buy = emptyList()
+            )
+        )
+
+        val savedStateHandle = SavedStateHandle(mapOf(Screen.ARG_MOVIE_ID to 550))
+        val viewModel = MovieDetailsViewModel(
+            movieRepository = fakeMovieRepository,
+            favoritesRepository = fakeFavoritesRepository,
+            watchlistRepository = fakeWatchlistRepository,
+            savedStateHandle = savedStateHandle
+        )
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.hasAnyWatchProviders)
+        assertTrue(state.watchProvidersState is UiState.Empty)
+        assertEquals("https://www.themoviedb.org/movie/550/watch?locale=IN", state.tmdbWatchPageUrl)
+        assertTrue(state.flatrateProviders.isEmpty())
+        assertTrue(state.rentProviders.isEmpty())
+        assertTrue(state.buyProviders.isEmpty())
+    }
+
+    @Test
+    fun setRegion_updatesCountryCodeAndRefetchesProviders() = runTest(testDispatcher) {
+        val details = createMovieDetails()
+        fakeMovieRepository.detailsResult = Resource.Success(details)
+
+        val savedStateHandle = SavedStateHandle(mapOf(Screen.ARG_MOVIE_ID to 550))
+        val viewModel = MovieDetailsViewModel(
+            movieRepository = fakeMovieRepository,
+            favoritesRepository = fakeFavoritesRepository,
+            watchlistRepository = fakeWatchlistRepository,
+            savedStateHandle = savedStateHandle
+        )
+        advanceUntilIdle()
+
+        assertEquals("IN", viewModel.uiState.value.selectedCountryCode)
+
+        viewModel.setRegion("US")
+        advanceUntilIdle()
+
+        assertEquals("US", viewModel.uiState.value.selectedCountryCode)
+        assertTrue(fakeMovieRepository.requestedCountryCodes.contains("US"))
+    }
+
+    @Test
+    fun loadMovieDetails_watchProvidersError_emitsErrorStateGracefully() = runTest(testDispatcher) {
+        val details = createMovieDetails()
+        fakeMovieRepository.detailsResult = Resource.Success(details)
+        fakeMovieRepository.providersResult = Resource.Error(
+            message = "Streaming providers unavailable due to network timeout."
+        )
+
+        val savedStateHandle = SavedStateHandle(mapOf(Screen.ARG_MOVIE_ID to 550))
+        val viewModel = MovieDetailsViewModel(
+            movieRepository = fakeMovieRepository,
+            favoritesRepository = fakeFavoritesRepository,
+            watchlistRepository = fakeWatchlistRepository,
+            savedStateHandle = savedStateHandle
+        )
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.detailsState is UiState.Success)
+        assertTrue(state.watchProvidersState is UiState.Error)
+        assertFalse(state.hasAnyWatchProviders)
+    }
+
     private class FakeMovieRepository : MovieRepository {
         var detailsResult: Resource<MovieDetails> = Resource.Loading
         var castResult: Resource<List<CastMember>> = Resource.Success(emptyList())
@@ -289,6 +424,7 @@ class MovieDetailsViewModelTest {
             MovieWatchProviders(0, null, emptyList(), emptyList(), emptyList())
         )
         var detailsCallCount = 0
+        val requestedCountryCodes = mutableListOf<String>()
 
         override fun getMovieDetails(movieId: Int): Flow<Resource<MovieDetails>> {
             detailsCallCount++
@@ -301,8 +437,10 @@ class MovieDetailsViewModelTest {
         override fun getMovieVideos(movieId: Int): Flow<Resource<List<VideoTrailer>>> =
             flowOf(videosResult)
 
-        override fun getMovieWatchProviders(movieId: Int, countryCode: String): Flow<Resource<MovieWatchProviders>> =
-            flowOf(providersResult)
+        override fun getMovieWatchProviders(movieId: Int, countryCode: String): Flow<Resource<MovieWatchProviders>> {
+            requestedCountryCodes.add(countryCode)
+            return flowOf(providersResult)
+        }
 
         override fun getTrendingMovies(page: Int): Flow<Resource<List<Movie>>> = flowOf(Resource.Success(emptyList()))
         override fun getTopRatedMovies(page: Int): Flow<Resource<List<Movie>>> = flowOf(Resource.Success(emptyList()))

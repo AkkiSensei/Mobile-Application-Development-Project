@@ -296,6 +296,36 @@ class DtoMappingTest {
         assertEquals("Disney+ Hotstar", domain.flatrate[0].providerName)
     }
 
+    @Test
+    fun watchProvidersDto_withRentAndBuy_mapsAllProviderTypesAndUrl() {
+        val rentProvider = ProviderItemDto(3, "Google Play Movies", "/gp.png", 1)
+        val buyProvider = ProviderItemDto(2, "Apple TV", "/apple.png", 2)
+        val responseDto = WatchProvidersResponseDto(
+            id = 550,
+            results = mapOf(
+                "IN" to CountryWatchProvidersDto(
+                    link = "https://themoviedb.org/movie/550/watch?locale=IN",
+                    flatrate = emptyList(),
+                    rent = listOf(rentProvider),
+                    buy = listOf(buyProvider)
+                )
+            )
+        )
+
+        val domain = responseDto.toDomain(movieId = 550, countryCode = "IN")
+
+        assertEquals(550, domain.movieId)
+        assertEquals("https://themoviedb.org/movie/550/watch?locale=IN", domain.tmdbWatchPageUrl)
+        assertTrue(domain.flatrate.isEmpty())
+        assertEquals(1, domain.rent.size)
+        assertEquals("Google Play Movies", domain.rent[0].providerName)
+        assertEquals(ProviderType.RENT, domain.rent[0].type)
+        assertEquals(1, domain.buy.size)
+        assertEquals("Apple TV", domain.buy[0].providerName)
+        assertEquals(ProviderType.BUY, domain.buy[0].type)
+        assertTrue(domain.hasAnyProviders)
+    }
+
     // -----------------------------------------------------------------------
     // CastDto → CastMember
     // -----------------------------------------------------------------------
