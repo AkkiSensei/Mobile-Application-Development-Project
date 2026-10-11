@@ -66,6 +66,7 @@ import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import com.example.madverse.core.common.ui.UiState
 import com.example.madverse.core.designsystem.components.SectionErrorCard
+import com.example.madverse.core.designsystem.components.TmdbAttributionFooter
 import com.example.madverse.core.designsystem.theme.CinematicAmber
 import com.example.madverse.core.designsystem.theme.CinematicCrimson
 import com.example.madverse.core.designsystem.theme.CinematicViolet
@@ -511,6 +512,10 @@ private fun MovieDetailsContent(
             item(key = "details_financials") {
                 FinancialsSection(budget = movie.budget, revenue = movie.revenue)
             }
+        }
+
+        item(key = "details_tmdb_attribution") {
+            TmdbAttributionFooter()
         }
     }
 }

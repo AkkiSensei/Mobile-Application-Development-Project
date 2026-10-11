@@ -43,6 +43,7 @@ import com.example.madverse.core.designsystem.components.MoviePosterSkeleton
 import com.example.madverse.core.designsystem.components.SectionEmptyCard
 import com.example.madverse.core.designsystem.components.SectionErrorCard
 import com.example.madverse.core.designsystem.components.SectionHeader
+import com.example.madverse.core.designsystem.components.TmdbAttributionFooter
 import com.example.madverse.core.designsystem.theme.CinematicAmber
 import com.example.madverse.core.designsystem.theme.CinematicCrimson
 import com.example.madverse.core.designsystem.theme.ContentHighEmphasis
@@ -232,7 +233,9 @@ private fun DiscoverContent(
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+            TmdbAttributionFooter()
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
