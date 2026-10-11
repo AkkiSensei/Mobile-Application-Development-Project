@@ -13,6 +13,8 @@ data class UserPreferenceProfile(
     val updatedAtTimestamp: Long = System.currentTimeMillis()
 )
 
+typealias RecommendationProfile = UserPreferenceProfile
+
 enum class MovieMood(val displayName: String, val associatedGenreIds: List<Int>) {
     ANY("Any Mood", emptyList()),
     MIND_BENDING("Mind-Bending & Thought-Provoking", listOf(878, 9648, 53)), // Sci-Fi, Mystery, Thriller

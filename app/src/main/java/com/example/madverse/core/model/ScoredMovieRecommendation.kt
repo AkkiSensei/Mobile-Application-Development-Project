@@ -9,3 +9,5 @@ data class ScoredMovieRecommendation(
     val matchReasons: List<String>,
     val aiCuratorNote: String? = null // Optional Gemini reasoning note
 )
+
+typealias RecommendationResult = ScoredMovieRecommendation

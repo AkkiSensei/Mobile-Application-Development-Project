@@ -21,7 +21,8 @@ data class MovieDto(
     @SerializedName("vote_average") val voteAverage: Double?,
     @SerializedName("vote_count") val voteCount: Int?,
     @SerializedName("genre_ids") val genreIds: List<Int>?,
-    @SerializedName("popularity") val popularity: Double?
+    @SerializedName("popularity") val popularity: Double?,
+    @SerializedName("original_language") val originalLanguage: String? = null
 ) {
     fun toDomain(): Movie {
         return Movie(
@@ -34,7 +35,8 @@ data class MovieDto(
             voteAverage = voteAverage ?: 0.0,
             voteCount = voteCount ?: 0,
             genreIds = genreIds ?: emptyList(),
-            popularity = popularity ?: 0.0
+            popularity = popularity ?: 0.0,
+            originalLanguage = originalLanguage
         )
     }
 }
