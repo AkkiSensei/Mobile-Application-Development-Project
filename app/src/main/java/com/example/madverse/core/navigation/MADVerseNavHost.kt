@@ -110,6 +110,9 @@ fun MADVerseNavHost(
                 movieId = movieId,
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onNavigateToPlayer = { videoId, title ->
+                    navController.navigate(Screen.YouTubePlayer.createRoute(videoId, title))
                 }
             )
         }

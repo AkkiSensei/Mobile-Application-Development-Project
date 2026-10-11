@@ -110,8 +110,10 @@ fun MovieDetailsScreen(
     movieId: Int,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
+    onNavigateToPlayer: ((videoId: String, title: String) -> Unit)? = null,
     viewModel: MovieDetailsViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showRegionSelector by rememberSaveable { mutableStateOf(false) }
 
@@ -164,7 +166,18 @@ fun MovieDetailsScreen(
                     onNavigateBack = onNavigateBack,
                     onToggleFavorite = { viewModel.toggleFavorite() },
                     onToggleWatchlist = { viewModel.toggleWatchlist() },
-                    onSelectRegion = { showRegionSelector = true }
+                    onSelectRegion = { showRegionSelector = true },
+                    onOpenVideo = { video ->
+                        if (onNavigateToPlayer != null) {
+                            onNavigateToPlayer(video.key, "${detailsState.data.title} - ${video.name}")
+                        } else {
+                            try {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(video.youtubeWatchUrl))
+                                context.startActivity(intent)
+                            } catch (_: Exception) {
+                            }
+                        }
+                    }
                 )
             }
         }
@@ -191,6 +204,7 @@ private fun MovieDetailsContent(
     onToggleFavorite: () -> Unit,
     onToggleWatchlist: () -> Unit,
     onSelectRegion: (() -> Unit)? = null,
+    onOpenVideo: (VideoTrailer) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -505,10 +519,7 @@ private fun MovieDetailsContent(
         item(key = "details_videos") {
             VideosSection(
                 videosState = uiState.videosState,
-                onOpenVideo = { video ->
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(video.youtubeWatchUrl))
-                    context.startActivity(intent)
-                }
+                onOpenVideo = onOpenVideo
             )
         }
 
@@ -730,7 +741,7 @@ private fun VideosSection(
             )
 
             Text(
-                text = "YouTube",
+                text = "In-App Player",
                 style = MaterialTheme.typography.labelSmall.copy(
                     color = CinematicCrimson,
                     fontWeight = FontWeight.Bold
