@@ -593,6 +593,69 @@ fun HeroFeaturedMovieSkeleton(
 }
 
 /**
+ * Skeleton loading card matching [MovieHorizontalCard] dimensions for search lists.
+ */
+@Composable
+fun MovieHorizontalSkeleton(
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(ObsidianSurface)
+            .border(1.dp, ObsidianCardBorder.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+            .padding(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .width(80.dp)
+                .height(115.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(ObsidianSurfaceVariant),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
+                color = CinematicCrimson.copy(alpha = 0.5f),
+                strokeWidth = 2.dp
+            )
+        }
+
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.7f)
+                    .height(16.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(ObsidianSurfaceVariant)
+            )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.3f)
+                    .height(12.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(ObsidianSurfaceVariant.copy(alpha = 0.6f))
+            )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.9f)
+                    .height(24.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(ObsidianSurfaceVariant.copy(alpha = 0.4f))
+            )
+        }
+    }
+}
+
+/**
  * In-line error message with retry button for an individual discovery section.
  */
 @Composable
