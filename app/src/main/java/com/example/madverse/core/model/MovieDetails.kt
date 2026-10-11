@@ -34,6 +34,19 @@ data class MovieDetails(
 
     val formattedRating: String
         get() = String.format("%.1f", voteAverage)
+
+    fun toMovie(): Movie = Movie(
+        id = id,
+        title = title,
+        overview = overview,
+        posterUrl = posterUrl,
+        backdropUrl = backdropUrl,
+        releaseDate = releaseDate,
+        voteAverage = voteAverage,
+        voteCount = voteCount,
+        genreIds = genres.map { it.id },
+        popularity = 0.0
+    )
 }
 
 data class Genre(
