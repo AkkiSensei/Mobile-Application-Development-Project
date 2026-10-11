@@ -45,10 +45,9 @@ class WatchlistViewModel @Inject constructor(
                 } else {
                     UiState.Success(sortMovies(movies, sort))
                 }
+            }.catch { error: Throwable ->
+                emit(UiState.Error(error.localizedMessage ?: "Failed to load watchlist movies."))
             }
-        }
-        .catch { error: Throwable ->
-            emit(UiState.Error(error.localizedMessage ?: "Failed to load watchlist movies."))
         }
         .stateIn(
             scope = viewModelScope,

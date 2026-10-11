@@ -51,10 +51,9 @@ class LibraryViewModel @Inject constructor(
                 } else {
                     UiState.Success(sortMovies(movies, sort))
                 }
+            }.catch { error: Throwable ->
+                emit(UiState.Error(error.localizedMessage ?: "Failed to load favorite movies."))
             }
-        }
-        .catch { error: Throwable ->
-            emit(UiState.Error(error.localizedMessage ?: "Failed to load favorite movies."))
         }
         .stateIn(
             scope = viewModelScope,
@@ -73,10 +72,9 @@ class LibraryViewModel @Inject constructor(
                 } else {
                     UiState.Success(sortMovies(movies, sort))
                 }
+            }.catch { error: Throwable ->
+                emit(UiState.Error(error.localizedMessage ?: "Failed to load watchlist movies."))
             }
-        }
-        .catch { error: Throwable ->
-            emit(UiState.Error(error.localizedMessage ?: "Failed to load watchlist movies."))
         }
         .stateIn(
             scope = viewModelScope,

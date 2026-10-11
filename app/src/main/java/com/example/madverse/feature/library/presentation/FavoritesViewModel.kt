@@ -45,10 +45,9 @@ class FavoritesViewModel @Inject constructor(
                 } else {
                     UiState.Success(sortMovies(movies, sort))
                 }
+            }.catch { error: Throwable ->
+                emit(UiState.Error(error.localizedMessage ?: "Failed to load favorite movies."))
             }
-        }
-        .catch { error: Throwable ->
-            emit(UiState.Error(error.localizedMessage ?: "Failed to load favorite movies."))
         }
         .stateIn(
             scope = viewModelScope,
