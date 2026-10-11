@@ -12,6 +12,7 @@ import com.example.madverse.feature.discover.presentation.DiscoverScreen
 import com.example.madverse.feature.library.presentation.FavoritesScreen
 import com.example.madverse.feature.library.presentation.LibraryScreen
 import com.example.madverse.feature.library.presentation.WatchlistScreen
+import com.example.madverse.feature.player.presentation.YouTubePlayerScreen
 import com.example.madverse.feature.quiz.presentation.QuizResultScreen
 import com.example.madverse.feature.quiz.presentation.QuizScreen
 import com.example.madverse.feature.search.presentation.SearchScreen
@@ -107,6 +108,30 @@ fun MADVerseNavHost(
             val movieId = backStackEntry.arguments?.getInt(Screen.ARG_MOVIE_ID) ?: 0
             MovieDetailsScreen(
                 movieId = movieId,
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable(
+            route = Screen.YouTubePlayer.route,
+            arguments = listOf(
+                navArgument(Screen.ARG_VIDEO_ID) {
+                    type = NavType.StringType
+                },
+                navArgument(Screen.ARG_MOVIE_TITLE) {
+                    type = NavType.StringType
+                    defaultValue = ""
+                    nullable = true
+                }
+            )
+        ) { backStackEntry ->
+            val videoId = backStackEntry.arguments?.getString(Screen.ARG_VIDEO_ID).orEmpty()
+            val movieTitle = backStackEntry.arguments?.getString(Screen.ARG_MOVIE_TITLE).orEmpty()
+            YouTubePlayerScreen(
+                videoId = videoId,
+                movieTitle = movieTitle,
                 onNavigateBack = {
                     navController.popBackStack()
                 }

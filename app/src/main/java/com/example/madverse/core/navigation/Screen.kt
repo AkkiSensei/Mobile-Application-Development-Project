@@ -25,8 +25,18 @@ sealed class Screen(val route: String) {
         fun createRoute(categoryType: String): String = "see_all/$categoryType"
     }
 
+    data object YouTubePlayer : Screen("youtube_player/{$ARG_VIDEO_ID}?$ARG_MOVIE_TITLE={$ARG_MOVIE_TITLE}") {
+        fun createRoute(videoId: String, movieTitle: String = ""): String {
+            val sanitizedId = videoId.trim()
+            val encodedTitle = if (movieTitle.isBlank()) "" else java.net.URLEncoder.encode(movieTitle, "UTF-8")
+            return "youtube_player/$sanitizedId?$ARG_MOVIE_TITLE=$encodedTitle"
+        }
+    }
+
     companion object {
         const val ARG_MOVIE_ID = "movieId"
         const val ARG_CATEGORY_TYPE = "categoryType"
+        const val ARG_VIDEO_ID = "videoId"
+        const val ARG_MOVIE_TITLE = "movieTitle"
     }
 }
