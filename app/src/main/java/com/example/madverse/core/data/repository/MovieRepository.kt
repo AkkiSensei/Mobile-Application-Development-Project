@@ -1,5 +1,6 @@
 package com.example.madverse.core.data.repository
 
+import com.example.madverse.core.common.config.RegionConfig
 import com.example.madverse.core.common.result.Resource
 import com.example.madverse.core.model.CastMember
 import com.example.madverse.core.model.Genre
@@ -20,7 +21,7 @@ interface MovieRepository {
     fun getMovieDetails(movieId: Int): Flow<Resource<MovieDetails>>
     fun getMovieCredits(movieId: Int): Flow<Resource<List<CastMember>>>
     fun getMovieVideos(movieId: Int): Flow<Resource<List<VideoTrailer>>>
-    fun getMovieWatchProviders(movieId: Int, countryCode: String = "US"): Flow<Resource<MovieWatchProviders>>
+    fun getMovieWatchProviders(movieId: Int, countryCode: String = RegionConfig.DEFAULT_COUNTRY_CODE): Flow<Resource<MovieWatchProviders>>
     fun getSimilarMovies(movieId: Int, page: Int = 1): Flow<Resource<List<Movie>>>
     fun getGenres(): Flow<Resource<List<Genre>>>
     fun discoverCandidateMovies(

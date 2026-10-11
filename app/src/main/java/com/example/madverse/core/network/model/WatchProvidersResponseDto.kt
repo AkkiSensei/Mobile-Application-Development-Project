@@ -1,5 +1,6 @@
 package com.example.madverse.core.network.model
 
+import com.example.madverse.core.common.config.RegionConfig
 import com.example.madverse.core.common.network.ApiConstants
 import com.example.madverse.core.model.MovieWatchProviders
 import com.example.madverse.core.model.ProviderType
@@ -10,9 +11,12 @@ data class WatchProvidersResponseDto(
     @SerializedName("id") val id: Int,
     @SerializedName("results") val results: Map<String, CountryWatchProvidersDto>?
 ) {
-    fun toDomain(movieId: Int, countryCode: String = "US"): MovieWatchProviders {
+    fun toDomain(movieId: Int, countryCode: String = RegionConfig.DEFAULT_COUNTRY_CODE): MovieWatchProviders {
         // Fall back to US if requested country not present, or first available country
-        val countryData = results?.get(countryCode) ?: results?.get("US") ?: results?.values?.firstOrNull()
+        val countryData = results?.get(countryCode)
+            ?: results?.get(RegionConfig.DEFAULT_COUNTRY_CODE)
+            ?: results?.get(RegionConfig.FALLBACK_COUNTRY_CODE)
+            ?: results?.values?.firstOrNull()
 
         fun mapProviders(items: List<ProviderItemDto>?, type: ProviderType): List<WatchProvider> {
             return items?.map { item ->

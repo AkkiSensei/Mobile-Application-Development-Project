@@ -280,6 +280,22 @@ class DtoMappingTest {
         assertTrue(domain.buy.isEmpty())
     }
 
+    @Test
+    fun watchProvidersDto_defaultsToIndiaRegion() {
+        val hotstarProvider = ProviderItemDto(122, "Disney+ Hotstar", "/hotstar.png", 1)
+        val responseDto = WatchProvidersResponseDto(
+            id = 100,
+            results = mapOf(
+                "IN" to CountryWatchProvidersDto("https://themoviedb.org/movie/100/watch?locale=IN", listOf(hotstarProvider), null, null)
+            )
+        )
+
+        val domain = responseDto.toDomain(movieId = 100)
+
+        assertTrue(domain.hasAnyProviders)
+        assertEquals("Disney+ Hotstar", domain.flatrate[0].providerName)
+    }
+
     // -----------------------------------------------------------------------
     // CastDto → CastMember
     // -----------------------------------------------------------------------

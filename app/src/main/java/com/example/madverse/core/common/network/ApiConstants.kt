@@ -11,4 +11,7 @@ object ApiConstants {
     const val TMDB_BACKDROP_BASE_W780 = "https://image.tmdb.org/t/p/w780"
 
     const val TIMEOUT_SECONDS = 30L
+
+    /** Default ISO 3166-1 alpha-2 country code for streaming and regional discovery */
+    const val DEFAULT_REGION = "IN"
 }

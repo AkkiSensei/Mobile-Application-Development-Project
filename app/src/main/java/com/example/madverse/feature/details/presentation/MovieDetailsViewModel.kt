@@ -3,6 +3,7 @@ package com.example.madverse.feature.details.presentation
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.madverse.core.common.config.RegionConfig
 import com.example.madverse.core.common.result.Resource
 import com.example.madverse.core.common.ui.UiState
 import com.example.madverse.core.data.repository.FavoritesRepository
@@ -184,7 +185,7 @@ class MovieDetailsViewModel @Inject constructor(
 
     private fun fetchWatchProviders(movieId: Int) {
         viewModelScope.launch {
-            movieRepository.getMovieWatchProviders(movieId, countryCode = "US").collect { resource ->
+            movieRepository.getMovieWatchProviders(movieId, countryCode = RegionConfig.DEFAULT_COUNTRY_CODE).collect { resource ->
                 _uiState.update { current ->
                     current.copy(
                         watchProvidersState = when (resource) {
