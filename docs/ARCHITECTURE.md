@@ -574,3 +574,56 @@ The recommendation engine is **deterministic and fully local**. The `AiRecommend
 - TMDB content (titles, overviews, posters) must **NOT** be sent to Gemini unless confirmed as permitted by TMDB terms
 - The enhancer is optional and degrades gracefully when the key is absent
 - Use Gemini only to generate **conversational rationale strings** based on profile preferences — NOT raw TMDB API response content
+
+---
+
+## 17. R2 Delivery: Home and Movie Discovery
+
+Implemented by **Ritunjay Deo** on branch `feature/ritunjay-discover-screen`.
+
+### 17.1 Architecture & Components Delivered
+
+```
+MADVerseAppShell (Scaffold + MADVerseTopBar + MADVerseBottomBar)
+  └─ MADVerseNavHost (Screen.Discover route)
+       └─ DiscoverScreen (Lifecycle-aware via collectAsStateWithLifecycle())
+            ├─ HeroFeaturedMovieCard (Top trending movie spotlight with backdrop image & metadata)
+            ├─ Trending Carousel (LazyRow of MoviePosterCard)
+            ├─ Top-Rated Carousel (LazyRow of MoviePosterCard)
+            ├─ Upcoming Releases Carousel (LazyRow of MoviePosterCard)
+            └─ Error & Empty States (SectionErrorCard with retry, SectionEmptyCard, FullFeedErrorView)
+```
+
+### 17.2 State Management (`HomeUiState` & `HomeViewModel`)
+
+- **Independent Section Streams:**
+  - `trendingState: UiState<List<Movie>>`
+  - `topRatedState: UiState<List<Movie>>`
+  - `upcomingState: UiState<List<Movie>>`
+  - Failures in one category (e.g., Upcoming network glitch) never block rendering of other categories (e.g., Trending or Top Rated).
+- **Lifecycle-Aware Collection:** Uses `collectAsStateWithLifecycle()` in Compose for battery and lifecycle safety.
+- **Granular Retries:** Per-section retry triggers (`loadTrending()`, `loadTopRated()`, `loadUpcoming()`) plus pull-to-refresh (`refresh()`) and global fallback retry (`loadAllSections()`).
+- **Offline Distinction:** Network errors are identified via `isOffline = true` for contextual error messages.
+
+### 17.3 Reusable Presentation Components for Team Handover
+
+The following components were created in `core/designsystem/components/MovieCard.kt` and are ready for immediate reuse by Saanvi and Shraddha:
+
+| Component | Purpose | Handover Target |
+| :--- | :--- | :--- |
+| `MoviePosterCard` | Standard vertical movie poster with rating badge, release year, title, and graceful placeholder fallback | Search grid, See All, Library |
+| `MovieHorizontalCard` | Compact horizontal row card with poster thumbnail, title, rating, release year, and overview snippet | Search result list, Library list |
+| `HeroFeaturedMovieCard` | Wide backdrop spotlight banner with gradient scrim and high-contrast typography | Details header, Featured screens |
+| `SectionHeader` | Standardized category header with title, subtitle, and optional "See All" callback | All catalog sections |
+| `MoviePosterSkeleton` | Shimmer/loading placeholder matching `MoviePosterCard` dimensions | Loading states across features |
+| `SectionErrorCard` | In-line error card with retry button and offline status | Section-level error handling |
+| `SectionEmptyCard` | In-line empty card with informational icon | Search/Filter empty states |
+
+### 17.4 Navigation Integration
+
+Movies across all carousels invoke `onMovieClick(movie.id)` which navigates to:
+```kotlin
+navController.navigate(Screen.MovieDetails.createRoute(movieId))
+```
+Using the official TMDB movie ID without creating competing navigation graphs.
+
