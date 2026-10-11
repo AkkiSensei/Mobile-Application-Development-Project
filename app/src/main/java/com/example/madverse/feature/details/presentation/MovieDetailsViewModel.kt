@@ -183,22 +183,90 @@ class MovieDetailsViewModel @Inject constructor(
         }
     }
 
-    private fun fetchWatchProviders(movieId: Int) {
+    /**
+     * Updates selected regional country code and refreshes provider availability.
+     */
+    fun setRegion(countryCode: String) {
+        if (_uiState.value.selectedCountryCode == countryCode) return
+        _uiState.update { it.copy(selectedCountryCode = countryCode) }
+        if (currentMovieId > 0) {
+            fetchWatchProviders(currentMovieId, countryCode)
+        }
+    }
+
+    /**
+     * Fetches official streaming, rental, and buy availability for the specified movie and region.
+     * Providers are sorted alphabetically by display name for clear presentation.
+     */
+    fun fetchWatchProviders(
+        movieId: Int,
+        countryCode: String = _uiState.value.selectedCountryCode
+    ) {
         viewModelScope.launch {
-            movieRepository.getMovieWatchProviders(movieId, countryCode = RegionConfig.DEFAULT_COUNTRY_CODE).collect { resource ->
-                _uiState.update { current ->
-                    current.copy(
-                        watchProvidersState = when (resource) {
-                            is Resource.Loading -> UiState.Loading
+            _uiState.update { current ->
+                current.copy(
+                    selectedCountryCode = countryCode,
+                    watchProvidersState = UiState.Loading
+                )
+            }
+            try {
+                movieRepository.getMovieWatchProviders(movieId, countryCode = countryCode).collect { resource ->
+                    _uiState.update { current ->
+                        when (resource) {
+                            is Resource.Loading -> current.copy(watchProvidersState = UiState.Loading)
                             is Resource.Success -> {
-                                if (!resource.data.hasAnyProviders) {
-                                    UiState.Empty("No streaming providers currently reported.")
+                                val providers = resource.data
+                                val sortedFlatrate = providers.flatrate.sortedBy { it.providerName }
+                                val sortedRent = providers.rent.sortedBy { it.providerName }
+                                val sortedBuy = providers.buy.sortedBy { it.providerName }
+                                val sortedProviders = providers.copy(
+                                    flatrate = sortedFlatrate,
+                                    rent = sortedRent,
+                                    buy = sortedBuy
+                                )
+
+                                if (!sortedProviders.hasAnyProviders) {
+                                    current.copy(
+                                        watchProvidersState = UiState.Empty("No streaming options available in this region."),
+                                        flatrateProviders = emptyList(),
+                                        rentProviders = emptyList(),
+                                        buyProviders = emptyList(),
+                                        tmdbWatchPageUrl = providers.tmdbWatchPageUrl
+                                    )
                                 } else {
-                                    UiState.Success(resource.data)
+                                    current.copy(
+                                        watchProvidersState = UiState.Success(sortedProviders),
+                                        flatrateProviders = sortedFlatrate,
+                                        rentProviders = sortedRent,
+                                        buyProviders = sortedBuy,
+                                        tmdbWatchPageUrl = providers.tmdbWatchPageUrl
+                                    )
                                 }
                             }
-                            is Resource.Error -> UiState.Error(resource.message)
+                            is Resource.Error -> {
+                                current.copy(
+                                    watchProvidersState = UiState.Error(
+                                        message = resource.message ?: "Failed to retrieve streaming availability."
+                                    ),
+                                    flatrateProviders = emptyList(),
+                                    rentProviders = emptyList(),
+                                    buyProviders = emptyList(),
+                                    tmdbWatchPageUrl = null
+                                )
+                            }
                         }
+                    }
+                }
+            } catch (e: Exception) {
+                _uiState.update { current ->
+                    current.copy(
+                        watchProvidersState = UiState.Error(
+                            message = e.localizedMessage ?: "Unable to load streaming providers."
+                        ),
+                        flatrateProviders = emptyList(),
+                        rentProviders = emptyList(),
+                        buyProviders = emptyList(),
+                        tmdbWatchPageUrl = null
                     )
                 }
             }
