@@ -157,4 +157,7 @@ data class QuizUiState(
 
     val isCurrentStepValid: Boolean
         get() = answers.isValidForStep(currentStep)
+
+    val canGoForward: Boolean
+        get() = isCurrentStepValid
 }
