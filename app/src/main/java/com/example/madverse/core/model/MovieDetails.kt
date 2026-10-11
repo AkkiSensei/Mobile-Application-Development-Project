@@ -45,7 +45,9 @@ data class MovieDetails(
         voteAverage = voteAverage,
         voteCount = voteCount,
         genreIds = genres.map { it.id },
-        popularity = 0.0
+        popularity = 0.0,
+        originalLanguage = originalLanguage,
+        runtimeMinutes = runtimeMinutes
     )
 }
 

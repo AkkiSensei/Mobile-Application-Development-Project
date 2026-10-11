@@ -13,7 +13,9 @@ data class Movie(
     val voteAverage: Double,
     val voteCount: Int,
     val genreIds: List<Int>,
-    val popularity: Double
+    val popularity: Double,
+    val originalLanguage: String? = null,
+    val runtimeMinutes: Int? = null
 ) {
     val releaseYear: String
         get() = releaseDate?.take(4) ?: "Unknown"

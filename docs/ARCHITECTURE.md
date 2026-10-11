@@ -717,5 +717,142 @@ MADVerseNavHost (Screen.MovieDetails route with ARG_MOVIE_ID)
 - Missing poster or backdrop images fallback smoothly to stylized obsidian placeholders.
 - Null or missing runtimes, taglines, overviews, and financial figures format safely (`formattedRuntime` returns `"N/A"`, missing financial stats hide gracefully).
 
+---
+
+## 20. R5: DETERMINISTIC MOVIE RECOMMENDATION ENGINE (RITUNJAY)
+
+### 20.1 Feature Ownership & Clean Boundaries
+- **Ritunjay Deo**: Core recommendation engine algorithm, multi-factor scoring formula, deterministic tie-breaking, candidate deduplication, UseCase orchestration, and unit test suite.
+- **Shraddha**: Preference quiz UI, quiz state management, and persistence of `UserPreferenceProfile` via `QuizRepository`.
+- **Saanvi**: Recommendation results screen, carousel/grid presentation of `ScoredMovieRecommendation`, and match reason chips.
+
+```
+       [ Shraddha: Quiz UI ]
+                 │
+                 ▼
+    [ QuizRepository (Room/Pref) ]
+                 │
+                 ▼ (emits UserPreferenceProfile)
+  [ GetPersonalizedRecommendationsUseCase ] ◄── [ MovieRepository.discoverCandidateMovies ]
+                 │                                                ▲
+                 ▼                                                │
+   [ DeterministicRecommendationEngine ]                 [ TMDB /discover API ]
+   (Pure In-Memory Math, 0 Network)
+                 │
+                 ▼ (emits Flow<Resource<List<ScoredMovieRecommendation>>>)
+       [ Saanvi: Recommendations UI ]
+```
+
+### 20.2 Mathematical Scoring Model (Viva-Ready Specification)
+
+The recommendation engine evaluates candidate movies against a user's `UserPreferenceProfile` using a transparent, multi-factor weighted scoring function normalized to **100 points**:
+
+$$\text{MatchScore} = S_{\text{genre}}(30) + S_{\text{mood}}(20) + S_{\text{era}}(15) + S_{\text{quality}}(15) + S_{\text{language}}(10) + S_{\text{runtime}}(10)$$
+
+#### 1. Genre Score ($S_{\text{genre}}$, max 30 points)
+Measures the proportion of the user's selected genres that the candidate movie contains:
+$$S_{\text{genre}} = \begin{cases} 15, & \text{if } |\text{SelectedGenres}| = 0 \text{ (neutral fallback)} \\ \text{round}\left( \frac{|\text{SelectedGenres} \cap \text{MovieGenres}|}{|\text{SelectedGenres}|} \times 30 \right), & \text{otherwise} \end{cases}$$
+- **Explanation generated**: *"Matches $k$ of your preferred genres"*
+
+#### 2. Mood Score ($S_{\text{mood}}$, max 20 points)
+Evaluates alignment between the user's selected emotional mood and TMDB genre associations (e.g. *Adrenaline* $\rightarrow$ Action/Adventure; *Mind-Bending* $\rightarrow$ Sci-Fi/Mystery/Thriller):
+$$S_{\text{mood}} = \begin{cases} 10, & \text{if } \text{Mood} = \text{ANY} \text{ (neutral fallback)} \\ \text{round}\left( \frac{|\text{MoodGenres} \cap \text{MovieGenres}|}{|\text{MoodGenres}|} \times 20 \right), & \text{otherwise} \end{cases}$$
+- **Explanation generated**: *"Fits your \"[Mood Name]\" mood"*
+
+#### 3. Release Era Score ($S_{\text{era}}$, max 15 points)
+Evaluates whether the movie's release year falls into the requested era (Classic $\le 1989$, Modern $1990\text{--}2014$, Contemporary $\ge 2015$):
+$$S_{\text{era}} = \begin{cases} 15, & \text{if } \text{Era} = \text{ANY} \lor \text{ReleaseYear is null (metadata fairness)} \\ 15, & \text{if } \text{ReleaseYear} \in \text{EraRange} \\ 0, & \text{otherwise} \end{cases}$$
+- **Explanation generated**: *"From the [era name]"*
+
+#### 4. Quality & Popularity Score ($S_{\text{quality}}$, max 15 points)
+Validates critic/audience reception against the user's minimum rating threshold:
+$$S_{\text{quality}} = \begin{cases} 0, & \text{if } \text{VoteAverage} < \text{MinRatingThreshold} \\ \text{round}\left( \frac{\min(10.0, \text{VoteAverage})}{10.0} \times 15 \right), & \text{otherwise} \end{cases}$$
+- **Explanations generated**:
+  - *"Critically acclaimed ([X.X]★)"* if $\text{VoteAverage} \ge 8.0$
+  - *"Well-rated ([X.X]★)"* if $7.0 \le \text{VoteAverage} < 8.0$
+  - *"Popular with global audiences"* if $\text{Popularity} \ge 100 \lor \text{VoteCount} \ge 10{,}000$
+
+#### 5. Preferred Language Score ($S_{\text{language}}$, max 10 points)
+Matches original audio language (e.g., `"en"`, `"fr"`, `"hi"`, `"ja"`, `"es"`):
+$$S_{\text{language}} = \begin{cases} 10, & \text{if PreferredLanguage is null/blank} \lor \text{MovieLanguage is null (metadata fairness)} \\ 10, & \text{if MovieLanguage} =_{\text{ignoreCase}} \text{PreferredLanguage} \\ 0, & \text{otherwise} \end{cases}$$
+- **Explanation generated**: *"Matches your preferred language ([LANG])"*
+
+#### 6. Runtime Match Score ($S_{\text{runtime}}$, max 10 points)
+Evaluates movie duration against the user's viewing style (Quick $<100$m, Standard $100\text{--}140$m, Epic $>140$m):
+$$S_{\text{runtime}} = \begin{cases} 10, & \text{if } \text{RuntimePreference} = \text{ANY} \lor \text{RuntimeMinutes is null (metadata fairness)} \\ 10, & \text{if RuntimeMinutes} \in \text{PreferenceRange} \\ 0, & \text{otherwise} \end{cases}$$
+- **Explanation generated**: *"Matches runtime preference: [Preference Name]"*
+
+### 20.3 Deterministic Ranking & Stable Tie-Breaking
+Movies are sorted using a strict, multi-tiered tie-breaking comparator:
+```kotlin
+compareByDescending<ScoredMovieRecommendation> { it.matchPercentage }
+    .thenByDescending { it.movie.voteAverage }
+    .thenByDescending { it.movie.voteCount }
+    .thenByDescending { it.movie.popularity }
+    .thenBy { it.movie.id } // Stable, deterministic terminal tie-breaker
+```
+- **Zero Randomness**: Given the same input profile and candidates, the output is guaranteed to be 100% identical on every execution.
+- **Zero Time Dependency**: Computations are pure functions of movie metadata and profile values; no dependence on current system time.
+- **Deduplication**: `candidates.distinctBy { it.id }` eliminates duplicates before scoring.
+
+### 20.4 Missing Metadata Fairness Policy
+TMDB candidate discovery lists do not always include optional metadata such as runtime or original language. To prevent unfairly penalizing high-quality candidates:
+- Missing runtime awards the full neutral runtime credit (10 points).
+- Missing language awards the full neutral language credit (10 points).
+- Missing release date awards the full neutral era credit (15 points).
+
+### 20.5 AI & TMDB Compliance
+- **Independent of External AI**: The engine runs entirely on local CPU cycles without transmitting TMDB metadata to third-party LLMs or external AI APIs.
+- **TMDB API Terms Compliance**: Complies with TMDB's restrictions regarding third-party AI utilization.
+- **Explainability**: Match explanations are derived strictly from verifiable mathematical facts (e.g. genre IDs, release year, language codes) rather than hallucinated text.
+
+### 20.6 Team Handover & Integration Contracts
+
+#### For Shraddha (Preference Quiz & Persistence)
+Shraddha's quiz outputs a `UserPreferenceProfile` (`typealias RecommendationProfile`):
+```kotlin
+// Save quiz results into QuizRepository
+quizRepository.saveUserPreferenceProfile(
+    UserPreferenceProfile(
+        selectedGenreIds = setOf(28, 878),
+        mood = MovieMood.ADRENALINE,
+        era = MovieEra.CONTEMPORARY,
+        runtimePreference = RuntimePreference.STANDARD,
+        preferredLanguage = "en",
+        minRatingThreshold = 6.5
+    )
+)
+```
+Or preview in-memory recommendations without persisting:
+```kotlin
+useCase.invokeWithProfile(profile, limit = 10)
+```
+
+#### For Saanvi (Recommendation Results Screen)
+Saanvi injects `GetPersonalizedRecommendationsUseCase` into her `RecommendationsViewModel`:
+```kotlin
+@HiltViewModel
+class RecommendationsViewModel @Inject constructor(
+    private val getRecommendations: GetPersonalizedRecommendationsUseCase
+) : ViewModel() {
+
+    val uiState: StateFlow<UiState<List<ScoredMovieRecommendation>>> =
+        getRecommendations(limit = 10)
+            .map { resource ->
+                when (resource) {
+                    is Resource.Loading -> UiState.Loading
+                    is Resource.Success -> UiState.Success(resource.data)
+                    is Resource.Error -> UiState.Error(resource.message)
+                }
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UiState.Loading)
+}
+```
+Each `ScoredMovieRecommendation` exposes:
+- `recommendation.movie`: Standard `Movie` object for rendering with `MovieCard`.
+- `recommendation.matchPercentage`: Integer $0\text{--}100\%$ for display in a match badge (e.g. `"92% Match"`).
+- `recommendation.matchReasons`: List of `String` explanations to render as chips (e.g. `["Matches 2 of your preferred genres", "Critically acclaimed (8.4★)"]`).
+
+
 
 
