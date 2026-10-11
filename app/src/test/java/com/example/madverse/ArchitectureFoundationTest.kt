@@ -4,6 +4,8 @@ import com.example.madverse.core.common.network.ApiConstants
 import com.example.madverse.core.common.result.Resource
 import com.example.madverse.core.common.ui.UiState
 import com.example.madverse.core.database.entity.UserPreferenceEntity
+import com.example.madverse.core.domain.recommendation.DeterministicRecommendationEngine
+import com.example.madverse.core.model.Movie
 import com.example.madverse.core.model.MovieEra
 import com.example.madverse.core.model.MovieMood
 import com.example.madverse.core.model.RuntimePreference

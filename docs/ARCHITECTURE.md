@@ -1,7 +1,7 @@
 # MADVerse — Technical Architecture Blueprint
 
-**Version:** 1.0.0-blueprint  
-**Date:** October 2026  
+**Version:** 1.1.0-r1-foundation  
+**Date:** October 2026 (R1 Foundation: 11 Oct 2026 — Ritunjay Deo)  
 **Project:** Mobile Application Development (MAD) Project  
 **Team Members:** Ritunjay Deo, Saanvi, Shraddha  
 
@@ -393,3 +393,184 @@ To facilitate parallel development without merge conflicts during the upcoming 1
 2. **Direct DRM Video Extraction:** No unauthorized video playback of subscription streaming services.
 3. **Firebase User Authentication:** All preferences and watchlists operate locally via Room for fast, offline-first evaluation.
 4. **Complex Multi-Module Build Pipelines:** Kept within a clean single module to guarantee zero dependency friction across developer laptops.
+
+---
+
+## 15. R1 Foundation — Delivery Notes (Ritunjay Deo, 11 Oct 2026)
+
+This section documents what was delivered in the R1 Foundation prompt and serves as the handover reference for Shraddha and Saanvi.
+
+### 15.1 What Was Implemented in R1
+
+| Component | File | Status |
+| :--- | :--- | :---: |
+| TMDB key → BuildConfig injection | `app/build.gradle.kts` | ✅ Existing |
+| `AuthInterceptor` (api_key query param) | `core/network/interceptor/AuthInterceptor.kt` | ✅ Existing |
+| `TmdbApi` Retrofit interface (11 endpoints) | `core/network/api/TmdbApi.kt` | ✅ Existing |
+| All DTOs + `toDomain()` mappings | `core/network/model/*.kt` | ✅ Existing |
+| Domain models (Movie, MovieDetails, Genre, VideoTrailer, WatchProvider, CastMember) | `core/model/*.kt` | ✅ Existing |
+| `UserPreferenceProfile` + enums (MovieMood, MovieEra, RuntimePreference) | `core/model/UserPreferenceProfile.kt` | ✅ Existing |
+| `ScoredMovieRecommendation` | `core/model/ScoredMovieRecommendation.kt` | ✅ Existing |
+| `MovieRepository` interface | `core/data/repository/MovieRepository.kt` | ✅ Existing |
+| `FavoritesRepository`, `WatchlistRepository`, `QuizRepository` interfaces | `core/data/repository/*.kt` | ✅ Existing |
+| `RecommendationEngine` + `AiRecommendationEnhancer` interfaces | `core/domain/recommendation/RecommendationEngine.kt` | ✅ Existing |
+| **`MovieRepositoryImpl`** | `core/data/repository/impl/MovieRepositoryImpl.kt` | 🆕 R1 |
+| **`FavoritesRepositoryImpl`** | `core/data/repository/impl/FavoritesRepositoryImpl.kt` | 🆕 R1 |
+| **`WatchlistRepositoryImpl`** | `core/data/repository/impl/WatchlistRepositoryImpl.kt` | 🆕 R1 |
+| **`QuizRepositoryImpl`** (with quiz question definitions) | `core/data/repository/impl/QuizRepositoryImpl.kt` | 🆕 R1 |
+| **`RepositoryModule`** (Hilt @Binds for all 4 repos) | `core/data/di/RepositoryModule.kt` | 🆕 R1 |
+| **`DeterministicRecommendationEngine`** | `core/domain/recommendation/DeterministicRecommendationEngine.kt` | 🆕 R1 |
+| **`DomainModule`** (Hilt @Binds for engine) | `core/domain/di/DomainModule.kt` | 🆕 R1 |
+| **`RecommendationEngineTest`** (9 unit tests) | `test/.../RecommendationEngineTest.kt` | 🆕 R1 |
+| **`DtoMappingTest`** (15 unit tests) | `test/.../DtoMappingTest.kt` | 🆕 R1 |
+
+### 15.2 TMDB Authentication Configuration
+
+```
+local.properties (git-ignored)  →  TMDB_API_KEY=<your_key>
+         ↓
+app/build.gradle.kts (Gradle loads local.properties)
+         ↓
+buildConfigField("String", "TMDB_API_KEY", ...)
+         ↓
+BuildConfig.TMDB_API_KEY  (injected at compile time)
+         ↓
+AuthInterceptor.intercept()  → appends ?api_key=... to every OkHttp request
+```
+
+**Key is never printed, logged, committed, or hard-coded.**  
+Fails silently (empty key → TMDB returns 401, mapped to `Resource.Error`) so the build always succeeds even without the key.
+
+### 15.3 Network Error Handling Contract
+
+All `MovieRepositoryImpl` flows use `safeApiCall {}`:
+
+| Exception | `Resource.Error` Message |
+| :--- | :--- |
+| `IOException` | "Network error: Check your internet connection." |
+| `HttpException(401)` | "TMDB authentication failed. Check your API key configuration." |
+| `HttpException(404)` | "Movie not found on TMDB (404)." |
+| `HttpException(429)` | "TMDB rate limit exceeded. Please retry in a moment." |
+| `HttpException(5xx)` | "TMDB service is temporarily unavailable (HTTP $code)." |
+| Other `Exception` | "An unexpected error occurred: $message" |
+
+ViewModels map `Resource.Error` to `UiState.Error(isOffline = e is IOException)`.
+
+### 15.4 Recommendation Engine Formula (Implemented)
+
+```
+MatchScore = genreScore(40) + moodScore(25) + eraScore(15) + qualityScore(20)
+MatchPercentage = clamp(MatchScore, 0, 100)
+```
+
+- **genreScore**: Overlap ratio × 40 pts
+- **moodScore**: Mood genre IDs overlap × 25 pts
+- **eraScore**: Full 15 pts if release year in era range; 0 otherwise; full if `ANY`
+- **qualityScore**: `(voteAverage / 10.0) × 20` — movies below `minRatingThreshold` score 0
+
+TMDB API attribution note is in the class docstring. Data is never forwarded to AI.
+
+### 15.5 Quiz Question Set (Canonical — Do Not Duplicate)
+
+`QuizRepositoryImpl.getQuizQuestions()` is the **single source of truth** for quiz questions.  
+Shraddha's `QuizScreen` must call `QuizRepository.getQuizQuestions()` and must NOT define its own question list.
+
+| Step | Question ID | Type | Options |
+| :--- | :--- | :--- | :--- |
+| 1 | `q_genre` | Multi-select | 12 genre chips (Action, Adventure, Comedy, Drama, Horror, Sci-Fi, Thriller, Romance, Animation, Mystery, Fantasy, Crime) |
+| 2 | `q_mood` | Single-select | 6 `MovieMood` values |
+| 3 | `q_era` | Single-select | 4 `MovieEra` values |
+| 4 | `q_runtime` | Single-select | 4 `RuntimePreference` values |
+
+---
+
+## 16. Handover Instructions
+
+### 16.1 For Shraddha — Quiz Feature
+
+**What you receive:**
+- `QuizRepository` interface + `QuizRepositoryImpl` fully implemented (Room-backed)
+- `UserPreferenceProfile` domain model with `MovieMood`, `MovieEra`, `RuntimePreference` enums
+- `QuizQuestion` / `QuizOption` domain models
+- The canonical quiz question set via `QuizRepository.getQuizQuestions()`
+- `RecommendationEngine` interface + `DeterministicRecommendationEngine` fully implemented
+- `ScoredMovieRecommendation` domain model
+
+**Your deliverables:**
+1. `QuizScreen` composable in `feature/quiz/presentation/` — multi-step card deck
+2. `QuizViewModel` in `feature/quiz/presentation/` — reads `quizRepository.getQuizQuestions()`, saves profile via `quizRepository.saveUserPreferenceProfile(profile)`
+3. `RecommendationsScreen` composable in `feature/quiz/presentation/` (or separate `feature/recommendations/`)
+4. `RecommendationsViewModel` — injects `QuizRepository`, `MovieRepository`, and `RecommendationEngine`; calls `movieRepository.discoverCandidateMovies(...)` then `engine.scoreAndRank(...)`
+5. Update `MADVerseNavHost` to navigate to `Screen.QuizResult` after quiz completion
+
+**Integration points:**
+```kotlin
+// In RecommendationsViewModel:
+@HiltViewModel
+class RecommendationsViewModel @Inject constructor(
+    private val quizRepository: QuizRepository,
+    private val movieRepository: MovieRepository,
+    private val recommendationEngine: RecommendationEngine
+) : ViewModel()
+```
+
+**Room Persistence:** Library (Watchlist + Favorites) is also your scope. Inject `FavoritesRepository` and `WatchlistRepository` — both are fully implemented.
+
+### 16.2 For Saanvi — Search & Streaming Features
+
+**What you receive:**
+- `MovieRepository` interface + `MovieRepositoryImpl` fully implemented
+- `TmdbApi.searchMovies(query, page, releaseYear)` → ready to call
+- `TmdbApi.getMovieWatchProviders(movieId)` → `MovieWatchProviders` domain object
+- `Genre` domain model + `TmdbApi.getMovieGenres()` for search genre chips
+- `TmdbApi.getSimilarMovies(movieId)` for the "See All Similar" screen
+
+**Your deliverables:**
+1. `SearchScreen` composable — debounced query, genre chip filter, release year selector, movie grid
+2. `SearchViewModel` — inject `MovieRepository`; use `searchMovies()` and `getGenres()`
+3. `StreamingProvidersSection` composable within `MovieDetailsScreen` — display `MovieWatchProviders`
+4. `SeeAllScreen` composable for paginated `See All` lists (Trending, Top Rated, Upcoming, Similar)
+5. Android `ACTION_VIEW` intent helper to deep-link into provider apps
+
+**Integration points:**
+```kotlin
+// In SearchViewModel:
+@HiltViewModel
+class SearchViewModel @Inject constructor(
+    private val movieRepository: MovieRepository
+) : ViewModel()
+
+// Streaming providers (wired into MovieDetailsViewModel):
+movieRepository.getMovieWatchProviders(movieId, countryCode = "US")
+```
+
+**Note on Streaming:** All provider data comes from TMDB `watch/providers`. Link users to `MovieWatchProviders.tmdbWatchPageUrl` or provider deep-links. Never scrape or play protected OTT streams.
+
+### 16.3 Shared Hilt Graph — No Duplicate Modules Needed
+
+All DI modules are installed in `SingletonComponent`. You do **not** need to create new modules for the repositories or engine — they are already bound:
+
+- `NetworkModule` → provides `OkHttpClient`, `Retrofit`, `TmdbApi`
+- `DatabaseModule` → provides `MADVerseDatabase`, `FavoriteDao`, `WatchlistDao`, `UserPreferenceDao`
+- `RepositoryModule` → binds all 4 repository interfaces
+- `DomainModule` → binds `RecommendationEngine`
+
+Just `@Inject constructor` the interface you need in your ViewModel.
+
+### 16.4 TMDB Attribution
+
+Display the following attribution in the app's About or Settings screen:
+
+> "This product uses the TMDB API but is not endorsed or certified by TMDB."
+> Include the TMDB logo where space permits.
+
+Required per [TMDB API Terms of Use](https://www.themoviedb.org/documentation/api/terms-of-use).
+
+### 16.5 AI Feature Restriction
+
+The recommendation engine is **deterministic and fully local**. The `AiRecommendationEnhancer` interface exists as an extension point for Gemini AI notes, but:
+
+- The GEMINI_API_KEY must be present in `local.properties`
+- TMDB content (titles, overviews, posters) must **NOT** be sent to Gemini unless confirmed as permitted by TMDB terms
+- The enhancer is optional and degrades gracefully when the key is absent
+- Use Gemini only to generate **conversational rationale strings** based on profile preferences — NOT raw TMDB API response content
