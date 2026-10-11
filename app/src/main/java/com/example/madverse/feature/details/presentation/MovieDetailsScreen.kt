@@ -48,6 +48,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import com.example.madverse.feature.details.presentation.components.RegionSelectorDialog
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -109,6 +113,7 @@ fun MovieDetailsScreen(
     viewModel: MovieDetailsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var showRegionSelector by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(movieId) {
         if (movieId > 0 && viewModel.currentMovieId != movieId) {
@@ -158,9 +163,22 @@ fun MovieDetailsScreen(
                     uiState = uiState,
                     onNavigateBack = onNavigateBack,
                     onToggleFavorite = { viewModel.toggleFavorite() },
-                    onToggleWatchlist = { viewModel.toggleWatchlist() }
+                    onToggleWatchlist = { viewModel.toggleWatchlist() },
+                    onSelectRegion = { showRegionSelector = true }
                 )
             }
+        }
+
+        if (showRegionSelector) {
+            RegionSelectorDialog(
+                currentCountryCode = uiState.selectedCountryCode,
+                onRegionSelected = { selectedCode ->
+                    viewModel.setRegion(selectedCode)
+                },
+                onDismissRequest = {
+                    showRegionSelector = false
+                }
+            )
         }
     }
 }
