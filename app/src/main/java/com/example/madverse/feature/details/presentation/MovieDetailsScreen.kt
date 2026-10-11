@@ -87,6 +87,7 @@ import com.example.madverse.core.designsystem.theme.RatingGold
 import com.example.madverse.core.model.CastMember
 import com.example.madverse.core.model.MovieDetails
 import com.example.madverse.core.model.MovieWatchProviders
+import com.example.madverse.core.model.VideoCategory
 import com.example.madverse.core.model.VideoTrailer
 import com.example.madverse.core.model.WatchProvider
 import java.text.NumberFormat
@@ -803,9 +804,10 @@ private fun VideoCard(video: VideoTrailer, onClick: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Video Type badge
-                val badgeColor = when {
-                    video.type.equals("Trailer", ignoreCase = true) -> CinematicCrimson
-                    video.type.equals("Teaser", ignoreCase = true) -> CinematicAmber
+                val badgeColor = when (video.category) {
+                    VideoCategory.FULL_MOVIE -> CinematicAmber
+                    VideoCategory.TRAILER -> CinematicCrimson
+                    VideoCategory.TEASER -> CinematicAmber
                     else -> CinematicViolet
                 }
                 Box(
@@ -815,8 +817,14 @@ private fun VideoCard(video: VideoTrailer, onClick: () -> Unit) {
                         .border(1.dp, badgeColor, RoundedCornerShape(4.dp))
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
+                    val badgeLabel = when {
+                        video.isFullLengthMovie && video.isAuthorizedFullLength -> "Full Film (Free)"
+                        video.isFullLengthMovie -> "Full Movie"
+                        video.isOfficial -> "Official ${video.category.displayName}"
+                        else -> video.category.displayName
+                    }
                     Text(
-                        text = if (video.isOfficial) "Official ${video.type}" else video.type,
+                        text = badgeLabel,
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = badgeColor,
                             fontWeight = FontWeight.Bold,

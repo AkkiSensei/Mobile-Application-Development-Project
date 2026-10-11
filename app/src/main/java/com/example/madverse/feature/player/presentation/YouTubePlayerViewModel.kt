@@ -72,6 +72,10 @@ class YouTubePlayerViewModel @Inject constructor(
 
     private fun validateAndLoadVideo(videoId: String, movieTitle: String) {
         val sanitizedId = YouTubeUrlSanitizer.extractVideoId(videoId)
+        val isFullMovie = movieTitle.contains("Full Movie", ignoreCase = true) ||
+                movieTitle.contains("Feature Film", ignoreCase = true)
+        val isAuthorized = movieTitle.contains("Public Domain", ignoreCase = true) ||
+                movieTitle.contains("Free", ignoreCase = true)
 
         if (sanitizedId != null) {
             val embedUrl = YouTubeUrlSanitizer.buildEmbedUrl(sanitizedId)
@@ -83,6 +87,9 @@ class YouTubePlayerViewModel @Inject constructor(
                     movieTitle = movieTitle,
                     embedUrl = embedUrl,
                     webWatchUrl = webWatchUrl,
+                    isFullLengthMovie = isFullMovie,
+                    isAuthorizedFullLength = isAuthorized,
+                    isRestricted = isFullMovie && !isAuthorized,
                     isValid = true,
                     isLoading = false,
                     errorMessage = null

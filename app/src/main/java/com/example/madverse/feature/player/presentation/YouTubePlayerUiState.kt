@@ -9,6 +9,8 @@ data class YouTubePlayerUiState(
     val embedUrl: String? = null,
     val webWatchUrl: String = "",
     val isValid: Boolean = false,
+    val isFullLengthMovie: Boolean = false,
+    val isAuthorizedFullLength: Boolean = false,
     val isLoading: Boolean = true,
     val isPlaying: Boolean = false,
     val isRestricted: Boolean = false,

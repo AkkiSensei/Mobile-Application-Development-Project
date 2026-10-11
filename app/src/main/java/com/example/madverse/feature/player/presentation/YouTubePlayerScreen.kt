@@ -189,6 +189,25 @@ fun YouTubePlayerScreen(
                             )
                         }
 
+                        if (uiState.isFullLengthMovie) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(CinematicAmber.copy(alpha = 0.2f))
+                                    .border(1.dp, CinematicAmber, RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    text = if (uiState.isAuthorizedFullLength) "Authorized Full Film (Free)" else "Full Movie (Restricted)",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = CinematicAmber,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp
+                                    )
+                                )
+                            }
+                        }
+
                         Text(
                             text = "Video ID: ${uiState.videoId}",
                             style = MaterialTheme.typography.bodySmall.copy(
@@ -200,9 +219,12 @@ fun YouTubePlayerScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Content owner restriction warning banner
+                    // Content owner restriction or full-length movie notice
                     if (uiState.isRestricted) {
-                        RestrictedPlaybackBanner(onOpenInYouTubeApp = openInYouTubeApp)
+                        RestrictedPlaybackBanner(
+                            isFullMovie = uiState.isFullLengthMovie,
+                            onOpenInYouTubeApp = openInYouTubeApp
+                        )
                         Spacer(modifier = Modifier.height(16.dp))
                     }
 
@@ -335,6 +357,7 @@ private fun PlayerTopBar(
 
 @Composable
 private fun RestrictedPlaybackBanner(
+    isFullMovie: Boolean = false,
     onOpenInYouTubeApp: () -> Unit
 ) {
     Column(
@@ -354,7 +377,7 @@ private fun RestrictedPlaybackBanner(
             )
             Spacer(modifier = Modifier.width(10.dp))
             Text(
-                text = "Embedded Playback Restricted",
+                text = if (isFullMovie) "Commercial Feature Film Notice" else "Embedded Playback Restricted",
                 style = MaterialTheme.typography.titleSmall.copy(
                     fontWeight = FontWeight.Bold,
                     color = CinematicAmber
@@ -365,7 +388,11 @@ private fun RestrictedPlaybackBanner(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "The content owner does not permit embedding this video in external applications. You can still watch it smoothly in the YouTube app or browser.",
+            text = if (isFullMovie) {
+                "Commercial full-length films are protected by copyright and restricted to official trailers within MADVerse. To watch the full movie, please check the official streaming and rental providers on the movie details screen or open in YouTube."
+            } else {
+                "The content owner does not permit embedding this video in external applications. You can still watch it smoothly in the YouTube app or browser."
+            },
             style = MaterialTheme.typography.bodySmall.copy(
                 color = ContentHighEmphasis,
                 lineHeight = 18.sp
