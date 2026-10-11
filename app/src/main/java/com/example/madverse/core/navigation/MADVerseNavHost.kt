@@ -12,6 +12,7 @@ import com.example.madverse.feature.discover.presentation.DiscoverScreen
 import com.example.madverse.feature.library.presentation.FavoritesScreen
 import com.example.madverse.feature.library.presentation.LibraryScreen
 import com.example.madverse.feature.library.presentation.WatchlistScreen
+import com.example.madverse.feature.quiz.presentation.QuizResultScreen
 import com.example.madverse.feature.quiz.presentation.QuizScreen
 import com.example.madverse.feature.search.presentation.SearchScreen
 
@@ -44,7 +45,29 @@ fun MADVerseNavHost(
         composable(route = Screen.Quiz.route) {
             QuizScreen(
                 onQuizCompleted = {
-                    navController.navigate(Screen.Discover.route)
+                    navController.navigate(Screen.QuizResult.route) {
+                        launchSingleTop = true
+                    }
+                }
+            )
+        }
+
+        composable(route = Screen.QuizResult.route) {
+            QuizResultScreen(
+                onMovieClick = { movieId ->
+                    navController.navigate(Screen.MovieDetails.createRoute(movieId))
+                },
+                onRetakeQuiz = {
+                    navController.navigate(Screen.Quiz.route) {
+                        popUpTo(Screen.Quiz.route) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                },
+                onExploreMore = {
+                    navController.navigate(Screen.Discover.route) {
+                        popUpTo(Screen.Discover.route) { inclusive = false }
+                        launchSingleTop = true
+                    }
                 }
             )
         }
