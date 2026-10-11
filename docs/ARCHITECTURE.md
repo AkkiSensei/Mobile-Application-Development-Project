@@ -853,6 +853,46 @@ Each `ScoredMovieRecommendation` exposes:
 - `recommendation.matchPercentage`: Integer $0\text{--}100\%$ for display in a match badge (e.g. `"92% Match"`).
 - `recommendation.matchReasons`: List of `String` explanations to render as chips (e.g. `["Matches 2 of your preferred genres", "Critically acclaimed (8.4★)"]`).
 
+---
+
+## 21. R1–R5 FINAL INTEGRATION & HANDOVER BLUEPRINT (RITUNJAY DEO)
+
+### 21.1 Single-Main Repository Consolidation
+- The repository has been consolidated to a single persistent branch: `main`.
+- All previous feature branches (`feature/ritunjay-*`) and integration branches are unified into `main`.
+- All 42 original commits and full authorship attribution have been preserved without squashing or history rewriting.
+- Team development proceeds sequentially directly on `main`:
+  1. **Ritunjay Deo**: Complete R1–R5 foundation, integration, and debugging (Complete).
+  2. **Shraddha**: Room persistence, Favorites/Watchlist UI, Preference Quiz, Streaming discovery.
+  3. **Saanvi**: Shared design system refinements, Genre Explorer, Recommendation results screen, Movie comparison.
+
+### 21.2 Centralized Regional Streaming Configuration
+- Central configuration: `RegionConfig` (`com.example.madverse.core.common.config.RegionConfig`).
+  - `DEFAULT_COUNTRY_CODE = "IN"` (India as initial default target region).
+  - `FALLBACK_COUNTRY_CODE = "US"` (graceful fallback if regional data is unavailable).
+- `MovieRepository.getMovieWatchProviders(movieId, countryCode = RegionConfig.DEFAULT_COUNTRY_CODE)`.
+- `WatchProvidersResponseDto.toDomain(movieId, countryCode = RegionConfig.DEFAULT_COUNTRY_CODE)`.
+- `MovieDetailsViewModel` defaults to `RegionConfig.DEFAULT_COUNTRY_CODE`, cleanly extensible for future user-selected region pickers.
+
+### 21.3 TMDB Attribution Compliance
+- Implemented reusable `TmdbAttributionFooter` (`com.example.madverse.core.designsystem.components.TmdbAttributionFooter`).
+- Prominently rendered at the base of `DiscoverScreen` and `MovieDetailsScreen`.
+- Complies strictly with TMDB API Terms of Service:
+  > *"This product uses the TMDB API but is not endorsed or certified by TMDB."*
+
+### 21.4 Handover Contracts for Shraddha
+- **Room Persistence**: Use existing `FavoritesDao`, `WatchlistDao`, `FavoritesRepository`, and `WatchlistRepository`. Observe `isFavoriteFlow` and `isInWatchlistFlow` reactive states.
+- **Preference Quiz**: Save quiz answers to `QuizRepository.saveUserPreferenceProfile(profile)` emitting `UserPreferenceProfile`.
+- **Movie Videos**: Consume `MovieRepository.getMovieVideos(movieId)` for embeddable YouTube trailer metadata (`key`, `name`, `type`, `isOfficial`).
+- **Watch Providers**: Consume `MovieRepository.getMovieWatchProviders(movieId, region)` with region support.
+
+### 21.5 Handover Contracts for Saanvi
+- **Shared Movie Cards**: Reuse `MoviePosterCard`, `HeroFeaturedMovieCard`, `MovieHorizontalCard`, and skeleton loaders in `com.example.madverse.core.designsystem.components`.
+- **Genre Explorer & Filtering**: Consume `MovieRepository.getGenres()` and `MovieRepository.discoverCandidateMovies(...)`.
+- **Personalized Recommendations**: Inject `GetPersonalizedRecommendationsUseCase` into `RecommendationsViewModel`.
+- **Presentation**: Display `ScoredMovieRecommendation.matchPercentage` and `matchReasons` as badges and chips. Do not implement a competing scoring engine.
+
+
 
 
 

@@ -1,5 +1,5 @@
 # ==============================================================================
-# MADVERSE — CANONICAL GIT, COLLABORATION & AGENT GOVERNANCE RULES (.gitrules)
+# MADVERSE — CANONICAL GIT, COLLABORATION & GOVERNANCE RULES (.gitrules)
 # ==============================================================================
 # This document is the permanent source of truth for version control, collaboration,
 # security discipline, and AI/IDE agent behavior in the MADVerse repository.
@@ -21,61 +21,60 @@
 Project: MADVerse
 Type: Android Movie Discovery, Personalization, Recommendation & Streaming Guide
 Team Members:
-  - Ritunjay Deo
-  - Saanvi
-  - Shraddha
+  - Ritunjay Deo (TMDB Integration, Data Layer, Home, Search, Details, Recommendation Engine)
+  - Shraddha (Room Persistence, Favorites/Watchlist UI, Preference Quiz, Streaming Discovery)
+  - Saanvi (Shared UI Design System, Genre Explorer, Recommendation UI, Movie Comparison)
 
 ACADEMIC EVALUATION NOTICE:
-The Git commit history, commit authorship, branch lifecycles, and pull-request/merge
-records constitute direct, non-negotiable academic evidence of individual student
-contribution. Any action that destroys, squashes, rewrites, falsifies, or obscures
-individual contribution evidence violates academic policy and is strictly forbidden.
+The Git commit history, commit authorship, branch lifecycles, and commit records
+constitute direct, non-negotiable academic evidence of individual student contribution.
+Any action that destroys, squashes, rewrites, falsifies, or obscures individual
+contribution evidence violates academic policy and is strictly forbidden.
 
 # ------------------------------------------------------------------------------
-# 2. GIT SAFETY — ABSOLUTE PRESERVATION RULES
+# 2. GIT SAFETY — ABSOLUTE PRESERVATION RULES (ZERO TOLERANCE)
 # ------------------------------------------------------------------------------
 1. NEVER execute `git init` inside this project under any circumstance.
 2. NEVER delete, rename, recreate, or replace the `.git` directory.
 3. NEVER execute destructive resets (`git reset --hard`, `git reset --merge`).
 4. NEVER execute destructive worktree cleans (`git clean -fd`, `git clean -fdx`).
 5. NEVER force-push (`git push --force`, `git push -f`, `git push --force-with-lease`).
-6. NEVER execute rebases or history rewrites on shared branches (`main`, `develop`).
-7. NEVER initialize a nested Git repository within the project tree.
-8. ALWAYS verify `.git` exists and inspect `git status` before beginning work.
+6. NEVER execute rebases or history rewrites on shared commits.
+7. NEVER squash or cherry-pick existing feature commits.
+8. NEVER delete a branch before verifying that all its unique commits are reachable from origin/main.
+9. NEVER delete or overwrite another contributor's work.
+10. NEVER print the actual TMDB API key or other credentials.
+11. NEVER change `origin` to another repository without explicit authorization.
+12. ALWAYS verify `.git` exists and inspect `git status` before beginning work.
 
 # ------------------------------------------------------------------------------
-# 3. BRANCHING STRATEGY
+# 3. SINGLE-MAIN BRANCH POLICY (CONSOLIDATED SEQUENTIAL WORKFLOW)
 # ------------------------------------------------------------------------------
-MADVerse uses a deadline-conscious, attributable branch structure suited for 3 students:
+Authorized by Project Owner (Ritunjay Deo) for clean sequential development:
 
-Core Branches:
-  - `main`    : Production-ready, stable releases. Protected from direct daily commits.
-  - `develop` : Central integration branch for feature merges and build verification.
-
-Feature Branches:
-  - Format: `feature/<member>-<feature-description>`
-  - Examples:
-      - `feature/ritunjay-discover-carousel`
-      - `feature/ritunjay-movie-details`
-      - `feature/saanvi-movie-search`
-      - `feature/saanvi-streaming-providers`
-      - `feature/shraddha-taste-quiz`
-      - `feature/shraddha-recommendation-engine`
-      - `feature/shraddha-watchlist-room`
-
-Branching Discipline:
-1. NEVER work directly on `main` for regular feature tasks.
-2. NEVER develop directly inside another member's feature branch without prior agreement.
-3. Keep feature branches short-lived and focused on a single logical responsibility.
-4. Future feature branches must NOT be created in advance; create them only when beginning the task.
-5. Delete feature branches only after verified, non-destructive merging into `develop`.
+1. `main` is the ONLY persistent project branch across both local and remote.
+2. Do NOT create `develop`, feature branches, or temporary topic branches.
+3. Sequential Handover Schedule:
+   - Phase 1: Ritunjay Deo completes R1–R5 and final integration on `main`.
+   - Phase 2: Shraddha implements Room persistence, Quiz UI, Library, and Streaming on `main`.
+   - Phase 3: Saanvi implements Design System refinements, Genre Explorer, and Recommendation UI on `main`.
+4. Each developer begins work only after receiving a verified, clean handover on `main`.
 
 # ------------------------------------------------------------------------------
-# 4. COMMIT RULES & ATTRIBUTION
+# 4. PRE-WORK PROTOCOL (BEFORE EACH PROMPT / SESSION)
+# ------------------------------------------------------------------------------
+Before modifying files or beginning any implementation task:
+1. Verify workspace is on `main`: `git checkout main`.
+2. Verify working tree is clean: `git status`.
+3. Fetch latest origin references: `git fetch origin`.
+4. Fast-forward to origin: `git pull --ff-only origin main`.
+5. STOP and report if unexpected divergence, unmerged changes, or conflicts exist.
+
+# ------------------------------------------------------------------------------
+# 5. COMMIT RULES & ATTRIBUTION
 # ------------------------------------------------------------------------------
 Commit Message Convention:
-Follow the Conventional Commits structure:
-  `<type>: <clear description>`
+Follow Conventional Commits: `<type>: <clear description>`
 
 Standard Types:
   - `feat`     : A new user-facing feature or domain capability
@@ -85,62 +84,34 @@ Standard Types:
   - `docs`     : Architecture or documentation updates
   - `chore`    : Build script, dependency, or configuration updates
 
-Examples:
-  - `feat: add TMDB debounced movie search`
-  - `feat: implement deterministic recommendation scoring algorithm`
-  - `feat: persist movie watchlist with Room database`
-  - `fix: handle empty TMDB network response gracefully`
-  - `test: add unit tests for recommendation scoring weights`
-  - `refactor: extract safe streaming intent resolver`
-
-Commit Integrity Rules:
-1. NEVER commit meaningless messages such as "update", "changes", "fix bug", "test", "wip", "stuff".
-2. Commits MUST represent coherent, self-contained units of work.
-3. NEVER make massive "kitchen-sink" commits that bundle unrelated features across domains.
-4. Each member/agent must commit using their own correct authorship configuration.
-5. NEVER impersonate another team member or commit under another member's name.
-6. NEVER squash another student's commits into your own authorship.
+Authorship Rules:
+1. Each developer MUST commit using their own actual Git identity:
+   - Ritunjay Deo <ritunjay1201@gmail.com>
+   - Shraddha
+   - Saanvi
+2. NEVER impersonate a teammate or manufacture artificial commits.
+3. Every person must make meaningful, attributable micro-commits for work they actually performed.
+4. Commits MUST represent coherent, self-contained units of work.
+5. NEVER commit meaningless messages such as "update", "changes", "fix", "wip".
 
 # ------------------------------------------------------------------------------
-# 5. COLLABORATION & CONFLICT RESOLUTION
+# 6. PUSH & VALIDATION GATE (DIRECT PUSH TO MAIN)
 # ------------------------------------------------------------------------------
-Authorship Respect:
-- Ritunjay's work must remain attributable to Ritunjay.
-- Saanvi's work must remain attributable to Saanvi.
-- Shraddha's work must remain attributable to Shraddha.
-
-Pair Programming & Agent Assistance:
-- If a developer or AI assistant helps another student, the primary author must remain clear.
-- Collaboration should be credited in commit footers (e.g. `Co-authored-by: Name <email>`).
-- NEVER manufacture artificial commits to manipulate contribution metrics.
-
-Merge Conflict Resolution:
-1. NEVER use `git checkout --ours` or `git checkout --theirs` blindly across an entire file.
-2. Carefully inspect both conflicting sections line by line.
-3. Preserve valid logic and tests from both sides.
-4. Run `./gradlew testDebugUnitTest assembleDebug` immediately after resolving conflicts.
-
-# ------------------------------------------------------------------------------
-# 6. MERGE RULES
-# ------------------------------------------------------------------------------
-Before merging any feature branch into `develop` or `main`:
-1. Build Verification: `./gradlew assembleDebug` must complete with 0 errors.
+Before pushing directly to `origin/main`:
+1. Build Verification: `./gradlew assembleDebug` must succeed with 0 errors.
 2. Test Verification: `./gradlew testDebugUnitTest` must pass all tests.
-3. Secret Scan: Scan working tree for accidentally introduced API keys or tokens.
-4. Diff Inspection: Inspect `git diff <target-branch>...HEAD` to verify clean changes.
-5. Non-Destructive Merges: Use standard merge commits (`git merge --no-ff`) to preserve branch history.
-6. NEVER rebase or squash shared integration branches.
+3. Secret Scan: Verify zero API keys or tokens are staged.
+4. Diff Inspection: Inspect `git diff origin/main` to confirm only intended changes are included.
+5. Push Command: Execute normal push: `git push origin main`.
+6. STOP if push is rejected due to remote divergence or permissions; report exact error.
 
 # ------------------------------------------------------------------------------
-# 7. PUSH RULES & REMOTE SAFETY
+# 7. PULL REQUEST POLICY
 # ------------------------------------------------------------------------------
-1. NEVER push automatically. AI agents and IDEs MUST obtain explicit human authorization.
-2. Pre-Push Verification Checklist:
-   - Run `git status` — Ensure working directory is clean.
-   - Run `git diff origin/<branch>` — Verify only intended changes are included.
-   - Verify zero API keys (TMDB, Gemini, Firebase, Google Services) are staged.
-   - Verify no machine-specific files (`local.properties`, `.idea`, `*.jks`) are tracked.
-3. Only push to authorized remotes (`origin -> AkkiSensei/Mobile-Application-Development-Project.git`).
+1. Do NOT create pull requests for regular feature implementation tasks.
+2. Do NOT use GitHub's "Create Pull Request" action or UI.
+3. Do NOT execute `gh pr create` or CLI equivalents.
+4. All verified, tested work is integrated directly into `main` via linear commits.
 
 # ------------------------------------------------------------------------------
 # 8. SECRET MANAGEMENT & SECURITY BASELINE
@@ -163,15 +134,8 @@ Before merging any feature branch into `develop` or `main`:
 # 9. ANDROID & GENERATED FILES DISCIPLINE
 # ------------------------------------------------------------------------------
 1. Strictly respect `.gitignore`.
-2. NEVER commit machine-specific build artifacts:
-   - `build/` (module build directories)
-   - `.gradle/` (Gradle daemon and execution cache)
-   - `.cxx/`, `.externalNativeBuild/` (NDK/C++ artifacts)
-   - `*.apk`, `*.aar`, `*.aab` (compiled binary packages)
-3. NEVER commit IDE configuration caches:
-   - `.idea/caches/`, `.idea/workspace.xml`, `.idea/modules.xml`
-   - `*.iml`
-   - `.vscode/`, `.claude/`
+2. NEVER commit machine-specific build artifacts (`build/`, `.gradle/`, `.cxx/`, `*.apk`).
+3. NEVER commit IDE configuration caches (`.idea/caches/`, `.idea/workspace.xml`, `*.iml`, `.vscode/`).
 4. NEVER commit OS-specific files (`.DS_Store`, `Thumbs.db`).
 5. NEVER bypass or modify `.gitignore` simply to make `git status` look clean.
 
@@ -189,56 +153,11 @@ Strict Academic Prohibitions:
    Taste Quiz logic, multi-factor recommendation engine, and distinct Material 3 styling.
 
 # ------------------------------------------------------------------------------
-# 11. BUILD & TEST REQUIREMENTS
-# ------------------------------------------------------------------------------
-Before committing or creating pull requests:
-1. Execute `./gradlew assembleDebug` — Must succeed.
-2. Execute `./gradlew testDebugUnitTest` — All unit tests must pass.
-3. NEVER disable or delete a test simply to make a broken build pass.
-4. Resolve all compiler errors and deprecation warnings introduced by new code.
-5. Maintain documentation comments on public interfaces and domain contracts.
-
-# ------------------------------------------------------------------------------
-# 12. AGENT & IDE GOVERNANCE RULES
-# ------------------------------------------------------------------------------
-All coding agents (Antigravity, Claude Code, Cursor, Copilot, etc.) and IDE environments:
-1. MUST read `.gitrules` and adhere strictly to its constraints.
-2. MUST inspect `git status` and the current branch before modifying files.
-3. MUST keep changes tightly bounded to the user's explicit prompt request.
-4. MUST NOT perform spontaneous wide-scale refactoring outside assigned feature domains.
-5. MUST NOT execute destructive Git commands under any circumstance.
-6. MUST run compilation and test verification after significant code modifications.
-7. MUST report the exact Git status, branch name, and build results at the end of each turn.
-8. MUST STOP and ask the user if an ambiguous or potentially dangerous Git state is detected.
-
-# ------------------------------------------------------------------------------
-# 13. EXPLICITLY PROHIBITED ACTIONS (ZERO TOLERANCE)
-# ------------------------------------------------------------------------------
-The following actions are STRICTLY FORBIDDEN:
-❌ `git init`
-❌ `rmdir /s /q .git` or `rm -rf .git`
-❌ `git reset --hard` (unless explicitly commanded by human project owner)
-❌ `git clean -fd` or `git clean -fdx`
-❌ `git push --force` or `git push --force-with-lease`
-❌ `git rebase` on shared integration branches (`main`, `develop`)
-❌ Deleting another student's branch
-❌ Squashing or rewriting another student's commits
-❌ Committing plaintext API keys, passwords, or service-account secrets
-❌ Importing external repository commit histories
-❌ Altering `.gitrules` to weaken safety constraints without explicit authorization
-
-# ------------------------------------------------------------------------------
-# 14. EMERGENCY ESCALATION PROCEDURE
+# 11. EMERGENCY ESCALATION PROCEDURE
 # ------------------------------------------------------------------------------
 If any Git operation appears to risk existing history, commits, or branch integrity:
 1. STOP IMMEDIATELY. Do not run further commands.
 2. DO NOT attempt automated "repairs", rebases, or destructive resets.
-3. Gather diagnostics:
-   - Run `git status`
-   - Run `git branch -a`
-   - Run `git log -n 5 --oneline`
-4. Report the exact state to the human project owner with:
-   - The current branch and commit hash
-   - The unexpected state or conflict encountered
-   - The safest non-destructive path forward
+3. Gather diagnostics: `git status`, `git branch -a`, `git log -n 5 --oneline`.
+4. Report the exact state to the human project owner with the safest non-destructive path forward.
 5. Await explicit written instructions before proceeding.
