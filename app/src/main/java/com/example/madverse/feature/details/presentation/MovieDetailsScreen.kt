@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import com.example.madverse.feature.details.presentation.components.StreamingProvidersSection
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -171,6 +172,7 @@ private fun MovieDetailsContent(
     onNavigateBack: () -> Unit,
     onToggleFavorite: () -> Unit,
     onToggleWatchlist: () -> Unit,
+    onSelectRegion: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -496,12 +498,22 @@ private fun MovieDetailsContent(
         // 8. Streaming Availability / Watch Providers (Requirement 4)
         // -----------------------------------------------------------------
         item(key = "details_watch_providers") {
-            WatchProvidersSection(
-                providersState = uiState.watchProvidersState,
-                onOpenTmdbPage = { tmdbUrl ->
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(tmdbUrl))
-                    context.startActivity(intent)
-                }
+            StreamingProvidersSection(
+                flatrate = uiState.flatrateProviders,
+                rent = uiState.rentProviders,
+                buy = uiState.buyProviders,
+                watchLink = uiState.tmdbWatchPageUrl,
+                countryCode = uiState.selectedCountryCode,
+                isLoading = uiState.watchProvidersState is UiState.Loading,
+                errorMessage = (uiState.watchProvidersState as? UiState.Error)?.message,
+                onOpenWatchLink = { tmdbUrl ->
+                    try {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(tmdbUrl))
+                        context.startActivity(intent)
+                    } catch (_: Exception) {
+                    }
+                },
+                onRegionClick = onSelectRegion
             )
         }
 
@@ -813,148 +825,6 @@ private fun VideoCard(video: VideoTrailer, onClick: () -> Unit) {
     }
 }
 
-/**
- * Official streaming availability and watch providers section.
- * Handover note: Saanvi/Shraddha will integrate deep-links and regional controls here.
- */
-@Composable
-private fun WatchProvidersSection(
-    providersState: UiState<MovieWatchProviders>,
-    onOpenTmdbPage: (String) -> Unit
-) {
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
-        Text(
-            text = "Where to Watch (US)",
-            style = MaterialTheme.typography.titleMedium.copy(
-                fontWeight = FontWeight.Bold,
-                color = ContentHighEmphasis
-            )
-        )
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        when (providersState) {
-            is UiState.Loading -> {
-                Box(modifier = Modifier.fillMaxWidth().height(60.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = CinematicCrimson)
-                }
-            }
-            is UiState.Success -> {
-                val providers = providersState.data
-
-                if (providers.flatrate.isNotEmpty()) {
-                    Text(
-                        text = "Stream (Subscription)",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = CinematicAmber,
-                            fontWeight = FontWeight.Bold
-                        )
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    ProviderRow(providers.flatrate)
-                    Spacer(modifier = Modifier.height(10.dp))
-                }
-
-                if (providers.rent.isNotEmpty()) {
-                    Text(
-                        text = "Rent",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = ContentMediumEmphasis,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    ProviderRow(providers.rent)
-                    Spacer(modifier = Modifier.height(10.dp))
-                }
-
-                if (providers.buy.isNotEmpty()) {
-                    Text(
-                        text = "Buy",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = ContentMediumEmphasis,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    ProviderRow(providers.buy)
-                    Spacer(modifier = Modifier.height(10.dp))
-                }
-
-                if (!providers.tmdbWatchPageUrl.isNullOrBlank()) {
-                    OutlinedButton(
-                        onClick = { onOpenTmdbPage(providers.tmdbWatchPageUrl) },
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("View Streaming Details on JustWatch / TMDB", fontSize = 12.sp)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.OpenInNew,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp)
-                        )
-                    }
-                }
-            }
-            is UiState.Empty -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(ObsidianSurface)
-                        .padding(12.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Info,
-                            contentDescription = null,
-                            tint = ContentLowEmphasis,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text(
-                            text = providersState.message,
-                            style = MaterialTheme.typography.bodySmall.copy(color = ContentMediumEmphasis)
-                        )
-                    }
-                }
-            }
-            is UiState.Error -> {
-                Text(
-                    text = providersState.message,
-                    style = MaterialTheme.typography.bodySmall.copy(color = ContentLowEmphasis)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ProviderRow(providers: List<WatchProvider>) {
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        items(items = providers, key = { it.providerId }) { provider ->
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(ObsidianSurface)
-                    .border(1.dp, ObsidianCardBorder, RoundedCornerShape(8.dp))
-                    .padding(horizontal = 10.dp, vertical = 6.dp)
-            ) {
-                Text(
-                    text = provider.providerName,
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        color = ContentHighEmphasis,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 12.sp
-                    )
-                )
-            }
-        }
-    }
-}
 
 @Composable
 private fun FinancialsSection(budget: Long, revenue: Long) {
