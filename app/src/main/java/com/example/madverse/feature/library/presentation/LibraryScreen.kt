@@ -1,100 +1,137 @@
 package com.example.madverse.feature.library.presentation
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bookmarks
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.madverse.core.designsystem.theme.CinematicAmber
 import com.example.madverse.core.designsystem.theme.CinematicCrimson
 import com.example.madverse.core.designsystem.theme.ContentHighEmphasis
 import com.example.madverse.core.designsystem.theme.ContentMediumEmphasis
 import com.example.madverse.core.designsystem.theme.ObsidianBackground
-import com.example.madverse.core.designsystem.theme.ObsidianSurfaceVariant
+import com.example.madverse.core.designsystem.theme.ObsidianSurface
 
 /**
- * Library Screen foundation shell.
- * Features to be implemented: Local Room persistence of Watchlist and Favorites,
- * offline access, swipe-to-delete.
+ * Personal Movie Library Screen.
+ * Provides unified tabbed navigation between Watchlist and Favorites,
+ * backed by reactive Room persistent flows with sorting and offline accessibility.
  */
 @Composable
 fun LibraryScreen(
-    onMovieClick: (Int) -> Unit = {},
-    modifier: Modifier = Modifier
+    onMovieClick: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: LibraryViewModel = hiltViewModel()
 ) {
-    Box(
+    val selectedTab by viewModel.selectedTab.collectAsStateWithLifecycle()
+    val sortOption by viewModel.sortOption.collectAsStateWithLifecycle()
+    val watchlistState by viewModel.watchlistState.collectAsStateWithLifecycle()
+    val favoritesState by viewModel.favoritesState.collectAsStateWithLifecycle()
+
+    Column(
         modifier = modifier
             .fillMaxSize()
             .background(ObsidianBackground)
-            .padding(24.dp),
-        contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+        val selectedIndex = if (selectedTab == LibraryTab.WATCHLIST) 0 else 1
+
+        PrimaryTabRow(
+            selectedTabIndex = selectedIndex,
+            containerColor = ObsidianSurface,
+            contentColor = ContentHighEmphasis,
+            divider = {}
         ) {
-            Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .clip(CircleShape)
-                    .background(ObsidianSurfaceVariant),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Bookmarks,
-                    contentDescription = null,
-                    tint = CinematicCrimson,
-                    modifier = Modifier.size(40.dp)
-                )
+            Tab(
+                selected = selectedTab == LibraryTab.WATCHLIST,
+                onClick = { viewModel.selectTab(LibraryTab.WATCHLIST) },
+                text = {
+                    Text(
+                        text = "Watchlist",
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontWeight = if (selectedTab == LibraryTab.WATCHLIST) FontWeight.Bold else FontWeight.Medium
+                        )
+                    )
+                },
+                icon = {
+                    Icon(
+                        imageVector = if (selectedTab == LibraryTab.WATCHLIST) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                        contentDescription = null,
+                        tint = if (selectedTab == LibraryTab.WATCHLIST) CinematicAmber else ContentMediumEmphasis
+                    )
+                },
+                selectedContentColor = CinematicAmber,
+                unselectedContentColor = ContentMediumEmphasis
+            )
+
+            Tab(
+                selected = selectedTab == LibraryTab.FAVORITES,
+                onClick = { viewModel.selectTab(LibraryTab.FAVORITES) },
+                text = {
+                    Text(
+                        text = "Favorites",
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontWeight = if (selectedTab == LibraryTab.FAVORITES) FontWeight.Bold else FontWeight.Medium
+                        )
+                    )
+                },
+                icon = {
+                    Icon(
+                        imageVector = if (selectedTab == LibraryTab.FAVORITES) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                        contentDescription = null,
+                        tint = if (selectedTab == LibraryTab.FAVORITES) CinematicCrimson else ContentMediumEmphasis
+                    )
+                },
+                selectedContentColor = CinematicCrimson,
+                unselectedContentColor = ContentMediumEmphasis
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+        ) {
+            when (selectedTab) {
+                LibraryTab.WATCHLIST -> {
+                    WatchlistContent(
+                        uiState = watchlistState,
+                        selectedSort = sortOption,
+                        onSortSelected = viewModel::setSortOption,
+                        onMovieClick = onMovieClick,
+                        onRemoveMovie = viewModel::removeFromWatchlist,
+                        onRetry = viewModel::retryWatchlist
+                    )
+                }
+
+                LibraryTab.FAVORITES -> {
+                    FavoritesContent(
+                        uiState = favoritesState,
+                        selectedSort = sortOption,
+                        onSortSelected = viewModel::setSortOption,
+                        onMovieClick = onMovieClick,
+                        onRemoveMovie = viewModel::removeFromFavorites,
+                        onRetry = viewModel::retryFavorites
+                    )
+                }
             }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            Text(
-                text = "My Library",
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = ContentHighEmphasis
-                )
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "Watchlist • Saved Favorites • Offline Storage",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = CinematicAmber,
-                    fontWeight = FontWeight.Medium
-                ),
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "Architectural foundation ready for Room Database reactive Flow queries.",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = ContentMediumEmphasis
-                ),
-                textAlign = TextAlign.Center
-            )
         }
     }
 }
