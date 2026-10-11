@@ -116,28 +116,13 @@ data class QuizAnswers(
 
     fun isComplete(): Boolean = selectedGenreIds.isNotEmpty()
 
-    fun toUserPreferenceProfile(): UserPreferenceProfile {
-        return UserPreferenceProfile(
-            selectedGenreIds = selectedGenreIds,
-            mood = mood,
-            era = era,
-            runtimePreference = runtimePreference,
-            preferredLanguage = preferredLanguage,
-            minRatingThreshold = minRatingThreshold,
-            updatedAtTimestamp = System.currentTimeMillis()
-        )
+    fun toUserPreferenceProfile(timestamp: Long = System.currentTimeMillis()): UserPreferenceProfile {
+        return QuizProfileMapper.mapToUserProfile(this, timestamp)
     }
 
     companion object {
         fun fromUserProfile(profile: UserPreferenceProfile): QuizAnswers {
-            return QuizAnswers(
-                selectedGenreIds = profile.selectedGenreIds,
-                preferredLanguage = profile.preferredLanguage,
-                mood = profile.mood,
-                era = profile.era,
-                runtimePreference = profile.runtimePreference,
-                minRatingThreshold = profile.minRatingThreshold
-            )
+            return QuizProfileMapper.mapToQuizAnswers(profile)
         }
     }
 }
