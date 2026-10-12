@@ -14,13 +14,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Movie
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Button
@@ -29,6 +26,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,6 +35,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -55,14 +57,14 @@ import com.example.madverse.core.designsystem.theme.ObsidianBackground
 import com.example.madverse.core.designsystem.theme.ObsidianCardBorder
 import com.example.madverse.core.designsystem.theme.ObsidianSurface
 import com.example.madverse.core.designsystem.theme.ObsidianSurfaceVariant
-import com.example.madverse.core.designsystem.theme.RatingGold
 import com.example.madverse.core.model.Movie
 
 /**
  * Standard vertical movie poster card used across Discovery carousels and grids.
- * Designed for immediate reuse by Saanvi for search results and library displays.
+ * Designed for immediate reuse across Search, Home, Library, and Recommendations.
  *
- * Gracefully handles missing poster URLs and image-loading failures with a styled fallback.
+ * Integrates [MovieRatingBadge] for standard rating overlays and provides
+ * accessible descriptions for screen readers.
  */
 @Composable
 fun MoviePosterCard(
@@ -72,11 +74,20 @@ fun MoviePosterCard(
     cardWidth: Dp = 150.dp,
     posterHeight: Dp = 225.dp
 ) {
+    val accessibleDescription = "${movie.title}, release year ${movie.releaseYear}${if (movie.voteAverage > 0) ", rated ${movie.formattedRating} out of 10" else ""}"
+
     Column(
         modifier = modifier
             .width(cardWidth)
             .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
+            .semantics {
+                role = Role.Button
+                contentDescription = accessibleDescription
+            }
+            .clickable(
+                role = Role.Button,
+                onClick = onClick
+            )
     ) {
         // Poster Box with Rating Badge overlay
         Box(
@@ -124,29 +135,11 @@ fun MoviePosterCard(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(6.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(ObsidianBackground.copy(alpha = 0.85f))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(3.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Star,
-                            contentDescription = null,
-                            tint = RatingGold,
-                            modifier = Modifier.size(12.dp)
-                        )
-                        Text(
-                            text = movie.formattedRating,
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = ContentHighEmphasis,
-                                fontSize = 11.sp
-                            )
-                        )
-                    }
+                    MovieRatingBadge(
+                        rating = movie.voteAverage,
+                        style = RatingBadgeStyle.OverlayBadge
+                    )
                 }
             }
         }
@@ -194,7 +187,7 @@ fun MoviePosterCard(
 
 /**
  * Cinematic Hero Featured Movie Banner used at the top of the Discover screen.
- * Displays backdrop image, title, rating, release year, and overview snippet.
+ * Displays backdrop image, title, rating badge, release year, and overview snippet.
  */
 @Composable
 fun HeroFeaturedMovieCard(
@@ -203,6 +196,7 @@ fun HeroFeaturedMovieCard(
     modifier: Modifier = Modifier
 ) {
     val heroImageUrl = movie.backdropUrl ?: movie.posterUrl
+    val accessibleDescription = "Featured spotlight movie: ${movie.title}, release year ${movie.releaseYear}${if (movie.voteAverage > 0) ", rated ${movie.formattedRating}" else ""}"
 
     Box(
         modifier = modifier
@@ -211,7 +205,14 @@ fun HeroFeaturedMovieCard(
             .clip(RoundedCornerShape(16.dp))
             .background(ObsidianSurface)
             .border(1.dp, ObsidianCardBorder, RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
+            .semantics {
+                role = Role.Button
+                contentDescription = accessibleDescription
+            }
+            .clickable(
+                role = Role.Button,
+                onClick = onClick
+            )
     ) {
         if (!heroImageUrl.isNullOrBlank()) {
             SubcomposeAsyncImage(
@@ -305,24 +306,10 @@ fun HeroFeaturedMovieCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 if (movie.voteAverage > 0.0) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(3.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Star,
-                            contentDescription = null,
-                            tint = RatingGold,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Text(
-                            text = movie.formattedRating,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = ContentHighEmphasis
-                            )
-                        )
-                    }
+                    MovieRatingBadge(
+                        rating = movie.voteAverage,
+                        style = RatingBadgeStyle.Inline
+                    )
                     Text(
                         text = "•",
                         color = ContentMediumEmphasis,
@@ -357,22 +344,32 @@ fun HeroFeaturedMovieCard(
 }
 
 /**
- * Horizontal movie card designed for lists, search results, and library views.
- * Ready for reuse by Saanvi in Search Screen implementation.
+ * Horizontal movie card designed for lists, search results, recommendations, and library views.
+ * Ready for reuse across all MADVerse features with optional trailing action slot.
  */
 @Composable
 fun MovieHorizontalCard(
     movie: Movie,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    trailingContent: (@Composable () -> Unit)? = null
 ) {
+    val accessibleDescription = "${movie.title}, ${movie.releaseYear}${if (movie.voteAverage > 0) ", rated ${movie.formattedRating} out of 10" else ""}"
+
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(ObsidianSurface)
             .border(1.dp, ObsidianCardBorder, RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
+            .semantics {
+                role = Role.Button
+                contentDescription = accessibleDescription
+            }
+            .clickable(
+                role = Role.Button,
+                onClick = onClick
+            )
             .padding(10.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -421,24 +418,10 @@ fun MovieHorizontalCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 if (movie.voteAverage > 0.0) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Star,
-                            contentDescription = null,
-                            tint = RatingGold,
-                            modifier = Modifier.size(13.dp)
-                        )
-                        Text(
-                            text = movie.formattedRating,
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = ContentHighEmphasis
-                            )
-                        )
-                    }
+                    MovieRatingBadge(
+                        rating = movie.voteAverage,
+                        style = RatingBadgeStyle.Inline
+                    )
                 }
 
                 Text(
@@ -462,11 +445,16 @@ fun MovieHorizontalCard(
                 )
             }
         }
+
+        // Optional trailing action slot (e.g. favorite/watchlist toggle or delete button)
+        if (trailingContent != null) {
+            trailingContent()
+        }
     }
 }
 
 /**
- * Reusable Section Header for movie category carousels.
+ * Reusable Section Header for movie category carousels with accessible "See All" touch target.
  */
 @Composable
 fun SectionHeader(
@@ -503,17 +491,26 @@ fun SectionHeader(
         }
 
         if (onSeeAllClick != null) {
-            Text(
-                text = "See All",
-                style = MaterialTheme.typography.labelMedium.copy(
-                    color = CinematicAmber,
-                    fontWeight = FontWeight.SemiBold
-                ),
+            Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(4.dp))
-                    .clickable(onClick = onSeeAllClick)
-                    .padding(horizontal = 6.dp, vertical = 4.dp)
-            )
+                    .minimumInteractiveComponentSize()
+                    .clip(RoundedCornerShape(6.dp))
+                    .clickable(
+                        role = Role.Button,
+                        onClickLabel = "See all $title",
+                        onClick = onSeeAllClick
+                    )
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "See All",
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        color = CinematicAmber,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                )
+            }
         }
     }
 }
@@ -593,7 +590,7 @@ fun HeroFeaturedMovieSkeleton(
 }
 
 /**
- * Skeleton loading card matching [MovieHorizontalCard] dimensions for search lists.
+ * Skeleton loading card matching [MovieHorizontalCard] dimensions for search and library lists.
  */
 @Composable
 fun MovieHorizontalSkeleton(
@@ -656,7 +653,26 @@ fun MovieHorizontalSkeleton(
 }
 
 /**
- * In-line error message with retry button for an individual discovery section.
+ * Loading skeleton placeholder for genre chips.
+ */
+@Composable
+fun GenreChipSkeleton(
+    modifier: Modifier = Modifier,
+    width: Dp = 80.dp,
+    height: Dp = 32.dp
+) {
+    Box(
+        modifier = modifier
+            .width(width)
+            .height(height)
+            .clip(RoundedCornerShape(12.dp))
+            .background(ObsidianSurfaceVariant)
+            .border(1.dp, ObsidianCardBorder.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+    )
+}
+
+/**
+ * In-line error message with retry button for an individual discovery or screen section.
  */
 @Composable
 fun SectionErrorCard(
@@ -706,7 +722,7 @@ fun SectionErrorCard(
                     contentColor = ContentHighEmphasis
                 ),
                 shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.height(34.dp)
+                modifier = Modifier.height(36.dp)
             ) {
                 Icon(
                     imageVector = Icons.Filled.Refresh,
@@ -721,7 +737,7 @@ fun SectionErrorCard(
 }
 
 /**
- * In-line empty state for a discovery section when no movies match.
+ * In-line empty state for a discovery or list section when no movies match.
  */
 @Composable
 fun SectionEmptyCard(

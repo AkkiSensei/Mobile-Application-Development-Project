@@ -49,6 +49,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.madverse.core.common.ui.UiState
+import com.example.madverse.core.designsystem.components.GenreChip
+import com.example.madverse.core.designsystem.components.MADVerseEmptyState
 import com.example.madverse.core.designsystem.components.MovieHorizontalCard
 import com.example.madverse.core.designsystem.components.MovieHorizontalSkeleton
 import com.example.madverse.core.designsystem.components.SectionErrorCard
@@ -303,23 +305,11 @@ private fun SearchIdleContent(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             suggestions.forEach { title ->
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(ObsidianSurface)
-                        .border(1.dp, ObsidianCardBorder, RoundedCornerShape(8.dp))
-                        .clickable { onSelectSuggestion(title) }
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
-                ) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = ContentMediumEmphasis,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 12.sp
-                        )
-                    )
-                }
+                GenreChip(
+                    name = title,
+                    textColor = ContentMediumEmphasis,
+                    onClick = { onSelectSuggestion(title) }
+                )
             }
         }
     }
@@ -353,63 +343,13 @@ private fun SearchEmptyContent(
     query: String,
     modifier: Modifier = Modifier
 ) {
-    Box(
+    MADVerseEmptyState(
+        icon = Icons.Outlined.SearchOff,
+        title = "No Results Found",
+        message = if (query.isNotBlank()) "We couldn't find any movies matching \"$query\". Check for spelling errors or try a different title." else message,
+        iconTint = ContentMediumEmphasis,
         modifier = modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(64.dp)
-                    .clip(CircleShape)
-                    .background(ObsidianSurfaceVariant),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.SearchOff,
-                    contentDescription = null,
-                    tint = ContentMediumEmphasis,
-                    modifier = Modifier.size(32.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "No Results Found",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = ContentHighEmphasis
-                )
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Text(
-                text = if (query.isNotBlank()) "We couldn't find any movies matching \"$query\"." else message,
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = ContentMediumEmphasis,
-                    textAlign = TextAlign.Center
-                )
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "Check for spelling errors or try a different title.",
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = ContentLowEmphasis,
-                    textAlign = TextAlign.Center,
-                    fontSize = 12.sp
-                )
-            )
-        }
-    }
+    )
 }
 
 /**

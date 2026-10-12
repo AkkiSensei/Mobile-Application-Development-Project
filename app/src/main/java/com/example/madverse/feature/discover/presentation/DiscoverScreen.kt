@@ -38,6 +38,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.madverse.core.common.ui.UiState
 import com.example.madverse.core.designsystem.components.HeroFeaturedMovieCard
 import com.example.madverse.core.designsystem.components.HeroFeaturedMovieSkeleton
+import com.example.madverse.core.designsystem.components.MADVerseErrorView
 import com.example.madverse.core.designsystem.components.MoviePosterCard
 import com.example.madverse.core.designsystem.components.MoviePosterSkeleton
 import com.example.madverse.core.designsystem.components.SectionEmptyCard
@@ -80,8 +81,11 @@ fun DiscoverScreen(
             .background(ObsidianBackground)
     ) {
         if (uiState.isFullError) {
-            FullFeedErrorView(
-                onRetryAll = { viewModel.loadAllSections() }
+            MADVerseErrorView(
+                title = "Unable to Load Movies",
+                message = "Could not fetch trending and discovery feeds. Please check your internet connection or TMDB API configuration.",
+                retryLabel = "Retry Discovery Feed",
+                onRetry = { viewModel.loadAllSections() }
             )
         } else {
             DiscoverContent(
@@ -281,81 +285,6 @@ private fun MovieCarouselLoadingSkeleton(
     ) {
         items(count = 5) {
             MoviePosterSkeleton()
-        }
-    }
-}
-
-/**
- * Full-screen error view when all three discovery sections fail.
- */
-@Composable
-private fun FullFeedErrorView(
-    onRetryAll: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(72.dp)
-                    .clip(RoundedCornerShape(36.dp))
-                    .background(ObsidianSurfaceVariant),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.WifiOff,
-                    contentDescription = null,
-                    tint = ErrorRed,
-                    modifier = Modifier.size(36.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "Unable to Load Movies",
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = ContentHighEmphasis
-                )
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "Could not fetch trending and discovery feeds. Please check your internet connection or TMDB API configuration.",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = ContentMediumEmphasis
-                ),
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            Button(
-                onClick = onRetryAll,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = CinematicCrimson,
-                    contentColor = ContentHighEmphasis
-                ),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Refresh,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Retry Discovery Feed", fontSize = 14.sp)
-            }
         }
     }
 }

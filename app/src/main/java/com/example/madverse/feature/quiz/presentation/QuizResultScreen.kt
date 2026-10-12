@@ -51,6 +51,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import com.example.madverse.core.common.ui.UiState
+import com.example.madverse.core.designsystem.components.GenreChip
+import com.example.madverse.core.designsystem.components.MADVerseEmptyState
+import com.example.madverse.core.designsystem.components.MADVerseErrorView
+import com.example.madverse.core.designsystem.components.MovieRatingBadge
+import com.example.madverse.core.designsystem.components.RatingBadgeStyle
 import com.example.madverse.core.designsystem.theme.CinematicAmber
 import com.example.madverse.core.designsystem.theme.CinematicCrimson
 import com.example.madverse.core.designsystem.theme.ContentHighEmphasis
@@ -102,62 +107,21 @@ fun QuizResultScreen(
                 }
             }
             is UiState.Error -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(24.dp),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "Failed to Load Recommendations",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = ErrorRed
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = state.message,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = ContentMediumEmphasis
-                    )
-                    Spacer(modifier = Modifier.height(20.dp))
-                    Button(
-                        onClick = { viewModel.loadRecommendations() },
-                        colors = ButtonDefaults.buttonColors(containerColor = CinematicCrimson)
-                    ) {
-                        Icon(imageVector = Icons.Default.Refresh, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = "Try Again")
-                    }
-                }
+                MADVerseErrorView(
+                    title = "Failed to Load Recommendations",
+                    message = state.message,
+                    retryLabel = "Try Again",
+                    onRetry = { viewModel.loadRecommendations() }
+                )
             }
             is UiState.Empty -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(24.dp),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "No Matches Found",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = ContentHighEmphasis
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = state.message,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = ContentMediumEmphasis
-                    )
-                    Spacer(modifier = Modifier.height(20.dp))
-                    Button(
-                        onClick = onRetakeQuiz,
-                        colors = ButtonDefaults.buttonColors(containerColor = CinematicCrimson)
-                    ) {
-                        Text(text = "Adjust Taste Quiz")
-                    }
-                }
+                MADVerseEmptyState(
+                    icon = Icons.Default.Movie,
+                    title = "No Matches Found",
+                    message = state.message,
+                    actionLabel = "Adjust Taste Quiz",
+                    onActionClick = onRetakeQuiz
+                )
             }
             is UiState.Success -> {
                 LazyColumn(
@@ -336,22 +300,10 @@ private fun RecommendedMovieCard(
                     }
 
                     // Rating
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(3.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Star,
-                            contentDescription = null,
-                            tint = CinematicAmber,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Text(
-                            text = String.format("%.1f", movie.voteAverage),
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                            color = ContentHighEmphasis
-                        )
-                    }
+                    MovieRatingBadge(
+                        rating = movie.voteAverage,
+                        style = RatingBadgeStyle.Inline
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(6.dp))
@@ -382,20 +334,13 @@ private fun RecommendedMovieCard(
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         recommendation.matchReasons.take(3).forEach { reason ->
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(Color.White.copy(alpha = 0.06f))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            ) {
-                                Text(
-                                    text = reason,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = ContentMediumEmphasis,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
+                            GenreChip(
+                                name = reason,
+                                textColor = ContentMediumEmphasis,
+                                backgroundColor = Color.White.copy(alpha = 0.06f),
+                                borderColor = Color.Transparent,
+                                cornerRadius = 6.dp
+                            )
                         }
                     }
                 }

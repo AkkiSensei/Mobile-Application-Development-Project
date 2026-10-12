@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.madverse.core.common.ui.UiState
+import com.example.madverse.core.designsystem.components.MADVerseEmptyState
 import com.example.madverse.core.designsystem.components.MovieHorizontalCard
 import com.example.madverse.core.designsystem.components.MovieHorizontalSkeleton
 import com.example.madverse.core.designsystem.components.SectionErrorCard
@@ -283,74 +284,11 @@ private fun WatchlistHeader(
 fun WatchlistEmptyState(
     modifier: Modifier = Modifier
 ) {
-    Column(
+    MADVerseEmptyState(
+        icon = Icons.Filled.BookmarkBorder,
+        title = "Your Watchlist is Empty",
+        message = "Save movies you intend to watch later. Watchlist items are preserved locally on this device for instant offline access.",
+        iconTint = CinematicAmber,
         modifier = modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .size(88.dp)
-                .clip(CircleShape)
-                .background(ObsidianSurfaceVariant)
-                .border(1.dp, ObsidianCardBorder, CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Filled.BookmarkBorder,
-                contentDescription = null,
-                tint = CinematicAmber,
-                modifier = Modifier.size(44.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        Text(
-            text = "Your Watchlist is Empty",
-            style = MaterialTheme.typography.titleLarge.copy(
-                fontWeight = FontWeight.Bold,
-                color = ContentHighEmphasis
-            ),
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = "Save movies you intend to watch later. Watchlist items are preserved locally on this device.",
-            style = MaterialTheme.typography.bodyMedium.copy(
-                color = ContentMediumEmphasis
-            ),
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier
-                .clip(RoundedCornerShape(16.dp))
-                .background(ObsidianSurface)
-                .border(1.dp, ObsidianCardBorder, RoundedCornerShape(16.dp))
-                .padding(horizontal = 12.dp, vertical = 6.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Filled.OfflinePin,
-                contentDescription = null,
-                tint = CinematicAmber,
-                modifier = Modifier.size(16.dp)
-            )
-            Text(
-                text = "Offline Storage Active",
-                style = MaterialTheme.typography.labelSmall.copy(
-                    color = CinematicAmber,
-                    fontWeight = FontWeight.SemiBold
-                )
-            )
-        }
-    }
+    )
 }

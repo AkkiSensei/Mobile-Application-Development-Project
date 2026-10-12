@@ -70,6 +70,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import com.example.madverse.core.common.ui.UiState
+import com.example.madverse.core.designsystem.components.GenreChipFlowRow
+import com.example.madverse.core.designsystem.components.MovieRatingBadge
+import com.example.madverse.core.designsystem.components.RatingBadgeStyle
 import com.example.madverse.core.designsystem.components.SectionErrorCard
 import com.example.madverse.core.designsystem.components.TmdbAttributionFooter
 import com.example.madverse.core.designsystem.theme.CinematicAmber
@@ -333,24 +336,10 @@ private fun MovieDetailsContent(
                         modifier = Modifier.padding(bottom = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Star,
-                                contentDescription = null,
-                                tint = RatingGold,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Text(
-                                text = "${movie.formattedRating} / 10",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = ContentHighEmphasis
-                                )
-                            )
-                        }
+                        MovieRatingBadge(
+                            rating = movie.voteAverage,
+                            style = RatingBadgeStyle.Prominent
+                        )
 
                         if (movie.voteCount > 0) {
                             Text(
@@ -475,7 +464,10 @@ private fun MovieDetailsContent(
         // -----------------------------------------------------------------
         if (movie.genres.isNotEmpty()) {
             item(key = "details_genres") {
-                OptInFlowRowGenres(genres = movie.genres.map { it.name })
+                GenreChipFlowRow(
+                    genres = movie.genres.map { it.name },
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
             }
         }
 
@@ -578,36 +570,6 @@ private fun MetaBadge(text: String) {
                 fontSize = 11.sp
             )
         )
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun OptInFlowRowGenres(genres: List<String>) {
-    FlowRow(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        genres.forEach { genreName ->
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(ObsidianSurface)
-                    .border(1.dp, ObsidianCardBorder, RoundedCornerShape(16.dp))
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
-            ) {
-                Text(
-                    text = genreName,
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        color = ContentHighEmphasis,
-                        fontWeight = FontWeight.Medium
-                    )
-                )
-            }
-        }
     }
 }
 
