@@ -869,10 +869,11 @@ Each `ScoredMovieRecommendation` exposes:
 ### 21.2 Centralized Regional Streaming Configuration
 - Central configuration: `RegionConfig` (`com.example.madverse.core.common.config.RegionConfig`).
   - `DEFAULT_COUNTRY_CODE = "IN"` (India as initial default target region).
-  - `FALLBACK_COUNTRY_CODE = "US"` (graceful fallback if regional data is unavailable).
+  - `FALLBACK_COUNTRY_CODE = "US"` remains a configuration constant; provider mapping does not silently substitute another country's availability.
 - `MovieRepository.getMovieWatchProviders(movieId, countryCode = RegionConfig.DEFAULT_COUNTRY_CODE)`.
 - `WatchProvidersResponseDto.toDomain(movieId, countryCode = RegionConfig.DEFAULT_COUNTRY_CODE)`.
 - `MovieDetailsViewModel` defaults to `RegionConfig.DEFAULT_COUNTRY_CODE`, cleanly extensible for future user-selected region pickers.
+- Missing availability for the selected country produces an empty state. Region changes cancel the previous provider request and clear stale destinations.
 
 ### 21.3 TMDB Attribution Compliance
 - Implemented reusable `TmdbAttributionFooter` (`com.example.madverse.core.designsystem.components.TmdbAttributionFooter`).
