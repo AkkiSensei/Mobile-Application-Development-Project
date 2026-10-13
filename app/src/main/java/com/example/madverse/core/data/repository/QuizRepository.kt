@@ -8,6 +8,8 @@ import kotlinx.coroutines.flow.Flow
  * Repository contract for managing user taste quiz questions and persisted preference profiles.
  */
 interface QuizRepository {
+    /** Whether a profile was actually persisted, including a profile using all default answers. */
+    fun hasSavedProfile(): Flow<Boolean> = kotlinx.coroutines.flow.flowOf(false)
     fun getUserPreferenceProfile(): Flow<UserPreferenceProfile>
     suspend fun getUserPreferenceProfileOnce(): UserPreferenceProfile
     suspend fun saveUserPreferenceProfile(profile: UserPreferenceProfile)

@@ -42,6 +42,15 @@ class QuizRepositoryTest {
     }
 
     @Test
+    fun savedProfilePresenceDistinguishesDefaultsFromNoQuiz() = runTest {
+        assertFalse(repository.hasSavedProfile().first())
+        repository.saveUserPreferenceProfile(UserPreferenceProfile())
+        assertTrue(repository.hasSavedProfile().first())
+        repository.clearUserPreferenceProfile()
+        assertFalse(repository.hasSavedProfile().first())
+    }
+
+    @Test
     fun getUserPreferenceProfile_emptyByDefault_emitsDefaultProfile() = runTest {
         val profile = repository.getUserPreferenceProfile().first()
         assertTrue(profile.selectedGenreIds.isEmpty())

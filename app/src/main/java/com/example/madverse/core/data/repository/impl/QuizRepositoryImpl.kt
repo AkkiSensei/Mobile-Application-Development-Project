@@ -30,6 +30,9 @@ class QuizRepositoryImpl @Inject constructor(
     private val userPreferenceDao: UserPreferenceDao
 ) : QuizRepository {
 
+    override fun hasSavedProfile(): Flow<Boolean> =
+        userPreferenceDao.getUserPreferenceProfile().map { it != null }
+
     // -------------------------------------------------------------------------
     // Preference Profile Persistence
     // -------------------------------------------------------------------------
