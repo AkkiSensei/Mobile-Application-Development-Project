@@ -16,6 +16,9 @@ import com.example.madverse.feature.player.presentation.YouTubePlayerScreen
 import com.example.madverse.feature.quiz.presentation.QuizResultScreen
 import com.example.madverse.feature.quiz.presentation.QuizScreen
 import com.example.madverse.feature.search.presentation.SearchScreen
+import com.example.madverse.feature.genres.presentation.GenreExplorerScreen
+import com.example.madverse.feature.recommendations.presentation.RecommendationsScreen
+import com.example.madverse.feature.comparison.presentation.ComparisonScreen
 
 @Composable
 fun MADVerseNavHost(
@@ -46,7 +49,8 @@ fun MADVerseNavHost(
         composable(route = Screen.Quiz.route) {
             QuizScreen(
                 onQuizCompleted = {
-                    navController.navigate(Screen.QuizResult.route) {
+                    navController.navigate(Screen.Recommendations.route) {
+                        popUpTo(Screen.Quiz.route) { inclusive = true }
                         launchSingleTop = true
                     }
                 }
@@ -71,6 +75,20 @@ fun MADVerseNavHost(
                     }
                 }
             )
+        }
+
+        composable(Screen.Genres.route) {
+            GenreExplorerScreen(onMovieClick = { navController.navigate(Screen.MovieDetails.createRoute(it)) })
+        }
+        composable(Screen.Recommendations.route) {
+            RecommendationsScreen(
+                onMovieClick = { navController.navigate(Screen.MovieDetails.createRoute(it)) },
+                onQuiz = { navController.navigate(Screen.Quiz.route) { launchSingleTop = true } },
+                onCompare = { navController.navigate(Screen.Comparison.createRoute(it)) }
+            )
+        }
+        composable(Screen.Comparison.route, arguments = listOf(navArgument(Screen.ARG_MOVIE_ID) { type = NavType.IntType; defaultValue = 0 })) {
+            ComparisonScreen(onMovieClick = { navController.navigate(Screen.MovieDetails.createRoute(it)) })
         }
 
         composable(route = Screen.Library.route) {

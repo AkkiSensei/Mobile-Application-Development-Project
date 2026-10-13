@@ -5,6 +5,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -26,6 +37,9 @@ fun MADVerseAppShell() {
         currentRoute == Screen.Search.route -> "Search Movies"
         currentRoute == Screen.Quiz.route -> "Movie Taste Quiz"
         currentRoute == Screen.QuizResult.route -> "Curated For You"
+        currentRoute == Screen.Recommendations.route -> "Recommendations"
+        currentRoute == Screen.Genres.route -> "Genre Explorer"
+        currentRoute == Screen.Comparison.route -> "Movie Comparison"
         currentRoute == Screen.Library.route -> "My Library"
         currentRoute == Screen.Favorites.route -> "Favorite Movies"
         currentRoute == Screen.Watchlist.route -> "My Watchlist"
@@ -40,7 +54,22 @@ fun MADVerseAppShell() {
             MADVerseTopBar(
                 title = topBarTitle,
                 canNavigateBack = !isBottomBarVisible,
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                actions = {
+                    var expanded by remember { mutableStateOf(false) }
+                    Box {
+                        IconButton(onClick = { expanded = true }) { Icon(Icons.Default.MoreVert, contentDescription = "Explore features") }
+                        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                            listOf("Genre Explorer" to Screen.Genres.route, "Recommendations" to Screen.Recommendations.route,
+                                "Compare movies" to Screen.Comparison.createRoute()).forEach { (label, route) ->
+                                DropdownMenuItem(text = { Text(label) }, onClick = {
+                                    expanded = false
+                                    navController.navigate(route) { launchSingleTop = true }
+                                })
+                            }
+                        }
+                    }
+                }
             )
         },
         bottomBar = {

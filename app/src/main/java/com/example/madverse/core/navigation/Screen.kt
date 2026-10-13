@@ -20,7 +20,11 @@ sealed class Screen(val route: String) {
     }
 
     data object QuizResult : Screen("quiz_result")
-    data object Recommendations : Screen("quiz_result")
+    data object Recommendations : Screen("recommendations")
+    data object Genres : Screen("genres")
+    data object Comparison : Screen("comparison?movieId={movieId}") {
+        fun createRoute(movieId: Int = 0): String = "comparison?movieId=$movieId"
+    }
     data object SeeAll : Screen("see_all/{$ARG_CATEGORY_TYPE}") {
         fun createRoute(categoryType: String): String = "see_all/$categoryType"
     }
