@@ -23,6 +23,11 @@ import javax.inject.Singleton
 abstract class DomainModule {
 
     @Binds
+    abstract fun bindRecommendationInsightProvider(
+        impl: com.example.madverse.core.domain.recommendation.LocalRecommendationInsightProvider
+    ): com.example.madverse.core.domain.recommendation.RecommendationInsightProvider
+
+    @Binds
     @Singleton
     abstract fun bindRecommendationEngine(
         impl: DeterministicRecommendationEngine
