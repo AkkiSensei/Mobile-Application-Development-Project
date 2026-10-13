@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import java.io.IOException
 import javax.inject.Inject
 
@@ -39,6 +41,7 @@ class MovieDetailsViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(MovieDetailsUiState())
     val uiState: StateFlow<MovieDetailsUiState> = _uiState.asStateFlow()
+    private var providersJob: Job? = null
 
     var currentMovieId: Int = 0
         private set
@@ -202,11 +205,16 @@ class MovieDetailsViewModel @Inject constructor(
         movieId: Int,
         countryCode: String = _uiState.value.selectedCountryCode
     ) {
-        viewModelScope.launch {
+        providersJob?.cancel()
+        providersJob = viewModelScope.launch {
             _uiState.update { current ->
                 current.copy(
                     selectedCountryCode = countryCode,
-                    watchProvidersState = UiState.Loading
+                    watchProvidersState = UiState.Loading,
+                    flatrateProviders = emptyList(),
+                    rentProviders = emptyList(),
+                    buyProviders = emptyList(),
+                    tmdbWatchPageUrl = null
                 )
             }
             try {
@@ -257,6 +265,8 @@ class MovieDetailsViewModel @Inject constructor(
                         }
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.update { current ->
                     current.copy(

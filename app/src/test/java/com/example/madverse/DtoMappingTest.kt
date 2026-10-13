@@ -253,7 +253,7 @@ class DtoMappingTest {
     }
 
     @Test
-    fun watchProvidersDto_missingCountry_fallsBackToUs() {
+    fun watchProvidersDto_missingCountry_doesNotMislabelOtherRegions() {
         val provider = ProviderItemDto(8, "Netflix", "/logo.png", 1)
         val responseDto = WatchProvidersResponseDto(
             id = 1,
@@ -262,11 +262,11 @@ class DtoMappingTest {
             )
         )
 
-        // Requesting IN (India) with no IN data → should fall back to US
+        // US availability must not be presented as available in India.
         val domain = responseDto.toDomain(movieId = 1, countryCode = "IN")
 
-        assertTrue(domain.hasAnyProviders)
-        assertEquals("Netflix", domain.flatrate[0].providerName)
+        assertFalse(domain.hasAnyProviders)
+        assertNull(domain.tmdbWatchPageUrl)
     }
 
     @Test

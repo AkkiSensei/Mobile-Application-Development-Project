@@ -12,11 +12,8 @@ data class WatchProvidersResponseDto(
     @SerializedName("results") val results: Map<String, CountryWatchProvidersDto>?
 ) {
     fun toDomain(movieId: Int, countryCode: String = RegionConfig.DEFAULT_COUNTRY_CODE): MovieWatchProviders {
-        // Fall back to US if requested country not present, or first available country
+        // Availability is regional: never label another country's catalog as this region's.
         val countryData = results?.get(countryCode)
-            ?: results?.get(RegionConfig.DEFAULT_COUNTRY_CODE)
-            ?: results?.get(RegionConfig.FALLBACK_COUNTRY_CODE)
-            ?: results?.values?.firstOrNull()
 
         fun mapProviders(items: List<ProviderItemDto>?, type: ProviderType): List<WatchProvider> {
             return items?.map { item ->

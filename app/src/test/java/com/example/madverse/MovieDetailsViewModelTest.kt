@@ -26,6 +26,7 @@ import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -416,7 +417,20 @@ class MovieDetailsViewModelTest {
         assertFalse(state.hasAnyWatchProviders)
     }
 
+    @Test
+    fun changingRegionCancelsSlowerPreviousResponse() = runTest(testDispatcher) {
+        fakeMovieRepository.providerDelays = mapOf("IN" to 1000L, "US" to 10L)
+        val viewModel = MovieDetailsViewModel(fakeMovieRepository, fakeFavoritesRepository, fakeWatchlistRepository, SavedStateHandle())
+        viewModel.loadMovieDetails(1)
+        runCurrent()
+        viewModel.setRegion("US")
+        advanceUntilIdle()
+        assertEquals("US", viewModel.uiState.value.selectedCountryCode)
+        assertEquals("https://example.com/US", viewModel.uiState.value.tmdbWatchPageUrl)
+    }
+
     private class FakeMovieRepository : MovieRepository {
+        var providerDelays: Map<String, Long> = emptyMap()
         var detailsResult: Resource<MovieDetails> = Resource.Loading
         var castResult: Resource<List<CastMember>> = Resource.Success(emptyList())
         var videosResult: Resource<List<VideoTrailer>> = Resource.Success(emptyList())
@@ -439,6 +453,10 @@ class MovieDetailsViewModelTest {
 
         override fun getMovieWatchProviders(movieId: Int, countryCode: String): Flow<Resource<MovieWatchProviders>> {
             requestedCountryCodes.add(countryCode)
+            if (providerDelays.isNotEmpty()) return kotlinx.coroutines.flow.flow {
+                kotlinx.coroutines.delay(providerDelays[countryCode] ?: 0L)
+                emit(Resource.Success(MovieWatchProviders(movieId, "https://example.com/$countryCode", emptyList(), emptyList(), emptyList())))
+            }
             return flowOf(providersResult)
         }
 
