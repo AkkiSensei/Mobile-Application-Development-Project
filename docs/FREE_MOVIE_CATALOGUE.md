@@ -1,0 +1,14 @@
+# Curated Free Movies evidence
+
+Verification date: **2026-10-14**. Rights/source verification is distinct from device playback acceptance. No media was downloaded, rehosted or played during this execution. YouTube can change availability and embedding permissions. India availability remains **PENDING** for every entry.
+
+| Entry / YouTube ID | Format / publisher | Source and rights evidence | Technical evidence |
+|---|---|---|---|
+| Star Wreck: In the Pirkinning / `RHAPXlVq5lk` | Feature, 6195 seconds (about 103 minutes); Energia Productions, @emperorpirk | [Production upload and description](https://www.youtube.com/watch?v=RHAPXlVq5lk) identifies the full feature and declares [CC BY-NC-ND 1.0 Finland](https://creativecommons.org/licenses/by-nd-nc/1.0/fi/deed.en). Credit Energia Productions; Timo Vuorensola / Samuli Torssonen. | YouTube oEmbed identified energiaproductions; public player metadata reported OK and playableInEmbed=true. This is metadata, not an Android playback test. |
+| Big Buck Bunny / `aqz-KE-bpKQ` | Complete short; Blender, @BlenderOfficial | [Official project with matching YouTube link](https://studio.blender.org/projects/big-buck-bunny/), [CC BY 3.0 statement](https://peach.blender.org/about/). Credit © 2008 Blender Foundation / www.bigbuckbunny.org. | YouTube oEmbed returned matching title, publisher and embed markup. |
+| Sintel / `eRsGyueVLvQ` | Complete short; Blender, @BlenderOfficial | [Official project](https://studio.blender.org/projects/sintel/), [CC BY 3.0 statement](https://durian.blender.org/sharing/). Credit © Blender Foundation / durian.blender.org. | Matching YouTube oEmbed title/publisher and embed markup. |
+| Tears of Steel / `R6MlUcmOul8` | Complete short; Blender, @BlenderOfficial | [Official project](https://studio.blender.org/projects/tears-of-steel/), [CC BY 3.0 statement](https://mango.blender.org/sharing/). Credit © Blender Foundation / mango.blender.org. | Matching YouTube oEmbed title/publisher and embed markup. |
+
+The Star Wreck entry is for this noncommercial academic presentation: retain attribution, do not modify the film, and review permission before commercial distribution. A publisher license is not a guarantee of regional access or future embedding availability. The Blender license pages state no India exclusion; actual regional access must still be tested. No inference of rights is made from a title containing “full movie,” a TMDB result, or a caller-controlled Boolean.
+
+`FreeMovieRepository` owns immutable typed records and validates duplicate catalogue/video IDs, video ID syntax and required evidence. Routes carry a stable catalogue ID, which is resolved inside the player ViewModel. The UI displays format, publisher, attribution, verification date and region caveats, with source/rights/license links. Keep these records under review; remove or disable an entry if its evidence or availability changes.
