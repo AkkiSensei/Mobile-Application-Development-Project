@@ -165,7 +165,7 @@ class DeterministicRecommendationEngine @Inject constructor() : RecommendationEn
         val score = (normalised * QUALITY_MAX_PTS).roundToInt()
 
         if (movie.voteAverage >= 8.0) {
-            reasons += "Critically acclaimed (${movie.formattedRating}★)"
+            reasons += "Highly rated by TMDB audiences (${movie.formattedRating}★)"
         } else if (movie.voteAverage >= 7.0) {
             reasons += "Well-rated (${movie.formattedRating}★)"
         }

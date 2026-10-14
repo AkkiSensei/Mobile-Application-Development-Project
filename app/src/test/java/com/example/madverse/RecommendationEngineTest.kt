@@ -246,7 +246,7 @@ class RecommendationEngineTest {
 
         val results = engine.scoreAndRank(subThresholdProfile, listOf(lowMovie))
         assertTrue(results.isNotEmpty())
-        assertFalse(results.first().matchReasons.any { it.contains("acclaimed", ignoreCase = true) || it.contains("Well-rated", ignoreCase = true) })
+        assertFalse(results.first().matchReasons.any { it.contains("Highly rated", ignoreCase = true) || it.contains("Well-rated", ignoreCase = true) })
     }
 
     @Test
@@ -384,7 +384,7 @@ class RecommendationEngineTest {
         assertTrue(reasons.any { it.contains("preferred genre", ignoreCase = true) })
         assertTrue(reasons.any { it.contains("Adrenaline", ignoreCase = true) })
         assertTrue(reasons.any { it.contains("contemporary", ignoreCase = true) })
-        assertTrue(reasons.any { it.contains("Critically acclaimed", ignoreCase = true) })
+        assertTrue(reasons.any { it.contains("Highly rated by TMDB audiences", ignoreCase = true) })
         assertTrue(reasons.any { it.contains("preferred language", ignoreCase = true) })
     }
 

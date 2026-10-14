@@ -178,7 +178,7 @@ private fun DiscoverContent(
         item(key = "section_top_rated") {
             SectionHeader(
                 title = "Top Rated Masterworks",
-                subtitle = "Critically acclaimed films with highest community scores"
+                subtitle = "Films with the highest community scores"
             )
             Spacer(modifier = Modifier.height(10.dp))
 
