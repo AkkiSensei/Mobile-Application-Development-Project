@@ -1,5 +1,11 @@
 # MADVerse — Technical Architecture Blueprint
 
+## Current implementation note — 2026-10-14
+
+The foundation blueprint below contains historical plans. The current implementation uses a local deterministic recommendation engine, with weights genre 30, mood 20, era 15, audience quality 15, language 10 and runtime 10. No active Gemini/LLM recommendation service exists. Current connected screens include Genres, Recommendations, Comparison and Free Movies alongside Discover, Search, Details, Quiz and Library.
+
+FreeMovieRepository owns source-reviewed film records independently of TMDB. A stable catalogue ID is resolved inside the player ViewModel; route flags/titles do not grant complete-film permission. Promotional source mappings require valid site, type and video ID. The player uses android-youtube-player 13.0.0 with XML-disabled automatic initialization, explicit cueing, per-attempt callback guards, lifecycle forwarding and idempotent release. Device playback acceptance is still PENDING. See FINAL_INTEGRATION_REPORT.md and REQUIREMENTS_TRACEABILITY.md for current evidence; older blueprint capability descriptions are not acceptance results.
+
 **Version:** 1.1.0-r1-foundation  
 **Date:** October 2026 (R1 Foundation: 11 Oct 2026 — Ritunjay Deo)  
 **Project:** Mobile Application Development (MAD) Project  
