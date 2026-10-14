@@ -114,7 +114,7 @@ fun MovieDetailsScreen(
     movieId: Int,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
-    onNavigateToPlayer: ((videoId: String, title: String) -> Unit)? = null,
+    onNavigateToPlayer: ((videoId: String, title: String, category: com.example.madverse.core.model.VideoCategory) -> Unit)? = null,
     viewModel: MovieDetailsViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -172,13 +172,16 @@ fun MovieDetailsScreen(
                     onToggleWatchlist = { viewModel.toggleWatchlist() },
                     onSelectRegion = { showRegionSelector = true },
                     onOpenVideo = { video ->
-                        if (onNavigateToPlayer != null) {
-                            onNavigateToPlayer(video.key, "${detailsState.data.title} - ${video.name}")
+                        if (!video.isPlayableInApp) {
+                            android.widget.Toast.makeText(context, "This video source is not eligible for in-app playback.", android.widget.Toast.LENGTH_LONG).show()
+                        } else if (onNavigateToPlayer != null) {
+                            onNavigateToPlayer(video.key, "${detailsState.data.title} - ${video.name}", video.category)
                         } else {
                             try {
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(video.youtubeWatchUrl))
                                 context.startActivity(intent)
                             } catch (_: Exception) {
+                                android.widget.Toast.makeText(context, "No app could open this video.", android.widget.Toast.LENGTH_LONG).show()
                             }
                         }
                     }

@@ -25,14 +25,13 @@ data class VideoTrailer(
     val site: String,
     val type: String,
     val isOfficial: Boolean,
+    // Legacy metadata only. Full-film eligibility is resolved exclusively through FreeMovieRepository.
     val isAuthorizedFullLength: Boolean = false
 ) {
     val category: VideoCategory
         get() = when {
-            isAuthorizedFullLength ||
             type.contains("Full Movie", ignoreCase = true) ||
-            type.contains("Feature Film", ignoreCase = true) ||
-            name.contains("Full Movie", ignoreCase = true) -> VideoCategory.FULL_MOVIE
+            type.contains("Feature Film", ignoreCase = true) -> VideoCategory.FULL_MOVIE
             type.equals("Trailer", ignoreCase = true) -> VideoCategory.TRAILER
             type.equals("Teaser", ignoreCase = true) -> VideoCategory.TEASER
             type.equals("Clip", ignoreCase = true) -> VideoCategory.CLIP
@@ -49,17 +48,20 @@ data class VideoTrailer(
 
     /**
      * Determines whether in-app playback is permitted:
-     * - Trailers, teasers, and clips are always permitted.
-     * - Full-length films are permitted only if verified as authorized/public-domain.
+     * Promotional source eligibility only; YouTube decides actual embedding availability.
+     * Complete films must resolve through the curated catalogue, never a metadata Boolean.
      */
     val isPlayableInApp: Boolean
         get() = site.equals("YouTube", ignoreCase = true) &&
-                (!isFullLengthMovie || isAuthorizedFullLength)
+                com.example.madverse.core.domain.streaming.YouTubeUrlSanitizer.isValidVideoId(key) &&
+                category in setOf(VideoCategory.TRAILER, VideoCategory.TEASER, VideoCategory.CLIP,
+                    VideoCategory.FEATURETTE, VideoCategory.BEHIND_THE_SCENES)
 
     val isEmbeddableYouTubeTrailer: Boolean
-        get() = site.equals("YouTube", ignoreCase = true) &&
+        get() = isPlayableInApp &&
                 (type.equals("Trailer", ignoreCase = true) || type.equals("Teaser", ignoreCase = true))
 
     val youtubeWatchUrl: String
-        get() = "https://www.youtube.com/watch?v=$key"
+        get() = if (site.equals("YouTube", ignoreCase = true))
+            com.example.madverse.core.domain.streaming.YouTubeUrlSanitizer.buildWebWatchUrl(key) else ""
 }

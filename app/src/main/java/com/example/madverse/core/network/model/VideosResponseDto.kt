@@ -17,13 +17,16 @@ data class VideoDto(
     @SerializedName("official") val official: Boolean?
 ) {
     fun toDomain(): VideoTrailer? {
-        val videoKey = key ?: return null
+        val videoKey = key?.trim()?.takeIf(String::isNotEmpty) ?: return null
+        val videoSite = site?.trim()?.takeIf(String::isNotEmpty) ?: return null
+        if (videoSite.equals("YouTube", ignoreCase = true) &&
+            !com.example.madverse.core.domain.streaming.YouTubeUrlSanitizer.isValidVideoId(videoKey)) return null
         return VideoTrailer(
             id = id,
             key = videoKey,
-            name = name ?: "Trailer",
-            site = site ?: "YouTube",
-            type = type ?: "Trailer",
+            name = name?.trim()?.takeIf(String::isNotEmpty) ?: "Video",
+            site = videoSite,
+            type = type?.trim()?.takeIf(String::isNotEmpty) ?: "Unknown",
             isOfficial = official ?: false
         )
     }

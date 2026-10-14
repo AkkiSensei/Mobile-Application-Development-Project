@@ -190,7 +190,7 @@ class DtoMappingTest {
     fun videoDto_youtubeTrailer_mapsToEmbeddableDomain() {
         val dto = VideoDto(
             id = "abc123",
-            key = "YtKEY_123",
+            key = "M7lc1UVf-VE",
             name = "Official Trailer",
             site = "YouTube",
             type = "Trailer",
@@ -200,9 +200,9 @@ class DtoMappingTest {
         val domain = dto.toDomain()
 
         assertNotNull(domain)
-        assertEquals("YtKEY_123", domain!!.key)
+        assertEquals("M7lc1UVf-VE", domain!!.key)
         assertTrue(domain.isEmbeddableYouTubeTrailer)
-        assertEquals("https://www.youtube.com/watch?v=YtKEY_123", domain.youtubeWatchUrl)
+        assertEquals("https://www.youtube.com/watch?v=M7lc1UVf-VE", domain.youtubeWatchUrl)
     }
 
     @Test

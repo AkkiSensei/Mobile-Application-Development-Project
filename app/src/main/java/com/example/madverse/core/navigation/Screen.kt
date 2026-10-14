@@ -22,25 +22,31 @@ sealed class Screen(val route: String) {
     data object QuizResult : Screen("quiz_result")
     data object Recommendations : Screen("recommendations")
     data object Genres : Screen("genres")
+    data object FreeMovies : Screen("free_movies")
+    data object FreeMoviePlayer : Screen("free_movie/{$ARG_CATALOGUE_ID}") {
+        fun createRoute(catalogueId: String): String {
+            require(catalogueId.matches(Regex("[a-z0-9-]+")))
+            return "free_movie/$catalogueId"
+        }
+    }
     data object Comparison : Screen("comparison?movieId={movieId}") {
         fun createRoute(movieId: Int = 0): String = "comparison?movieId=$movieId"
     }
-    data object SeeAll : Screen("see_all/{$ARG_CATEGORY_TYPE}") {
-        fun createRoute(categoryType: String): String = "see_all/$categoryType"
-    }
 
-    data object YouTubePlayer : Screen("youtube_player/{$ARG_VIDEO_ID}?$ARG_MOVIE_TITLE={$ARG_MOVIE_TITLE}") {
-        fun createRoute(videoId: String, movieTitle: String = ""): String {
+    data object YouTubePlayer : Screen("youtube_player/{$ARG_VIDEO_ID}?$ARG_MOVIE_TITLE={$ARG_MOVIE_TITLE}&$ARG_VIDEO_TYPE={$ARG_VIDEO_TYPE}") {
+        fun createRoute(videoId: String, movieTitle: String = "", category: com.example.madverse.core.model.VideoCategory = com.example.madverse.core.model.VideoCategory.OTHER): String {
             val sanitizedId = videoId.trim()
-            val encodedTitle = if (movieTitle.isBlank()) "" else java.net.URLEncoder.encode(movieTitle, "UTF-8")
-            return "youtube_player/$sanitizedId?$ARG_MOVIE_TITLE=$encodedTitle"
+            require(com.example.madverse.core.domain.streaming.YouTubeUrlSanitizer.isValidVideoId(sanitizedId))
+            val encodedTitle = java.net.URLEncoder.encode(movieTitle, "UTF-8").replace("+", "%20")
+            return "youtube_player/$sanitizedId?$ARG_MOVIE_TITLE=$encodedTitle&$ARG_VIDEO_TYPE=${category.name}"
         }
     }
 
     companion object {
         const val ARG_MOVIE_ID = "movieId"
-        const val ARG_CATEGORY_TYPE = "categoryType"
         const val ARG_VIDEO_ID = "videoId"
         const val ARG_MOVIE_TITLE = "movieTitle"
+        const val ARG_VIDEO_TYPE = "videoType"
+        const val ARG_CATALOGUE_ID = "catalogueId"
     }
 }

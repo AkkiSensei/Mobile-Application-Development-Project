@@ -13,12 +13,13 @@ import com.example.madverse.feature.library.presentation.FavoritesScreen
 import com.example.madverse.feature.library.presentation.LibraryScreen
 import com.example.madverse.feature.library.presentation.WatchlistScreen
 import com.example.madverse.feature.player.presentation.YouTubePlayerScreen
-import com.example.madverse.feature.quiz.presentation.QuizResultScreen
+
 import com.example.madverse.feature.quiz.presentation.QuizScreen
 import com.example.madverse.feature.search.presentation.SearchScreen
 import com.example.madverse.feature.genres.presentation.GenreExplorerScreen
 import com.example.madverse.feature.recommendations.presentation.RecommendationsScreen
 import com.example.madverse.feature.comparison.presentation.ComparisonScreen
+import com.example.madverse.feature.freemovies.presentation.FreeMoviesScreen
 
 @Composable
 fun MADVerseNavHost(
@@ -57,28 +58,22 @@ fun MADVerseNavHost(
             )
         }
 
+        // Keep the historical route as a compatibility alias to the current recommendation UI.
         composable(route = Screen.QuizResult.route) {
-            QuizResultScreen(
-                onMovieClick = { movieId ->
-                    navController.navigate(Screen.MovieDetails.createRoute(movieId))
-                },
-                onRetakeQuiz = {
-                    navController.navigate(Screen.Quiz.route) {
-                        popUpTo(Screen.Quiz.route) { inclusive = true }
-                        launchSingleTop = true
-                    }
-                },
-                onExploreMore = {
-                    navController.navigate(Screen.Discover.route) {
-                        popUpTo(Screen.Discover.route) { inclusive = false }
-                        launchSingleTop = true
-                    }
-                }
+            RecommendationsScreen(
+                onMovieClick = { navController.navigate(Screen.MovieDetails.createRoute(it)) },
+                onQuiz = { navController.navigate(Screen.Quiz.route) { launchSingleTop = true } },
+                onCompare = { navController.navigate(Screen.Comparison.createRoute(it)) }
             )
         }
-
         composable(Screen.Genres.route) {
             GenreExplorerScreen(onMovieClick = { navController.navigate(Screen.MovieDetails.createRoute(it)) })
+        }
+        composable(Screen.FreeMovies.route) {
+            FreeMoviesScreen(onPlay = { navController.navigate(Screen.FreeMoviePlayer.createRoute(it)) })
+        }
+        composable(Screen.FreeMoviePlayer.route, arguments = listOf(navArgument(Screen.ARG_CATALOGUE_ID) { type = NavType.StringType })) {
+            YouTubePlayerScreen(onNavigateBack = { navController.popBackStack() })
         }
         composable(Screen.Recommendations.route) {
             RecommendationsScreen(
@@ -129,8 +124,8 @@ fun MADVerseNavHost(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
-                onNavigateToPlayer = { videoId, title ->
-                    navController.navigate(Screen.YouTubePlayer.createRoute(videoId, title))
+                onNavigateToPlayer = { videoId, title, category ->
+                    navController.navigate(Screen.YouTubePlayer.createRoute(videoId, title, category))
                 }
             )
         }
@@ -145,14 +140,14 @@ fun MADVerseNavHost(
                     type = NavType.StringType
                     defaultValue = ""
                     nullable = true
+                },
+                navArgument(Screen.ARG_VIDEO_TYPE) {
+                    type = NavType.StringType
+                    defaultValue = "OTHER"
                 }
             )
-        ) { backStackEntry ->
-            val videoId = backStackEntry.arguments?.getString(Screen.ARG_VIDEO_ID).orEmpty()
-            val movieTitle = backStackEntry.arguments?.getString(Screen.ARG_MOVIE_TITLE).orEmpty()
+        ) {
             YouTubePlayerScreen(
-                videoId = videoId,
-                movieTitle = movieTitle,
                 onNavigateBack = {
                     navController.popBackStack()
                 }

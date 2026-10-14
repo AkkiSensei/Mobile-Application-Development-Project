@@ -2,123 +2,83 @@ package com.example.madverse.feature.player.presentation
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import com.example.madverse.core.data.repository.FreeMovieRepository
+import com.example.madverse.core.model.VideoCategory
 import com.example.madverse.core.navigation.Screen
-import com.example.madverse.feature.player.util.YouTubeUrlSanitizer
+import com.example.madverse.core.domain.streaming.YouTubeUrlSanitizer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 
-/**
- * ViewModel managing YouTube player state, argument validation, and security sanitization.
- */
 @HiltViewModel
 class YouTubePlayerViewModel @Inject constructor(
-    savedStateHandle: SavedStateHandle
+    savedStateHandle: SavedStateHandle,
+    private val catalogue: FreeMovieRepository
 ) : ViewModel() {
-
     private val _uiState = MutableStateFlow(YouTubePlayerUiState())
-    val uiState: StateFlow<YouTubePlayerUiState> = _uiState.asStateFlow()
+    val uiState = _uiState.asStateFlow()
 
     init {
-        val initialVideoId = savedStateHandle.get<String>(Screen.ARG_VIDEO_ID).orEmpty()
-        val initialMovieTitle = savedStateHandle.get<String>(Screen.ARG_MOVIE_TITLE).orEmpty()
-        val decodedTitle = decodeTitle(initialMovieTitle)
-
-        validateAndLoadVideo(videoId = initialVideoId, movieTitle = decodedTitle)
-    }
-
-    /**
-     * Updates the active video ID and movie title, applying sanitization.
-     */
-    fun setVideo(videoId: String, movieTitle: String = "") {
-        validateAndLoadVideo(videoId = videoId, movieTitle = movieTitle)
-    }
-
-    /**
-     * Marks playback as restricted (e.g. YouTube embedding disabled by creator).
-     */
-    fun markRestricted(restricted: Boolean) {
-        _uiState.update { it.copy(isRestricted = restricted) }
-    }
-
-    /**
-     * Sets player error message.
-     */
-    fun setPlayerError(message: String) {
-        _uiState.update {
-            it.copy(
-                errorMessage = message,
-                isLoading = false
-            )
-        }
-    }
-
-    /**
-     * Updates playback playing state.
-     */
-    fun setPlaying(isPlaying: Boolean) {
-        _uiState.update { it.copy(isPlaying = isPlaying) }
-    }
-
-    /**
-     * Toggles full-screen view state.
-     */
-    fun toggleFullScreen() {
-        _uiState.update { it.copy(isFullScreen = !it.isFullScreen) }
-    }
-
-    private fun validateAndLoadVideo(videoId: String, movieTitle: String) {
-        val sanitizedId = YouTubeUrlSanitizer.extractVideoId(videoId)
-        val isFullMovie = movieTitle.contains("Full Movie", ignoreCase = true) ||
-                movieTitle.contains("Feature Film", ignoreCase = true)
-        val isAuthorized = movieTitle.contains("Public Domain", ignoreCase = true) ||
-                movieTitle.contains("Free", ignoreCase = true)
-
-        if (sanitizedId != null) {
-            val embedUrl = YouTubeUrlSanitizer.buildEmbedUrl(sanitizedId)
-            val webWatchUrl = YouTubeUrlSanitizer.buildWebWatchUrl(sanitizedId)
-
-            _uiState.update {
-                it.copy(
-                    videoId = sanitizedId,
-                    movieTitle = movieTitle,
-                    embedUrl = embedUrl,
-                    webWatchUrl = webWatchUrl,
-                    isFullLengthMovie = isFullMovie,
-                    isAuthorizedFullLength = isAuthorized,
-                    isRestricted = isFullMovie && !isAuthorized,
-                    isValid = true,
-                    isLoading = false,
-                    errorMessage = null
-                )
+        val catalogueId = savedStateHandle.get<String>(Screen.ARG_CATALOGUE_ID)
+        if (catalogueId != null) {
+            val film = catalogue.find(catalogueId)
+            if (film == null) {
+                _uiState.value = YouTubePlayerUiState(isLoading = false, errorMessage = "This catalogue film is unavailable. Return to Free Movies.")
+            } else {
+                _uiState.value = YouTubePlayerUiState(videoId = film.videoId, movieTitle = film.title,
+                    webWatchUrl = YouTubeUrlSanitizer.buildWebWatchUrl(film.videoId),
+                    isValid = true, isFullLengthMovie = true, isAuthorizedFullLength = true,
+                    attribution = film.attribution, contentLabel = film.format.label)
             }
         } else {
-            _uiState.update {
-                it.copy(
-                    videoId = videoId,
-                    movieTitle = movieTitle,
-                    embedUrl = null,
-                    webWatchUrl = YouTubeUrlSanitizer.buildWebWatchUrl(videoId),
-                    isValid = false,
-                    isLoading = false,
-                    errorMessage = if (videoId.isBlank()) {
-                        "No video ID provided."
-                    } else {
-                        "Invalid YouTube video ID format: '$videoId'. Expected standard 11-character identifier."
-                    }
-                )
-            }
+            val category = runCatching { VideoCategory.valueOf(savedStateHandle.get<String>(Screen.ARG_VIDEO_TYPE).orEmpty()) }
+                .getOrDefault(VideoCategory.OTHER)
+            setVideo(savedStateHandle.get<String>(Screen.ARG_VIDEO_ID).orEmpty(),
+                savedStateHandle.get<String>(Screen.ARG_MOVIE_TITLE).orEmpty(), category)
         }
     }
 
-    private fun decodeTitle(encoded: String): String {
-        return try {
-            java.net.URLDecoder.decode(encoded, "UTF-8")
-        } catch (_: Exception) {
-            encoded
+    // Navigation Compose already decodes title arguments; never URL-decode them a second time.
+    fun setVideo(videoId: String, movieTitle: String = "", category: VideoCategory = VideoCategory.OTHER) {
+        val valid = YouTubeUrlSanitizer.isValidVideoId(videoId)
+        val allowed = category in setOf(VideoCategory.TRAILER, VideoCategory.TEASER, VideoCategory.CLIP,
+            VideoCategory.FEATURETTE, VideoCategory.BEHIND_THE_SCENES)
+        _uiState.value = YouTubePlayerUiState(
+            videoId = if (valid) videoId else "", movieTitle = movieTitle,
+            webWatchUrl = if (valid) YouTubeUrlSanitizer.buildWebWatchUrl(videoId) else "",
+            isValid = valid, isLoading = valid && allowed, isRestricted = !allowed,
+            isFullLengthMovie = category == VideoCategory.FULL_MOVIE, contentLabel = category.displayName,
+            attempt = _uiState.value.attempt + 1,
+            errorMessage = when {
+                !valid -> PlayerFailure.INVALID_VIDEO.message
+                !allowed -> "This video's eligibility for in-app playback has not been established. Use the verified Free Movies catalogue for complete films."
+                else -> null
+            }
+        )
+    }
+
+    fun initializing(attempt: Int) = updateAttempt(attempt) { it.copy(isLoading = true, isReady = false, isPlaying = false) }
+    fun onReady(attempt: Int) = updateAttempt(attempt) { it.copy(isLoading = false, isReady = true) }
+    fun setPlaying(attempt: Int, playing: Boolean) = updateAttempt(attempt) { it.copy(isPlaying = playing) }
+    fun fail(attempt: Int, failure: PlayerFailure) = updateAttempt(attempt) {
+        it.copy(isLoading = false, isReady = false, isPlaying = false, errorMessage = failure.message, retryable = failure.retryable)
+    }
+    fun initializationTimedOut(attempt: Int) {
+        if (_uiState.value.isLoading) fail(attempt, PlayerFailure.INITIALIZATION)
+    }
+    fun retry() {
+        _uiState.update {
+            if (!it.retryable || !it.isValid || it.isRestricted) it else it.copy(
+                attempt = it.attempt + 1, isLoading = true, isReady = false, isPlaying = false,
+                errorMessage = null, retryable = false, externalError = null)
         }
+    }
+    fun externalFailed(message: String = "No YouTube app or browser could open this link.") {
+        _uiState.update { it.copy(externalError = message) }
+    }
+    private fun updateAttempt(attempt: Int, update: (YouTubePlayerUiState) -> YouTubePlayerUiState) {
+        _uiState.update { if (it.attempt == attempt && it.canEmbed) update(it) else it }
     }
 }

@@ -1,317 +1,139 @@
 package com.example.madverse
 
 import androidx.lifecycle.SavedStateHandle
+import com.example.madverse.core.data.repository.FreeMovieRepository
 import com.example.madverse.core.model.VideoCategory
 import com.example.madverse.core.model.VideoTrailer
 import com.example.madverse.core.navigation.Screen
-import com.example.madverse.feature.player.presentation.YouTubePlayerViewModel
-import com.example.madverse.feature.player.util.YouTubeUrlSanitizer
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
+import com.example.madverse.feature.player.presentation.*
+import com.example.madverse.core.domain.streaming.YouTubeUrlSanitizer
+import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.PlayerConstants
+import org.junit.Assert.*
 import org.junit.Test
 
-/**
- * Unit tests covering YouTube player URL sanitization, video ID validation,
- * navigation route argument formatting, and ViewModel state transitions.
- */
 class YouTubePlayerViewModelTest {
+    private val id = "M7lc1UVf-VE" // YouTube's official IFrame API example; never a rights fixture.
+    private fun player(videoId: String = id, title: String = "Trailer", type: String = "TRAILER") =
+        YouTubePlayerViewModel(SavedStateHandle(mapOf(Screen.ARG_VIDEO_ID to videoId,
+            Screen.ARG_MOVIE_TITLE to title, Screen.ARG_VIDEO_TYPE to type)), FreeMovieRepository())
 
-    // =========================================================================
-    // 1. YouTubeUrlSanitizer & Regex Validation
-    // =========================================================================
-
-    @Test
-    fun isValidVideoId_acceptsStandard11CharacterIds() {
-        assertTrue(YouTubeUrlSanitizer.isValidVideoId("dQw4w9WgXcQ"))
-        assertTrue(YouTubeUrlSanitizer.isValidVideoId("M7lc1UVf-VE"))
-        assertTrue(YouTubeUrlSanitizer.isValidVideoId("1234567890a"))
-        assertTrue(YouTubeUrlSanitizer.isValidVideoId("AbCdEfGhIjK"))
-        assertTrue(YouTubeUrlSanitizer.isValidVideoId("__________-"))
+    @Test fun validIdsAreExactlyElevenSafeCharacters() {
+        listOf(id, "dQw4w9WgXcQ", "__________-").forEach { assertTrue(YouTubeUrlSanitizer.isValidVideoId(it)) }
+        listOf(null, "", "short", "123456789012", "<script>", " $id ", "../test/path").forEach {
+            assertFalse(YouTubeUrlSanitizer.isValidVideoId(it))
+        }
     }
-
-    @Test
-    fun isValidVideoId_rejectsMalformedOrInvalidIds() {
-        assertFalse(YouTubeUrlSanitizer.isValidVideoId(null))
-        assertFalse(YouTubeUrlSanitizer.isValidVideoId(""))
-        assertFalse(YouTubeUrlSanitizer.isValidVideoId("   "))
-        assertFalse(YouTubeUrlSanitizer.isValidVideoId("shortId")) // 7 chars
-        assertFalse(YouTubeUrlSanitizer.isValidVideoId("123456789012")) // 12 chars
-        assertFalse(YouTubeUrlSanitizer.isValidVideoId("dQw4w9WgXc!")) // invalid symbol
-        assertFalse(YouTubeUrlSanitizer.isValidVideoId("<script>"))
-        assertFalse(YouTubeUrlSanitizer.isValidVideoId("../test/path"))
+    @Test fun supportedUrlsResolveEntireId() {
+        listOf(id, "https://www.youtube.com/watch?v=$id", "http://youtube.com/watch?v=$id&feature=share",
+            "https://youtu.be/$id", "https://m.youtube.com/watch?v=$id", "https://www.youtube.com/embed/$id",
+            "https://www.youtube-nocookie.com/embed/$id", "https://www.youtube.com/shorts/$id").forEach {
+            assertEquals(it, id, YouTubeUrlSanitizer.extractVideoId(it))
+        }
     }
-
-    @Test
-    fun extractVideoId_extractsFromVariousYouTubeUrlFormats() {
-        // Direct ID
-        assertEquals("dQw4w9WgXcQ", YouTubeUrlSanitizer.extractVideoId("dQw4w9WgXcQ"))
-
-        // Standard watch URL
-        assertEquals("dQw4w9WgXcQ", YouTubeUrlSanitizer.extractVideoId("https://www.youtube.com/watch?v=dQw4w9WgXcQ"))
-        assertEquals("dQw4w9WgXcQ", YouTubeUrlSanitizer.extractVideoId("http://youtube.com/watch?v=dQw4w9WgXcQ&feature=share"))
-
-        // youtu.be short URL
-        assertEquals("dQw4w9WgXcQ", YouTubeUrlSanitizer.extractVideoId("https://youtu.be/dQw4w9WgXcQ"))
-
-        // Embed URL
-        assertEquals("dQw4w9WgXcQ", YouTubeUrlSanitizer.extractVideoId("https://www.youtube.com/embed/dQw4w9WgXcQ"))
-        assertEquals("dQw4w9WgXcQ", YouTubeUrlSanitizer.extractVideoId("https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"))
-
-        // Invalid or untrusted URLs
-        assertNull(YouTubeUrlSanitizer.extractVideoId("https://evil.com/watch?v=dQw4w9WgXcQ"))
-        assertNull(YouTubeUrlSanitizer.extractVideoId("invalid_non_url"))
+    @Test fun hostileAndAmbiguousUrlsAreRejected() {
+        listOf("https://evil.com/youtube.com/watch?v=$id", "https://youtube.com.evil.com/watch?v=$id",
+            "https://youtube.com@evil.com/watch?v=$id", "https://user@youtube.com/watch?v=$id",
+            "https://youtube.com:444/watch?v=$id", "https://youtu.be/${id}extra", "https://youtu.be/$id/extra",
+            "https://youtube.com/watch?notv=$id", "https://youtube.com/watch?v=$id&v=dQw4w9WgXcQ",
+            "javascript:https://youtube.com/watch?v=$id", "https://youtube.com/watch?v=$id#fragment",
+            "file:///youtube.com/watch?v=$id", "https://youtube.com/embed/$id/extra").forEach {
+            assertNull(it, YouTubeUrlSanitizer.extractVideoId(it))
+        }
     }
-
-    @Test
-    fun buildEmbedUrl_producesSecureHttpsUrlForValidId() {
-        val embedUrl = YouTubeUrlSanitizer.buildEmbedUrl("dQw4w9WgXcQ")
-        assertNotNull(embedUrl)
-        assertTrue(embedUrl!!.startsWith("https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"))
-        assertTrue(embedUrl.contains("enablejsapi=1"))
-    }
-
-    @Test
-    fun buildEmbedUrl_returnsNullForInvalidId() {
-        assertNull(YouTubeUrlSanitizer.buildEmbedUrl("invalid"))
+    @Test fun fallbackAndEmbedUrlsNeverContainInvalidInputOrAutoplay() {
+        assertEquals("", YouTubeUrlSanitizer.buildWebWatchUrl("bad&admin=true"))
         assertNull(YouTubeUrlSanitizer.buildEmbedUrl(null))
-        assertNull(YouTubeUrlSanitizer.buildEmbedUrl("!@#$"))
+        assertTrue(YouTubeUrlSanitizer.buildEmbedUrl(id)!!.contains("autoplay=0"))
+        assertEquals("https://www.youtube.com/watch?v=$id", YouTubeUrlSanitizer.buildWebWatchUrl(id))
+        assertFalse(YouTubeUrlSanitizer.isPermittedUrl("http://youtube.com/watch?v=$id"))
+        assertTrue(YouTubeUrlSanitizer.isPermittedUrl("https://youtube.com/watch?v=$id"))
     }
-
-    @Test
-    fun isPermittedUrl_verifiesOriginSecurity() {
-        assertTrue(YouTubeUrlSanitizer.isPermittedUrl("https://www.youtube.com/embed/dQw4w9WgXcQ"))
-        assertTrue(YouTubeUrlSanitizer.isPermittedUrl("https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"))
-        assertTrue(YouTubeUrlSanitizer.isPermittedUrl("https://youtube.com/watch?v=dQw4w9WgXcQ"))
-
-        // Reject non-https, non-youtube, file or javascript schemes
-        assertFalse(YouTubeUrlSanitizer.isPermittedUrl("http://www.youtube.com/embed/dQw4w9WgXcQ"))
-        assertFalse(YouTubeUrlSanitizer.isPermittedUrl("https://attacker.com/embed/dQw4w9WgXcQ"))
-        assertFalse(YouTubeUrlSanitizer.isPermittedUrl("javascript:alert(1)"))
-        assertFalse(YouTubeUrlSanitizer.isPermittedUrl("file:///android_asset/exploit.html"))
-        assertFalse(YouTubeUrlSanitizer.isPermittedUrl(null))
-        assertFalse(YouTubeUrlSanitizer.isPermittedUrl(""))
+    @Test fun routeEncodesSpecialCharactersOnceAndIncludesCategory() {
+        val title = "A + B & 100% / #?"
+        val route = Screen.YouTubePlayer.createRoute(id, title, VideoCategory.TEASER)
+        assertTrue(route.contains("movieTitle=A%20%2B%20B%20%26%20100%25%20%2F%20%23%3F"))
+        assertTrue(route.endsWith("videoType=TEASER"))
+        assertEquals(title, player(title = title).uiState.value.movieTitle)
     }
-
-    // =========================================================================
-    // 2. Navigation Route & Argument Formatting
-    // =========================================================================
-
-    @Test
-    fun screenYouTubePlayer_createRoute_formatsArgumentsAndEncodesTitle() {
-        val route = Screen.YouTubePlayer.createRoute("dQw4w9WgXcQ", "Fight Club")
-        assertEquals("youtube_player/dQw4w9WgXcQ?movieTitle=Fight+Club", route)
-
-        val routeWithSpecialChars = Screen.YouTubePlayer.createRoute("M7lc1UVf-VE", "Spider-Man: & More")
-        assertEquals("youtube_player/M7lc1UVf-VE?movieTitle=Spider-Man%3A+%26+More", routeWithSpecialChars)
-
-        val routeWithoutTitle = Screen.YouTubePlayer.createRoute("dQw4w9WgXcQ", "")
-        assertEquals("youtube_player/dQw4w9WgXcQ?movieTitle=", routeWithoutTitle)
+    @Test(expected = IllegalArgumentException::class) fun routeRejectsInvalidVideoId() {
+        Screen.YouTubePlayer.createRoute("../bad?x=1")
     }
-
-    // =========================================================================
-    // 3. YouTubePlayerViewModel State Flow
-    // =========================================================================
-
-    @Test
-    fun viewModel_initializedWithValidVideoId_emitsSuccessState() {
-        val savedStateHandle = SavedStateHandle(
-            mapOf(
-                Screen.ARG_VIDEO_ID to "dQw4w9WgXcQ",
-                Screen.ARG_MOVIE_TITLE to "Inception"
-            )
-        )
-
-        val viewModel = YouTubePlayerViewModel(savedStateHandle)
-        val state = viewModel.uiState.value
-
-        assertEquals("dQw4w9WgXcQ", state.videoId)
-        assertEquals("Inception", state.movieTitle)
-        assertTrue(state.isValid)
-        assertFalse(state.isLoading)
-        assertFalse(state.isRestricted)
-        assertNull(state.errorMessage)
-        assertNotNull(state.embedUrl)
-        assertEquals("https://www.youtube.com/watch?v=dQw4w9WgXcQ", state.webWatchUrl)
+    @Test fun validVideoStartsInitializingAndOnlyCallbackMakesItReady() {
+        val vm = player()
+        assertTrue(vm.uiState.value.isLoading); assertFalse(vm.uiState.value.isReady)
+        assertTrue(vm.uiState.value.canEmbed)
+        vm.onReady(vm.uiState.value.attempt)
+        assertTrue(vm.uiState.value.isReady); assertFalse(vm.uiState.value.isLoading)
     }
-
-    @Test
-    fun viewModel_initializedWithUrlEncodedTitle_decodesCorrectly() {
-        val savedStateHandle = SavedStateHandle(
-            mapOf(
-                Screen.ARG_VIDEO_ID to "dQw4w9WgXcQ",
-                Screen.ARG_MOVIE_TITLE to "Interstellar%3A+The+Movie"
-            )
-        )
-
-        val viewModel = YouTubePlayerViewModel(savedStateHandle)
-        assertEquals("Interstellar: The Movie", viewModel.uiState.value.movieTitle)
+    @Test fun invalidIdHasNoPlayerOrExternalLink() {
+        val state = player("invalid").uiState.value
+        assertFalse(state.canEmbed); assertFalse(state.isLoading)
+        assertEquals("", state.webWatchUrl); assertNotNull(state.errorMessage)
     }
-
-    @Test
-    fun viewModel_initializedWithInvalidVideoId_emitsErrorState() {
-        val savedStateHandle = SavedStateHandle(
-            mapOf(
-                Screen.ARG_VIDEO_ID to "invalid_id",
-                Screen.ARG_MOVIE_TITLE to "Unknown"
-            )
-        )
-
-        val viewModel = YouTubePlayerViewModel(savedStateHandle)
-        val state = viewModel.uiState.value
-
-        assertFalse(state.isValid)
-        assertFalse(state.isLoading)
-        assertNull(state.embedUrl)
-        assertNotNull(state.errorMessage)
-        assertTrue(state.errorMessage!!.contains("Invalid YouTube video ID"))
+    @Test fun titleNeverGrantsFullFilmRights() {
+        val state = player(title = "Public Domain Free Full Movie", type = "FULL_MOVIE").uiState.value
+        assertTrue(state.isRestricted); assertFalse(state.isAuthorizedFullLength); assertFalse(state.canEmbed)
+        assertTrue(state.webWatchUrl.isNotBlank())
     }
-
-    @Test
-    fun viewModel_initializedWithEmptyVideoId_emitsNoVideoError() {
-        val savedStateHandle = SavedStateHandle(
-            mapOf(
-                Screen.ARG_VIDEO_ID to "",
-                Screen.ARG_MOVIE_TITLE to ""
-            )
-        )
-
-        val viewModel = YouTubePlayerViewModel(savedStateHandle)
-        val state = viewModel.uiState.value
-
-        assertFalse(state.isValid)
-        assertFalse(state.isLoading)
-        assertEquals("No video ID provided.", state.errorMessage)
+    @Test fun unknownTypeDoesNotAssumeTrailerEligibility() {
+        assertFalse(player(type = "OTHER").uiState.value.canEmbed)
+        assertFalse(player(type = "malformed").uiState.value.canEmbed)
     }
-
-    @Test
-    fun viewModel_updateControlsAndFallbackTransitions() {
-        val savedStateHandle = SavedStateHandle(
-            mapOf(Screen.ARG_VIDEO_ID to "dQw4w9WgXcQ")
-        )
-        val viewModel = YouTubePlayerViewModel(savedStateHandle)
-
-        // Set playing
-        viewModel.setPlaying(true)
-        assertTrue(viewModel.uiState.value.isPlaying)
-
-        // Toggle full screen
-        assertFalse(viewModel.uiState.value.isFullScreen)
-        viewModel.toggleFullScreen()
-        assertTrue(viewModel.uiState.value.isFullScreen)
-
-        // Mark restricted
-        viewModel.markRestricted(true)
-        assertTrue(viewModel.uiState.value.isRestricted)
-
-        // Set error
-        viewModel.setPlayerError("Network timed out")
-        assertEquals("Network timed out", viewModel.uiState.value.errorMessage)
-
-        // Set new video
-        viewModel.setVideo("M7lc1UVf-VE", "The Matrix")
-        assertEquals("M7lc1UVf-VE", viewModel.uiState.value.videoId)
-        assertEquals("The Matrix", viewModel.uiState.value.movieTitle)
-        assertTrue(viewModel.uiState.value.isValid)
+    @Test fun catalogueRouteResolvesTrustedFilmNotInjectedVideoOrTitle() {
+        val repo = FreeMovieRepository()
+        val film = repo.getMovies().first()
+        val vm = YouTubePlayerViewModel(SavedStateHandle(mapOf(Screen.ARG_CATALOGUE_ID to film.catalogueId,
+            Screen.ARG_VIDEO_ID to id, Screen.ARG_MOVIE_TITLE to "Fake title")), repo)
+        assertEquals(film.videoId, vm.uiState.value.videoId)
+        assertEquals(film.title, vm.uiState.value.movieTitle)
+        assertTrue(vm.uiState.value.isAuthorizedFullLength)
+        assertTrue(vm.uiState.value.canEmbed)
     }
-
-    // =========================================================================
-    // 4. Full-Length Movie vs Trailer Handling
-    // =========================================================================
-
-    @Test
-    fun videoTrailer_categorization_differentiatesTrailersClipsAndFullMovies() {
-        val trailer = VideoTrailer(
-            id = "1",
-            key = "dQw4w9WgXcQ",
-            name = "Official Trailer",
-            site = "YouTube",
-            type = "Trailer",
-            isOfficial = true
-        )
-        assertEquals(VideoCategory.TRAILER, trailer.category)
-        assertTrue(trailer.isTrailerOrTeaser)
-        assertFalse(trailer.isFullLengthMovie)
-        assertTrue(trailer.isPlayableInApp)
-
-        val teaser = VideoTrailer(
-            id = "2",
-            key = "dQw4w9WgXcQ",
-            name = "Teaser",
-            site = "YouTube",
-            type = "Teaser",
-            isOfficial = true
-        )
-        assertEquals(VideoCategory.TEASER, teaser.category)
-        assertTrue(teaser.isTrailerOrTeaser)
-
-        val clip = VideoTrailer(
-            id = "3",
-            key = "dQw4w9WgXcQ",
-            name = "Opening Scene",
-            site = "YouTube",
-            type = "Clip",
-            isOfficial = true
-        )
-        assertEquals(VideoCategory.CLIP, clip.category)
-        assertFalse(clip.isTrailerOrTeaser)
-        assertFalse(clip.isFullLengthMovie)
-
-        // Commercial Full Movie (unauthorized for free full-length in-app playback)
-        val commercialFullMovie = VideoTrailer(
-            id = "4",
-            key = "dQw4w9WgXcQ",
-            name = "Inception Full Movie",
-            site = "YouTube",
-            type = "Full Movie",
-            isOfficial = false,
-            isAuthorizedFullLength = false
-        )
-        assertEquals(VideoCategory.FULL_MOVIE, commercialFullMovie.category)
-        assertTrue(commercialFullMovie.isFullLengthMovie)
-        assertFalse(commercialFullMovie.isPlayableInApp) // Gracefully restricted to trailers
-
-        // Authorized Public Domain Full Movie
-        val publicDomainFilm = VideoTrailer(
-            id = "5",
-            key = "dQw4w9WgXcQ",
-            name = "Night of the Living Dead (1968)",
-            site = "YouTube",
-            type = "Feature Film",
-            isOfficial = true,
-            isAuthorizedFullLength = true
-        )
-        assertEquals(VideoCategory.FULL_MOVIE, publicDomainFilm.category)
-        assertTrue(publicDomainFilm.isFullLengthMovie)
-        assertTrue(publicDomainFilm.isPlayableInApp) // Authorized
+    @Test fun unknownCatalogueEntryHasNoFallbackToArbitraryVideo() {
+        val vm = YouTubePlayerViewModel(SavedStateHandle(mapOf(Screen.ARG_CATALOGUE_ID to "missing", Screen.ARG_VIDEO_ID to id)), FreeMovieRepository())
+        assertFalse(vm.uiState.value.canEmbed); assertEquals("", vm.uiState.value.webWatchUrl)
     }
-
-    @Test
-    fun viewModel_fullMovieTitle_marksRestrictedUnlessAuthorized() {
-        // Commercial full movie without free license
-        val commercialHandle = SavedStateHandle(
-            mapOf(
-                Screen.ARG_VIDEO_ID to "dQw4w9WgXcQ",
-                Screen.ARG_MOVIE_TITLE to "Avengers: Endgame (Full Movie)"
-            )
-        )
-        val commercialVm = YouTubePlayerViewModel(commercialHandle)
-        assertTrue(commercialVm.uiState.value.isFullLengthMovie)
-        assertFalse(commercialVm.uiState.value.isAuthorizedFullLength)
-        assertTrue(commercialVm.uiState.value.isRestricted)
-
-        // Authorized Public Domain movie
-        val publicDomainHandle = SavedStateHandle(
-            mapOf(
-                Screen.ARG_VIDEO_ID to "dQw4w9WgXcQ",
-                Screen.ARG_MOVIE_TITLE to "Nosferatu (1922) Public Domain Full Movie"
-            )
-        )
-        val pdVm = YouTubePlayerViewModel(publicDomainHandle)
-        assertTrue(pdVm.uiState.value.isFullLengthMovie)
-        assertTrue(pdVm.uiState.value.isAuthorizedFullLength)
-        assertFalse(pdVm.uiState.value.isRestricted)
+    @Test fun timeoutAndRetryCreateFreshAttemptAndIgnoreOldCallbacks() {
+        val vm = player(); val old = vm.uiState.value.attempt
+        vm.initializationTimedOut(old)
+        assertFalse(vm.uiState.value.canEmbed); assertTrue(vm.uiState.value.retryable)
+        vm.retry(); val fresh = vm.uiState.value.attempt
+        assertTrue(fresh > old); assertTrue(vm.uiState.value.isLoading)
+        vm.onReady(old); vm.fail(old, PlayerFailure.HTML5)
+        assertTrue(vm.uiState.value.isLoading); assertNull(vm.uiState.value.errorMessage)
+        vm.onReady(fresh); vm.initializationTimedOut(fresh)
+        assertTrue(vm.uiState.value.isReady)
+    }
+    @Test fun changingVideoClearsOldPlaybackState() {
+        val vm = player(); val old = vm.uiState.value.attempt
+        vm.onReady(old); vm.setPlaying(old, true)
+        vm.setVideo("dQw4w9WgXcQ", "Another trailer", VideoCategory.TRAILER)
+        vm.setPlaying(old, true)
+        assertFalse(vm.uiState.value.isPlaying); assertFalse(vm.uiState.value.isReady)
+    }
+    @Test fun errorClassesRemainDistinctAndEmbeddingFailureIsNotCopyrightClaim() {
+        assertEquals(PlayerFailure.CLIENT_IDENTITY, PlayerFailure.from(PlayerConstants.PlayerError.REQUEST_MISSING_HTTP_REFERER))
+        assertEquals(PlayerFailure.EMBEDDING_DISABLED, PlayerFailure.from(PlayerConstants.PlayerError.VIDEO_NOT_PLAYABLE_IN_EMBEDDED_PLAYER))
+        assertEquals(PlayerFailure.UNAVAILABLE, PlayerFailure.from(PlayerConstants.PlayerError.VIDEO_NOT_FOUND))
+        assertEquals(PlayerFailure.HTML5, PlayerFailure.from(PlayerConstants.PlayerError.HTML_5_PLAYER))
+        assertEquals(PlayerFailure.INVALID_VIDEO, PlayerFailure.from(PlayerConstants.PlayerError.INVALID_PARAMETER_IN_REQUEST))
+        assertEquals(PlayerFailure.UNKNOWN, PlayerFailure.from(PlayerConstants.PlayerError.UNKNOWN))
+        val vm = player(); vm.fail(vm.uiState.value.attempt, PlayerFailure.EMBEDDING_DISABLED)
+        assertFalse(vm.uiState.value.retryable); assertFalse(vm.uiState.value.canEmbed)
+        assertFalse(vm.uiState.value.errorMessage!!.contains("copyright", true))
+    }
+    @Test fun fullFilmBooleanInTmdbModelCannotGrantPlayback() {
+        val film = VideoTrailer("1", id, "Free Public Domain Film", "YouTube", "Full Movie", true, true)
+        assertFalse(film.isPlayableInApp)
+        val trailer = film.copy(type = "Trailer", name = "Trailer")
+        assertTrue(trailer.isPlayableInApp); assertTrue(trailer.isEmbeddableYouTubeTrailer)
+        assertFalse(trailer.copy(site = "Vimeo").isPlayableInApp)
+        assertEquals("", trailer.copy(site = "Vimeo").youtubeWatchUrl)
+        assertFalse(trailer.copy(key = "bad").isPlayableInApp)
+    }
+    @Test fun failedExternalLaunchIsVisibleWithoutChangingReadiness() {
+        val vm = player(); vm.externalFailed()
+        assertNotNull(vm.uiState.value.externalError)
+        assertTrue(vm.uiState.value.isLoading)
     }
 }

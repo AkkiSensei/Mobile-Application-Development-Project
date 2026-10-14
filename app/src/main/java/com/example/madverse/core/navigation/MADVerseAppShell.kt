@@ -39,6 +39,8 @@ fun MADVerseAppShell() {
         currentRoute == Screen.QuizResult.route -> "Curated For You"
         currentRoute == Screen.Recommendations.route -> "Recommendations"
         currentRoute == Screen.Genres.route -> "Genre Explorer"
+        currentRoute == Screen.FreeMovies.route -> "Free Movies"
+        currentRoute == Screen.FreeMoviePlayer.route || currentRoute == Screen.YouTubePlayer.route -> "YouTube Player"
         currentRoute == Screen.Comparison.route -> "Movie Comparison"
         currentRoute == Screen.Library.route -> "My Library"
         currentRoute == Screen.Favorites.route -> "Favorite Movies"
@@ -60,7 +62,7 @@ fun MADVerseAppShell() {
                     Box {
                         IconButton(onClick = { expanded = true }) { Icon(Icons.Default.MoreVert, contentDescription = "Explore features") }
                         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                            listOf("Genre Explorer" to Screen.Genres.route, "Recommendations" to Screen.Recommendations.route,
+                            listOf("Free Movies" to Screen.FreeMovies.route, "Genre Explorer" to Screen.Genres.route, "Recommendations" to Screen.Recommendations.route,
                                 "Compare movies" to Screen.Comparison.createRoute()).forEach { (label, route) ->
                                 DropdownMenuItem(text = { Text(label) }, onClick = {
                                     expanded = false
