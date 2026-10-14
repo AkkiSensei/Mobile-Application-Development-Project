@@ -21,7 +21,8 @@ object NetworkModule {
     @Singleton
     fun provideLoggingInterceptor(): HttpLoggingInterceptor {
         return HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BASIC
+            // AuthInterceptor puts credentials in the URL. Never log request URLs, even in debug.
+            level = HttpLoggingInterceptor.Level.NONE
         }
     }
 
