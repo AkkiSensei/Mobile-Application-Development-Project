@@ -1,10 +1,20 @@
 # MADVerse — Technical Architecture Blueprint
 
-## Current implementation note — 2026-10-14
+## Current implementation note — 2026-10-21
 
 The foundation blueprint below contains historical plans. The current implementation uses a local deterministic recommendation engine, with weights genre 30, mood 20, era 15, audience quality 15, language 10 and runtime 10. No active Gemini/LLM recommendation service exists. Current connected screens include Genres, Recommendations, Comparison and Free Movies alongside Discover, Search, Details, Quiz and Library.
 
 FreeMovieRepository owns source-reviewed film records independently of TMDB. A stable catalogue ID is resolved inside the player ViewModel; route flags/titles do not grant complete-film permission. Promotional source mappings require valid site, type and video ID. The player uses android-youtube-player 13.0.0 with XML-disabled automatic initialization, explicit cueing, per-attempt callback guards, lifecycle forwarding and idempotent release. Device playback acceptance is still PENDING. See FINAL_INTEGRATION_REPORT.md and REQUIREMENTS_TRACEABILITY.md for current evidence; older blueprint capability descriptions are not acceptance results.
+
+The corrective pass derives `isFullLengthMovie` from `FilmFormat.FEATURE_FILM` and `isAuthorizedFullLength` from that format plus explicit catalogue authorization. Authorized shorts remain eligible with both full-length flags false. `UNKNOWN` authorization and non-YouTube sites cannot embed. Repository construction validates entries and snapshots the list; no navigation value grants authorization. Existing rights claims/dates were preserved; the current evidence review and its retrieval limits are in FREE_MOVIE_CATALOGUE.md.
+
+The existing Details source guard rejects non-YouTube metadata before navigation. DTOs reject absent sites instead of inventing YouTube. Catalogue routes resolve exact IDs in the repository; promotional routes validate and preserve the video ID. The 30-second foreground initialization deadline, retry attempt guards, visible external errors and WebView protections remain in place. Runtime acceptance is PENDING.
+
+Contribution claims and the unavailable `2000shra.md` artifact are scoped in CONTRIBUTION_EVIDENCE.md. SAFE_SUBMISSION.md describes source packaging; source ZIPs omit Git history and local credentials.
+
+## Historical foundation blueprint and handovers
+
+The following sections preserve earlier design plans, ownership descriptions and handovers. Their sample schemas, planned features, branch names and completion claims describe those earlier stages; they are not the current API specification or acceptance evidence. Use source and the current integration/traceability reports for current behavior.
 
 **Version:** 1.1.0-r1-foundation  
 **Date:** October 2026 (R1 Foundation: 11 Oct 2026 — Ritunjay Deo)  
@@ -225,7 +235,7 @@ MADVerse interacts with TMDB v3 via the following curated endpoints:
 | Endpoint | Method | Purpose in MADVerse |
 | :--- | :--- | :--- |
 | `trending/movie/day` | `GET` | Populates the Home Discover trending hero carousel and rows |
-| `movie/top_rated` | `GET` | High-critique acclaimed movies |
+| `movie/top_rated` | `GET` | Movies with high TMDB audience ratings |
 | `movie/upcoming` | `GET` | Upcoming theatrical & digital releases |
 | `search/movie` | `GET` | Real-time user query search with release year filtering |
 | `movie/{movie_id}` | `GET` | Detailed movie breakdown (runtime, tagline, budget, genres) |
@@ -771,10 +781,10 @@ $$S_{\text{era}} = \begin{cases} 15, & \text{if } \text{Era} = \text{ANY} \lor \
 - **Explanation generated**: *"From the [era name]"*
 
 #### 4. Quality & Popularity Score ($S_{\text{quality}}$, max 15 points)
-Validates critic/audience reception against the user's minimum rating threshold:
+Validates TMDB audience reception against the user's minimum rating threshold:
 $$S_{\text{quality}} = \begin{cases} 0, & \text{if } \text{VoteAverage} < \text{MinRatingThreshold} \\ \text{round}\left( \frac{\min(10.0, \text{VoteAverage})}{10.0} \times 15 \right), & \text{otherwise} \end{cases}$$
 - **Explanations generated**:
-  - *"Critically acclaimed ([X.X]★)"* if $\text{VoteAverage} \ge 8.0$
+  - *"Highly rated by TMDB audiences ([X.X]★)"* if $\text{VoteAverage} \ge 8.0$
   - *"Well-rated ([X.X]★)"* if $7.0 \le \text{VoteAverage} < 8.0$
   - *"Popular with global audiences"* if $\text{Popularity} \ge 100 \lor \text{VoteCount} \ge 10{,}000$
 
@@ -857,7 +867,7 @@ class RecommendationsViewModel @Inject constructor(
 Each `ScoredMovieRecommendation` exposes:
 - `recommendation.movie`: Standard `Movie` object for rendering with `MovieCard`.
 - `recommendation.matchPercentage`: Integer $0\text{--}100\%$ for display in a match badge (e.g. `"92% Match"`).
-- `recommendation.matchReasons`: List of `String` explanations to render as chips (e.g. `["Matches 2 of your preferred genres", "Critically acclaimed (8.4★)"]`).
+- `recommendation.matchReasons`: List of `String` explanations to render as chips (e.g. `["Matches 2 of your preferred genres", "Highly rated by TMDB audiences (8.4★)"]`).
 
 ---
 
