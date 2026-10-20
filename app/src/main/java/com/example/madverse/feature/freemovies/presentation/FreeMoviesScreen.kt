@@ -28,7 +28,7 @@ fun FreeMoviesScreen(onPlay: (String) -> Unit, viewModel: FreeMoviesViewModel = 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             Text("Free Movies", style = MaterialTheme.typography.headlineSmall)
-            Text("Complete films from verified publisher sources. Each entry states its format and license. YouTube controls regional and embedding availability.")
+            Text("Complete films with publisher and rights information. Each entry states its format and license. YouTube controls regional and embedding availability.")
         }
         when (val result = state) {
             UiState.Loading -> item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
@@ -43,7 +43,8 @@ fun FreeMoviesScreen(onPlay: (String) -> Unit, viewModel: FreeMoviesViewModel = 
                     Text(film.publisher)
                     Text(film.attribution, style = MaterialTheme.typography.bodySmall)
                     Text("Rights/source checked ${film.verifiedOn}. ${film.regionNotes}", style = MaterialTheme.typography.bodySmall)
-                    Button(onClick = { onPlay(film.catalogueId) }) { Text("Watch in app") }
+                    Button(onClick = { onPlay(film.catalogueId) }, enabled = film.isEligibleForYouTube) { Text("Watch in app") }
+                    if (!film.isEligibleForYouTube) Text("In-app playback unavailable: source or authorization is not established.")
                     TextButton(onClick = { openEvidence(film.sourceUrl) }) { Text("Publisher's film page") }
                     TextButton(onClick = { openEvidence(film.rightsUrl) }) { Text("Rights evidence") }
                     TextButton(onClick = { openEvidence(film.licenseUrl) }) { Text("License terms") }
