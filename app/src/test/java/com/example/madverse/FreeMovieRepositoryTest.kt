@@ -45,4 +45,23 @@ class FreeMovieRepositoryTest {
     @Test(expected = IllegalArgumentException::class) fun missingRightsEvidenceIsRejected() {
         FreeMovieRepository.validateCatalogue(listOf(repository.getMovies().first().copy(rightsUrl = "")))
     }
+
+    @Test fun catalogueFormatsMatchTheFourReviewedFilms() {
+        assertEquals(mapOf("star-wreck" to FilmFormat.FEATURE_FILM,
+            "big-buck-bunny" to FilmFormat.SHORT_FILM, "sintel" to FilmFormat.SHORT_FILM,
+            "tears-of-steel" to FilmFormat.SHORT_FILM),
+            repository.getMovies().associate { it.catalogueId to it.format })
+        assertTrue(repository.getMovies().all { it.isAuthorized && it.isEligibleForYouTube })
+    }
+    @Test(expected = IllegalArgumentException::class) fun invalidEntryCannotEnterRepository() {
+        FreeMovieRepository(listOf(repository.getMovies().first().copy(videoId = "bad")))
+    }
+    @Test fun callerCannotMutateTheTrustedCatalogue() {
+        val input = repository.getMovies().toMutableList()
+        val isolated = FreeMovieRepository(input)
+        input.clear()
+        assertEquals(4, isolated.getMovies().size)
+        (isolated.getMovies() as MutableList).clear()
+        assertEquals(4, isolated.getMovies().size)
+    }
 }

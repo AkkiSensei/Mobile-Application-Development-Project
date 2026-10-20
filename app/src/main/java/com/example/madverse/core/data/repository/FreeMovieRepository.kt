@@ -6,8 +6,10 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class FreeMovieRepository @Inject constructor() {
-    private val entries = listOf(
+class FreeMovieRepository internal constructor(entries: List<FreeMovie>) {
+    private val entries = entries.toList().also(::validateCatalogue)
+
+    @Inject constructor() : this(listOf(
         FreeMovie(
             catalogueId = "star-wreck", title = "Star Wreck: In the Pirkinning", videoId = "RHAPXlVq5lk",
             publisher = "Energia Productions (@emperorpirk)",
@@ -30,22 +32,22 @@ class FreeMovieRepository @Inject constructor() {
         film("tears-of-steel", "Tears of Steel", "R6MlUcmOul8", "tears-of-steel",
             "https://mango.blender.org/sharing/", "A science-fiction short combining live action with visual effects.",
             "© Blender Foundation / mango.blender.org")
-    ).also(::validateCatalogue)
+    ))
 
-    fun getMovies(): List<FreeMovie> = entries
+    fun getMovies(): List<FreeMovie> = entries.toList()
     fun find(catalogueId: String): FreeMovie? = entries.singleOrNull { it.catalogueId == catalogueId }
 
-    private fun film(id: String, title: String, videoId: String, project: String, rights: String,
-        description: String, attribution: String) = FreeMovie(
-        catalogueId = id, title = title, videoId = videoId, publisher = "Blender (@BlenderOfficial)",
-        description = description, format = FilmFormat.SHORT_FILM, authorization = AuthorizationBasis.PUBLISHER_CC_BY_3,
-        sourceUrl = "https://studio.blender.org/projects/$project/", rightsUrl = rights, attribution = attribution,
-        verifiedOn = "2026-10-14",
-        verificationNotes = "Official project links to this complete film; publisher CC BY 3.0 license and YouTube oEmbed identity checked. Device playback pending.",
-        regionNotes = "Publisher's license has no stated India exclusion. YouTube availability and embedded playback in India still need device validation."
-    )
-
     companion object {
+        private fun film(id: String, title: String, videoId: String, project: String, rights: String,
+            description: String, attribution: String) = FreeMovie(
+            catalogueId = id, title = title, videoId = videoId, publisher = "Blender (@BlenderOfficial)",
+            description = description, format = FilmFormat.SHORT_FILM, authorization = AuthorizationBasis.PUBLISHER_CC_BY_3,
+            sourceUrl = "https://studio.blender.org/projects/$project/", rightsUrl = rights, attribution = attribution,
+            verifiedOn = "2026-10-14",
+            verificationNotes = "Official project links to this complete film; publisher CC BY 3.0 license and YouTube oEmbed identity checked. Device playback pending.",
+            regionNotes = "Publisher's license has no stated India exclusion. YouTube availability and embedded playback in India still need device validation."
+        )
+
         fun validateCatalogue(entries: List<FreeMovie>) {
             require(entries.map { it.catalogueId }.distinct().size == entries.size) { "Duplicate catalogue IDs" }
             require(entries.map { it.videoId }.distinct().size == entries.size) { "Duplicate video IDs" }
