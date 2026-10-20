@@ -1,6 +1,6 @@
 # Curated Free Movies evidence
 
-Verification date: **2026-10-14**. Rights/source verification is distinct from device playback acceptance. No media was downloaded, rehosted or played during this execution. YouTube can change availability and embedding permissions. India availability remains **PENDING** for every entry.
+Historical catalogue verification date: **2026-10-14**. The table below preserves that earlier verification record; it is not a new playback or availability result. Rights/source verification is distinct from device playback acceptance. No media was downloaded, rehosted or played during this execution. YouTube can change availability and embedding permissions. India availability remains **PENDING** for every entry.
 
 | Entry / YouTube ID | Format / publisher | Source and rights evidence | Technical evidence |
 |---|---|---|---|
@@ -12,3 +12,11 @@ Verification date: **2026-10-14**. Rights/source verification is distinct from d
 The Star Wreck entry is for this noncommercial academic presentation: retain attribution, do not modify the film, and review permission before commercial distribution. A publisher license is not a guarantee of regional access or future embedding availability. The Blender license pages state no India exclusion; actual regional access must still be tested. No inference of rights is made from a title containing “full movie,” a TMDB result, or a caller-controlled Boolean.
 
 `FreeMovieRepository` owns immutable typed records and validates duplicate catalogue/video IDs, video ID syntax and required evidence. Routes carry a stable catalogue ID, which is resolved inside the player ViewModel. The UI displays format, publisher, attribution, verification date and region caveats, with source/rights/license links. Keep these records under review; remove or disable an entry if its evidence or availability changes.
+
+## Corrective review — 2026-10-21
+
+All **4** existing source records and their historical evidence references were reviewed; no films were added and no rights claims or verification dates were upgraded. The catalogue still contains exactly one feature (Star Wreck) and three shorts (Big Buck Bunny, Sintel, Tears of Steel). Authorizations remain `PUBLISHER_CC_BY_NC_ND` for Star Wreck and `PUBLISHER_CC_BY_3` for the shorts. Embedded playback tests completed: **0 of 4**; all are **PENDING**, including regional availability.
+
+Fresh verification has narrower evidence: attempts to retrieve all three Blender Studio project pages, the three publisher rights pages and the Star Wreck upload failed through the browsing fetcher (402 responses for Blender; fetch failure for YouTube). Search-indexed publisher content corroborated Sintel's short format and CC BY 3.0 terms ([publisher about page](https://durian.blender.org/about/), [sharing page](https://durian.blender.org/sharing/)), but indexed text is not live availability evidence. Thus **0 of 4 exact upload/publisher/license chains were fully reverified live in this pass**; Sintel has partial publisher corroboration. The existing four-entry verification record remains dated 2026-10-14, with current availability and the exact Star Wreck upload declaration awaiting recheck. Retrieval failure alone neither disproves the earlier evidence nor establishes new rights.
+
+Code now treats classification and eligibility separately: Star Wreck has both full-length flags true based on its feature format and existing authorization; each authorized short has both flags false and remains eligible. An `UNKNOWN` authorization is restricted regardless of title; a non-YouTube site cannot embed or produce a YouTube fallback. Unknown catalogue IDs have no fallback to arbitrary route data. Invalid video IDs fail repository validation. These automated properties do not prove legal permission or actual playback; source evidence and later device acceptance remain separate.
