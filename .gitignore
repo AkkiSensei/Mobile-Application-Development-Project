@@ -50,3 +50,6 @@ Thumbs.db
 *.hprof
 .vscode/
 .claude/
+
+# Source-packaging Python cache
+__pycache__/
