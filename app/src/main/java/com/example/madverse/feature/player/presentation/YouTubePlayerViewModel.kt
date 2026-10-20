@@ -3,6 +3,7 @@ package com.example.madverse.feature.player.presentation
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import com.example.madverse.core.data.repository.FreeMovieRepository
+import com.example.madverse.core.model.FilmFormat
 import com.example.madverse.core.model.VideoCategory
 import com.example.madverse.core.navigation.Screen
 import com.example.madverse.core.domain.streaming.YouTubeUrlSanitizer
@@ -27,10 +28,22 @@ class YouTubePlayerViewModel @Inject constructor(
             if (film == null) {
                 _uiState.value = YouTubePlayerUiState(isLoading = false, errorMessage = "This catalogue film is unavailable. Return to Free Movies.")
             } else {
-                _uiState.value = YouTubePlayerUiState(videoId = film.videoId, movieTitle = film.title,
-                    webWatchUrl = YouTubeUrlSanitizer.buildWebWatchUrl(film.videoId),
-                    isValid = true, isFullLengthMovie = true, isAuthorizedFullLength = true,
-                    attribution = film.attribution, contentLabel = film.format.label)
+                val isYouTube = film.site.equals("YouTube", ignoreCase = true)
+                val valid = isYouTube && YouTubeUrlSanitizer.isValidVideoId(film.videoId)
+                val feature = film.format == FilmFormat.FEATURE_FILM
+                _uiState.value = YouTubePlayerUiState(
+                    videoId = if (valid) film.videoId else "", movieTitle = film.title,
+                    webWatchUrl = if (valid) YouTubeUrlSanitizer.buildWebWatchUrl(film.videoId) else "",
+                    isValid = valid, isFullLengthMovie = feature,
+                    isAuthorizedFullLength = feature && film.isAuthorized,
+                    isRestricted = !film.isEligibleForYouTube, isLoading = film.isEligibleForYouTube,
+                    attribution = film.attribution, contentLabel = film.format.label,
+                    errorMessage = when {
+                        !isYouTube -> "This catalogue film is not available through the YouTube player."
+                        !valid -> PlayerFailure.INVALID_VIDEO.message
+                        !film.isAuthorized -> "This film's authorization has not been established. In-app playback is unavailable."
+                        else -> null
+                    })
             }
         } else {
             val category = runCatching { VideoCategory.valueOf(savedStateHandle.get<String>(Screen.ARG_VIDEO_TYPE).orEmpty()) }

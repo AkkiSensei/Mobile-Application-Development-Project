@@ -2,6 +2,9 @@ package com.example.madverse
 
 import androidx.lifecycle.SavedStateHandle
 import com.example.madverse.core.data.repository.FreeMovieRepository
+import com.example.madverse.core.model.AuthorizationBasis
+import com.example.madverse.core.model.FilmFormat
+import com.example.madverse.core.model.FreeMovie
 import com.example.madverse.core.model.VideoCategory
 import com.example.madverse.core.model.VideoTrailer
 import com.example.madverse.core.navigation.Screen
@@ -135,5 +138,96 @@ class YouTubePlayerViewModelTest {
         val vm = player(); vm.externalFailed()
         assertNotNull(vm.uiState.value.externalError)
         assertTrue(vm.uiState.value.isLoading)
+    }
+
+    private fun cataloguePlayer(film: FreeMovie) = YouTubePlayerViewModel(
+        SavedStateHandle(mapOf(Screen.ARG_CATALOGUE_ID to film.catalogueId)),
+        FreeMovieRepository(listOf(film)))
+
+    @Test fun authorizedFeatureRetainsFullLengthClassification() {
+        val film = FreeMovieRepository().find("star-wreck")!!
+        val state = cataloguePlayer(film).uiState.value
+        assertEquals(FilmFormat.FEATURE_FILM, film.format)
+        assertTrue(state.isFullLengthMovie)
+        assertTrue(state.isAuthorizedFullLength)
+        assertTrue(state.canEmbed)
+        assertEquals("RHAPXlVq5lk", state.videoId)
+    }
+
+    private fun assertPlayableShort(catalogueId: String, videoId: String) {
+        val film = FreeMovieRepository().find(catalogueId)!!
+        val state = cataloguePlayer(film).uiState.value
+        assertEquals(FilmFormat.SHORT_FILM, film.format)
+        assertFalse(state.isFullLengthMovie)
+        assertFalse(state.isAuthorizedFullLength)
+        assertFalse(state.isRestricted)
+        assertTrue(state.canEmbed)
+        assertTrue(state.isLoading)
+        assertFalse(state.isPlaying)
+        assertEquals(videoId, state.videoId)
+        assertEquals(FilmFormat.SHORT_FILM.label, state.contentLabel)
+    }
+    @Test fun bigBuckBunnyRemainsPlayableAsAShort() = assertPlayableShort("big-buck-bunny", "aqz-KE-bpKQ")
+    @Test fun sintelRemainsPlayableAsAShort() = assertPlayableShort("sintel", "eRsGyueVLvQ")
+    @Test fun tearsOfSteelRemainsPlayableAsAShort() = assertPlayableShort("tears-of-steel", "R6MlUcmOul8")
+
+    @Test fun unknownAuthorizationBlocksFeaturesAndShortsDespiteFreeMovieTitle() {
+        FilmFormat.entries.forEach { format ->
+            val film = FreeMovieRepository().getMovies().first().copy(
+                title = "Free Movie", format = format, authorization = AuthorizationBasis.UNKNOWN)
+            val vm = cataloguePlayer(film)
+            assertFalse(vm.uiState.value.isAuthorizedFullLength)
+            assertFalse(vm.uiState.value.canEmbed)
+            assertTrue(vm.uiState.value.isRestricted)
+            assertFalse(vm.uiState.value.isLoading)
+            assertNotNull(vm.uiState.value.errorMessage)
+            vm.onReady(0); vm.setPlaying(0, true); vm.retry()
+            assertFalse(vm.uiState.value.isReady)
+            assertFalse(vm.uiState.value.isPlaying)
+            assertFalse(vm.uiState.value.canEmbed)
+        }
+    }
+
+    @Test fun nonYouTubeCatalogueFilmNeverReachesEmbeddedPlayer() {
+        val film = FreeMovieRepository().getMovies().first().copy(site = "Vimeo")
+        val state = cataloguePlayer(film).uiState.value
+        assertFalse(state.canEmbed)
+        assertFalse(state.isValid)
+        assertFalse(state.isLoading)
+        assertEquals("", state.videoId)
+        assertEquals("", state.webWatchUrl)
+    }
+
+    @Test fun everyCatalogueRoutePreservesTheExactTrustedVideoId() {
+        val repo = FreeMovieRepository()
+        repo.getMovies().forEach { film ->
+            val route = Screen.FreeMoviePlayer.createRoute(film.catalogueId)
+            val vm = YouTubePlayerViewModel(SavedStateHandle(mapOf(
+                Screen.ARG_CATALOGUE_ID to route.substringAfter("free_movie/"),
+                Screen.ARG_VIDEO_ID to id, Screen.ARG_MOVIE_TITLE to "Free Movie",
+                "isAuthorizedFullLength" to true, "isFullLengthMovie" to true)), repo)
+            assertEquals(film.videoId, vm.uiState.value.videoId)
+            assertEquals(film.title, vm.uiState.value.movieTitle)
+            assertEquals("https://www.youtube.com/watch?v=${film.videoId}", vm.uiState.value.webWatchUrl)
+            assertEquals(film.format == FilmFormat.FEATURE_FILM, vm.uiState.value.isAuthorizedFullLength)
+        }
+    }
+
+    @Test fun injectedAuthorizationFlagsCannotAuthorizeAnUnknownCatalogueId() {
+        val state = YouTubePlayerViewModel(SavedStateHandle(mapOf(
+            Screen.ARG_CATALOGUE_ID to "unknown", Screen.ARG_VIDEO_ID to id,
+            Screen.ARG_MOVIE_TITLE to "Free Movie", "isAuthorizedFullLength" to true,
+            "isFullLengthMovie" to true)), FreeMovieRepository()).uiState.value
+        assertFalse(state.isAuthorizedFullLength)
+        assertFalse(state.canEmbed)
+        assertFalse(state.isLoading)
+        assertEquals("", state.videoId)
+    }
+
+    @Test fun promotionalRoutePreservesExactValidatedId() {
+        val route = Screen.YouTubePlayer.createRoute(id, "Trailer", VideoCategory.TRAILER)
+        val routedId = route.substringAfter("youtube_player/").substringBefore('?')
+        assertEquals(id, routedId)
+        assertEquals(id, player(routedId).uiState.value.videoId)
     }
 }
