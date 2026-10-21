@@ -429,8 +429,52 @@ class MovieDetailsViewModelTest {
         assertEquals("https://example.com/US", viewModel.uiState.value.tmdbWatchPageUrl)
     }
 
+    @Test
+    fun switchingMovieId_resetsStateToLoadingAndClearsPreviousDetails() = runTest(testDispatcher) {
+        val details1 = createMovieDetails(id = 100, title = "First Movie")
+        fakeMovieRepository.movieDetailsMap = mapOf(100 to details1)
+        fakeMovieRepository.movieDelays = mapOf(200 to 5000L) // Movie 200 takes time to load
+
+        val viewModel = MovieDetailsViewModel(fakeMovieRepository, fakeFavoritesRepository, fakeWatchlistRepository, SavedStateHandle())
+        viewModel.loadMovieDetails(100)
+        advanceUntilIdle()
+
+        assertEquals("First Movie", (viewModel.uiState.value.detailsState as UiState.Success).data.title)
+
+        // Switch to movie 200
+        viewModel.loadMovieDetails(200)
+        // Immediately verify state is reset to Loading rather than showing movie 100
+        assertTrue(viewModel.uiState.value.detailsState is UiState.Loading)
+    }
+
+    @Test
+    fun switchingMovieId_cancelsAndDiscardsSlowerPreviousMovieResponse() = runTest(testDispatcher) {
+        val details1 = createMovieDetails(id = 100, title = "Slow Movie 100")
+        val details2 = createMovieDetails(id = 200, title = "Fast Movie 200")
+
+        fakeMovieRepository.movieDetailsMap = mapOf(100 to details1, 200 to details2)
+        fakeMovieRepository.movieDelays = mapOf(100 to 1000L, 200 to 10L)
+
+        val viewModel = MovieDetailsViewModel(fakeMovieRepository, fakeFavoritesRepository, fakeWatchlistRepository, SavedStateHandle())
+
+        // Request movie 100 first
+        viewModel.loadMovieDetails(100)
+        runCurrent()
+
+        // Quickly switch to movie 200 before 100 finishes
+        viewModel.loadMovieDetails(200)
+        advanceUntilIdle()
+
+        // Movie 200 must be displayed, NOT overwritten by movie 100's delayed response
+        assertEquals(200, viewModel.currentMovieId)
+        assertTrue(viewModel.uiState.value.detailsState is UiState.Success)
+        assertEquals("Fast Movie 200", (viewModel.uiState.value.detailsState as UiState.Success).data.title)
+    }
+
     private class FakeMovieRepository : MovieRepository {
         var providerDelays: Map<String, Long> = emptyMap()
+        var movieDelays: Map<Int, Long> = emptyMap()
+        var movieDetailsMap: Map<Int, MovieDetails> = emptyMap()
         var detailsResult: Resource<MovieDetails> = Resource.Loading
         var castResult: Resource<List<CastMember>> = Resource.Success(emptyList())
         var videosResult: Resource<List<VideoTrailer>> = Resource.Success(emptyList())
@@ -442,6 +486,19 @@ class MovieDetailsViewModelTest {
 
         override fun getMovieDetails(movieId: Int): Flow<Resource<MovieDetails>> {
             detailsCallCount++
+            if (movieDelays.containsKey(movieId) || movieDetailsMap.containsKey(movieId)) {
+                return kotlinx.coroutines.flow.flow {
+                    val delayMs = movieDelays[movieId] ?: 0L
+                    if (delayMs > 0) kotlinx.coroutines.delay(delayMs)
+                    val details = movieDetailsMap[movieId] ?: MovieDetails(
+                        id = movieId, title = "Movie $movieId", tagline = null, overview = "",
+                        posterUrl = null, backdropUrl = null, releaseDate = null, runtimeMinutes = null,
+                        voteAverage = 0.0, voteCount = 0, genres = emptyList(), status = "Released",
+                        budget = 0L, revenue = 0L, originalLanguage = "en"
+                    )
+                    emit(Resource.Success(details))
+                }
+            }
             return flowOf(detailsResult)
         }
 

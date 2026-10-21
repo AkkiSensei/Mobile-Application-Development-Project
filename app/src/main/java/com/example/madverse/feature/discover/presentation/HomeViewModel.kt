@@ -27,6 +27,11 @@ class HomeViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
+    private var trendingJob: kotlinx.coroutines.Job? = null
+    private var topRatedJob: kotlinx.coroutines.Job? = null
+    private var upcomingJob: kotlinx.coroutines.Job? = null
+    private var refreshJob: kotlinx.coroutines.Job? = null
+
     init {
         loadAllSections()
     }
@@ -44,16 +49,41 @@ class HomeViewModel @Inject constructor(
      * Pull-to-refresh or full reload triggering fresh network fetches.
      */
     fun refresh() {
+        refreshJob?.cancel()
         _uiState.update { it.copy(isRefreshing = true) }
-        loadAllSections()
-        _uiState.update { it.copy(isRefreshing = false) }
+        refreshJob = viewModelScope.launch {
+            val j1 = launchTrending(1)
+            val j2 = launchTopRated(1)
+            val j3 = launchUpcoming(1)
+            kotlinx.coroutines.joinAll(j1, j2, j3)
+            _uiState.update { it.copy(isRefreshing = false) }
+        }
     }
 
     /**
      * Retries or fetches trending movies.
      */
     fun loadTrending(page: Int = 1) {
-        viewModelScope.launch {
+        launchTrending(page)
+    }
+
+    /**
+     * Retries or fetches top rated movies.
+     */
+    fun loadTopRated(page: Int = 1) {
+        launchTopRated(page)
+    }
+
+    /**
+     * Retries or fetches upcoming movies.
+     */
+    fun loadUpcoming(page: Int = 1) {
+        launchUpcoming(page)
+    }
+
+    private fun launchTrending(page: Int): kotlinx.coroutines.Job {
+        trendingJob?.cancel()
+        val job = viewModelScope.launch {
             movieRepository.getTrendingMovies(page).collect { resource ->
                 _uiState.update { current ->
                     current.copy(
@@ -64,13 +94,13 @@ class HomeViewModel @Inject constructor(
                 }
             }
         }
+        trendingJob = job
+        return job
     }
 
-    /**
-     * Retries or fetches top rated movies.
-     */
-    fun loadTopRated(page: Int = 1) {
-        viewModelScope.launch {
+    private fun launchTopRated(page: Int): kotlinx.coroutines.Job {
+        topRatedJob?.cancel()
+        val job = viewModelScope.launch {
             movieRepository.getTopRatedMovies(page).collect { resource ->
                 _uiState.update { current ->
                     current.copy(
@@ -81,13 +111,13 @@ class HomeViewModel @Inject constructor(
                 }
             }
         }
+        topRatedJob = job
+        return job
     }
 
-    /**
-     * Retries or fetches upcoming movies.
-     */
-    fun loadUpcoming(page: Int = 1) {
-        viewModelScope.launch {
+    private fun launchUpcoming(page: Int): kotlinx.coroutines.Job {
+        upcomingJob?.cancel()
+        val job = viewModelScope.launch {
             movieRepository.getUpcomingMovies(page).collect { resource ->
                 _uiState.update { current ->
                     current.copy(
@@ -98,6 +128,8 @@ class HomeViewModel @Inject constructor(
                 }
             }
         }
+        upcomingJob = job
+        return job
     }
 
     private fun Resource<List<Movie>>.toUiState(emptyMessage: String): UiState<List<Movie>> {

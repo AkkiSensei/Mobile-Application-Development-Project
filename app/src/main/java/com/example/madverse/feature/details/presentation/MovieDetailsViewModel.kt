@@ -41,6 +41,12 @@ class MovieDetailsViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(MovieDetailsUiState())
     val uiState: StateFlow<MovieDetailsUiState> = _uiState.asStateFlow()
+
+    private var detailsJob: Job? = null
+    private var castJob: Job? = null
+    private var videosJob: Job? = null
+    private var favoritesJob: Job? = null
+    private var watchlistJob: Job? = null
     private var providersJob: Job? = null
 
     var currentMovieId: Int = 0
@@ -58,6 +64,14 @@ class MovieDetailsViewModel @Inject constructor(
      * and local library persistence status for the given movie ID.
      */
     fun loadMovieDetails(movieId: Int) {
+        // Cancel all in-flight jobs for previous movie requests
+        detailsJob?.cancel()
+        castJob?.cancel()
+        videosJob?.cancel()
+        favoritesJob?.cancel()
+        watchlistJob?.cancel()
+        providersJob?.cancel()
+
         currentMovieId = movieId
 
         if (movieId <= 0) {
@@ -66,10 +80,31 @@ class MovieDetailsViewModel @Inject constructor(
                     detailsState = UiState.Error(
                         message = "Invalid movie ID ($movieId). Please select a valid movie.",
                         isOffline = false
-                    )
+                    ),
+                    castState = UiState.Loading,
+                    videosState = UiState.Loading,
+                    watchProvidersState = UiState.Loading,
+                    isFavorite = false,
+                    isInWatchlist = false
                 )
             }
             return
+        }
+
+        // Reset state so data from a previously selected movie does not leak while new movie loads
+        _uiState.update { current ->
+            current.copy(
+                detailsState = UiState.Loading,
+                castState = UiState.Loading,
+                videosState = UiState.Loading,
+                watchProvidersState = UiState.Loading,
+                flatrateProviders = emptyList(),
+                rentProviders = emptyList(),
+                buyProviders = emptyList(),
+                tmdbWatchPageUrl = null,
+                isFavorite = false,
+                isInWatchlist = false
+            )
         }
 
         fetchDetails(movieId)
@@ -94,6 +129,7 @@ class MovieDetailsViewModel @Inject constructor(
      */
     fun toggleFavorite() {
         val details = (_uiState.value.detailsState as? UiState.Success)?.data ?: return
+        if (details.id != currentMovieId) return
         val movie = details.toMovie()
 
         viewModelScope.launch {
@@ -110,6 +146,7 @@ class MovieDetailsViewModel @Inject constructor(
      */
     fun toggleWatchlist() {
         val details = (_uiState.value.detailsState as? UiState.Success)?.data ?: return
+        if (details.id != currentMovieId) return
         val movie = details.toMovie()
 
         viewModelScope.launch {
@@ -122,8 +159,10 @@ class MovieDetailsViewModel @Inject constructor(
     }
 
     private fun fetchDetails(movieId: Int) {
-        viewModelScope.launch {
+        detailsJob?.cancel()
+        detailsJob = viewModelScope.launch {
             movieRepository.getMovieDetails(movieId).collect { resource ->
+                if (currentMovieId != movieId) return@collect
                 _uiState.update { current ->
                     current.copy(
                         detailsState = when (resource) {
@@ -143,8 +182,10 @@ class MovieDetailsViewModel @Inject constructor(
     }
 
     private fun fetchCast(movieId: Int) {
-        viewModelScope.launch {
+        castJob?.cancel()
+        castJob = viewModelScope.launch {
             movieRepository.getMovieCredits(movieId).collect { resource ->
+                if (currentMovieId != movieId) return@collect
                 _uiState.update { current ->
                     current.copy(
                         castState = when (resource) {
@@ -165,8 +206,10 @@ class MovieDetailsViewModel @Inject constructor(
     }
 
     private fun fetchVideos(movieId: Int) {
-        viewModelScope.launch {
+        videosJob?.cancel()
+        videosJob = viewModelScope.launch {
             movieRepository.getMovieVideos(movieId).collect { resource ->
+                if (currentMovieId != movieId) return@collect
                 _uiState.update { current ->
                     current.copy(
                         videosState = when (resource) {
@@ -219,6 +262,7 @@ class MovieDetailsViewModel @Inject constructor(
             }
             try {
                 movieRepository.getMovieWatchProviders(movieId, countryCode = countryCode).collect { resource ->
+                    if (currentMovieId != movieId) return@collect
                     _uiState.update { current ->
                         when (resource) {
                             is Resource.Loading -> current.copy(watchProvidersState = UiState.Loading)
@@ -284,16 +328,20 @@ class MovieDetailsViewModel @Inject constructor(
     }
 
     private fun observeFavorites(movieId: Int) {
-        viewModelScope.launch {
+        favoritesJob?.cancel()
+        favoritesJob = viewModelScope.launch {
             favoritesRepository.isFavorite(movieId).collect { isFav ->
+                if (currentMovieId != movieId) return@collect
                 _uiState.update { it.copy(isFavorite = isFav) }
             }
         }
     }
 
     private fun observeWatchlist(movieId: Int) {
-        viewModelScope.launch {
+        watchlistJob?.cancel()
+        watchlistJob = viewModelScope.launch {
             watchlistRepository.isMovieInWatchlist(movieId).collect { inWl ->
+                if (currentMovieId != movieId) return@collect
                 _uiState.update { it.copy(isInWatchlist = inWl) }
             }
         }

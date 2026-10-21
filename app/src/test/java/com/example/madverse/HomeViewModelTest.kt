@@ -198,6 +198,60 @@ class HomeViewModelTest {
         assertEquals(2, upcomingCallCount)
     }
 
+    @Test
+    fun refresh_maintainsIsRefreshingTrueWhileSectionsAreLoading() = runTest(testDispatcher) {
+        val slowFlow = kotlinx.coroutines.flow.flow {
+            emit(Resource.Loading)
+            kotlinx.coroutines.delay(1000L)
+            emit(Resource.Success(listOf(createMovie(1, "Movie"))))
+        }
+        fakeMovieRepository.trendingFlow = slowFlow
+        fakeMovieRepository.topRatedFlow = slowFlow
+        fakeMovieRepository.upcomingFlow = slowFlow
+
+        val viewModel = HomeViewModel(fakeMovieRepository)
+        advanceUntilIdle()
+
+        viewModel.refresh()
+        // During async fetch, isRefreshing must be true
+        assertTrue(viewModel.uiState.value.isRefreshing)
+
+        // After completion, isRefreshing must revert to false
+        advanceUntilIdle()
+        assertFalse(viewModel.uiState.value.isRefreshing)
+    }
+
+    @Test
+    fun rapidTrendingReload_cancelsPreviousInFlightRequest() = runTest(testDispatcher) {
+        val slowFlow = kotlinx.coroutines.flow.flow {
+            emit(Resource.Loading)
+            kotlinx.coroutines.delay(1000L)
+            emit(Resource.Success(listOf(createMovie(1, "Old Movie"))))
+        }
+        val fastFlow = kotlinx.coroutines.flow.flow {
+            emit(Resource.Loading)
+            kotlinx.coroutines.delay(10L)
+            emit(Resource.Success(listOf(createMovie(2, "New Movie"))))
+        }
+
+        fakeMovieRepository.trendingFlow = slowFlow
+        val viewModel = HomeViewModel(fakeMovieRepository)
+        advanceUntilIdle()
+
+        // Trigger first slow reload
+        fakeMovieRepository.trendingFlow = slowFlow
+        viewModel.loadTrending()
+
+        // Immediately trigger second fast reload
+        fakeMovieRepository.trendingFlow = fastFlow
+        viewModel.loadTrending()
+
+        advanceUntilIdle()
+        val trendingState = viewModel.uiState.value.trendingState
+        assertTrue(trendingState is UiState.Success)
+        assertEquals("New Movie", (trendingState as UiState.Success).data.first().title)
+    }
+
     private class FakeMovieRepository : MovieRepository {
         var trendingFlow: Flow<Resource<List<Movie>>> = flowOf(Resource.Loading)
         var topRatedFlow: Flow<Resource<List<Movie>>> = flowOf(Resource.Loading)

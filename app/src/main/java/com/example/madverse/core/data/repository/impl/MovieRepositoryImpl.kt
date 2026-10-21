@@ -224,6 +224,8 @@ class MovieRepositoryImpl @Inject constructor(
                 in 500..599 -> Resource.Error("TMDB service is temporarily unavailable (HTTP $code).", e)
                 else -> Resource.Error("Unexpected API error (HTTP $code): ${body ?: "No details"}", e)
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             Resource.Error("An unexpected error occurred: ${e.message}", e)
         }
