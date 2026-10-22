@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -140,7 +142,8 @@ fun SearchScreen(
                 val emptyState = uiState.searchState as UiState.Empty
                 SearchEmptyContent(
                     message = emptyState.message,
-                    query = uiState.activeQuery.ifBlank { uiState.query }
+                    query = uiState.activeQuery.ifBlank { uiState.query },
+                    onClearQuery = { viewModel.onClearQuery() }
                 )
             }
             uiState.searchState is UiState.Success -> {
@@ -192,7 +195,7 @@ private fun SearchBarInput(
                 IconButton(onClick = onClearQuery) {
                     Icon(
                         imageVector = Icons.Filled.Close,
-                        contentDescription = "Clear search",
+                        contentDescription = "Clear search query",
                         tint = ContentMediumEmphasis,
                         modifier = Modifier.size(20.dp)
                     )
@@ -242,6 +245,7 @@ private fun SearchIdleContent(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(vertical = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -341,6 +345,7 @@ private fun SearchLoadingContent(
 private fun SearchEmptyContent(
     message: String,
     query: String,
+    onClearQuery: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     MADVerseEmptyState(
@@ -348,6 +353,8 @@ private fun SearchEmptyContent(
         title = "No Results Found",
         message = if (query.isNotBlank()) "We couldn't find any movies matching \"$query\". Check for spelling errors or try a different title." else message,
         iconTint = ContentMediumEmphasis,
+        actionLabel = if (query.isNotBlank() && onClearQuery != null) "Clear Search" else null,
+        onActionClick = if (query.isNotBlank()) onClearQuery else null,
         modifier = modifier
     )
 }
