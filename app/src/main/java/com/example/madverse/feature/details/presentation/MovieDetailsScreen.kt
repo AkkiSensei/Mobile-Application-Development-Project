@@ -49,6 +49,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.example.madverse.feature.details.presentation.components.RegionSelectorDialog
@@ -93,6 +94,8 @@ import com.example.madverse.core.model.MovieWatchProviders
 import com.example.madverse.core.model.VideoCategory
 import com.example.madverse.core.model.VideoTrailer
 import com.example.madverse.core.model.WatchProvider
+import com.example.madverse.core.domain.streaming.ProviderDestinationResolver
+import com.example.madverse.core.domain.streaming.StreamingContract
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -122,7 +125,7 @@ fun MovieDetailsScreen(
     var showRegionSelector by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(movieId) {
-        if (movieId > 0 && viewModel.currentMovieId != movieId) {
+        if (viewModel.currentMovieId != movieId) {
             viewModel.loadMovieDetails(movieId)
         }
     }
@@ -171,6 +174,7 @@ fun MovieDetailsScreen(
                     onToggleFavorite = { viewModel.toggleFavorite() },
                     onToggleWatchlist = { viewModel.toggleWatchlist() },
                     onSelectRegion = { showRegionSelector = true },
+                    onRetryProviders = { viewModel.fetchWatchProviders(movieId) },
                     onOpenVideo = { video ->
                         if (!video.isPlayableInApp) {
                             android.widget.Toast.makeText(context, "This video source is not eligible for in-app playback.", android.widget.Toast.LENGTH_LONG).show()
@@ -210,11 +214,13 @@ private fun MovieDetailsContent(
     onNavigateBack: () -> Unit,
     onToggleFavorite: () -> Unit,
     onToggleWatchlist: () -> Unit,
+    onRetryProviders: () -> Unit,
     onSelectRegion: (() -> Unit)? = null,
     onOpenVideo: (VideoTrailer) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val providerResolver = remember { ProviderDestinationResolver() }
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -531,13 +537,13 @@ private fun MovieDetailsContent(
                 countryCode = uiState.selectedCountryCode,
                 isLoading = uiState.watchProvidersState is UiState.Loading,
                 errorMessage = (uiState.watchProvidersState as? UiState.Error)?.message,
-                onOpenWatchLink = { tmdbUrl ->
-                    try {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(tmdbUrl))
-                        context.startActivity(intent)
-                    } catch (_: Exception) {
-                    }
-                },
+                onOpenWatchLink = { tmdbUrl -> StreamingContract.open(context,
+                    providerResolver.resolve(null, movie.id, movie.title, movie.releaseYear.toIntOrNull(),
+                        uiState.selectedCountryCode, tmdbUrl)) },
+                onProviderClick = { provider -> StreamingContract.open(context,
+                    providerResolver.resolve(provider, movie.id, movie.title, movie.releaseYear.toIntOrNull(),
+                        uiState.selectedCountryCode, uiState.tmdbWatchPageUrl)) },
+                onRetry = onRetryProviders,
                 onRegionClick = onSelectRegion
             )
         }

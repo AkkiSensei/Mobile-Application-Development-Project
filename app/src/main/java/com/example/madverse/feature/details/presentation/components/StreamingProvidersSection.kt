@@ -56,11 +56,12 @@ fun StreamingProvidersSection(
     watchLink: String?,
     countryCode: String = RegionConfig.DEFAULT_COUNTRY_CODE,
     onOpenWatchLink: (String) -> Unit,
+    onProviderClick: (WatchProvider) -> Unit,
+    onRetry: () -> Unit,
     modifier: Modifier = Modifier,
     isLoading: Boolean = false,
     errorMessage: String? = null,
-    onRegionClick: (() -> Unit)? = null,
-    onProviderClick: ((WatchProvider) -> Unit)? = null
+    onRegionClick: (() -> Unit)? = null
 ) {
     val regionOption = RegionConfig.SUPPORTED_REGIONS.firstOrNull { it.countryCode.equals(countryCode, ignoreCase = true) }
     val regionLabel = regionOption?.let { "${it.displayName} ${it.flagEmoji}" } ?: countryCode
@@ -176,6 +177,7 @@ fun StreamingProvidersSection(
                         )
                     }
                 }
+                OutlinedButton(onClick = onRetry) { Text("Retry watch options") }
             }
 
             !hasProviders -> {

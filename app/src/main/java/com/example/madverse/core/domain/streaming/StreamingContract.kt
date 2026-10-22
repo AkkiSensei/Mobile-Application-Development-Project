@@ -3,25 +3,28 @@ package com.example.madverse.core.domain.streaming
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import com.example.madverse.core.model.WatchProvider
+import android.widget.Toast
 
-/**
- * Contract and helper functions for resolving official streaming destinations.
- * Strict security rule: MADVerse NEVER scrapes DRM or hosts unauthorized video playback.
- * All streaming actions launch official destination apps or web URLs via Android Intents.
- */
+/** Launch HTTPS App Links normally, allowing Android to choose an app or browser. */
 object StreamingContract {
+    fun open(context: Context, destination: ProviderDestination) = dispatch(destination,
+        launch = { url -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) },
+        notify = { message -> Toast.makeText(context, message, Toast.LENGTH_LONG).show() })
 
-    /**
-     * Resolves the safest external intent to direct the user to the official provider.
-     */
-    fun createProviderIntent(provider: WatchProvider, movieTitle: String, fallbackUrl: String?): Intent {
-        val directUrl = provider.directLink
-        val targetUrl = when {
-            !directUrl.isNullOrBlank() -> directUrl
-            !fallbackUrl.isNullOrBlank() -> fallbackUrl
-            else -> "https://www.themoviedb.org/search?query=" + Uri.encode(movieTitle)
+    internal fun dispatch(destination: ProviderDestination, launch: (String) -> Unit, notify: (String) -> Unit) {
+        val url = destination.url
+        if (destination.type == ProviderDestinationType.UNAVAILABLE || ProviderDestinationResolver.safeHttps(url) == null) {
+            notify("No verified watch destination is available for this movie and region.")
+            return
         }
-        return Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl))
+        try {
+            launch(requireNotNull(url))
+            if (destination.type == ProviderDestinationType.REGIONAL_WATCH_FALLBACK) {
+                notify("Opening regional watch options on TMDB / JustWatch (${destination.region}).")
+            }
+        } catch (_: Exception) {
+            // Includes ActivityNotFoundException and SecurityException; report failed launches.
+            notify("No app could open these watch options. Please try again with a browser available.")
+        }
     }
 }
