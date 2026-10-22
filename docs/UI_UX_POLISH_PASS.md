@@ -91,6 +91,11 @@ This engineering pass executed a comprehensive, non-destructive UI/UX and reliab
 - **Implemented Fix:** Added `semantics(mergeDescendants = true)` to all three movie cards and set `contentDescription = null` on the inner thumbnail/poster images.
 - **Benefit:** Screen readers now announce the card once as a coherent, self-contained unit (e.g., "Oppenheimer, release year 2023, rated 8.1 out of 10").
 
+### 2.10 Quiz Recommendation Cards Accessibility (`QuizResultScreen.kt`)
+- **Observed Problem:** `RecommendedMovieCard` on the quiz outcome screen lacked explicit `Role.Button` semantic roles and unified merge semantics; the inner `AsyncImage` redundantly declared `contentDescription = movie.title`, causing TalkBack to read the title twice followed by disconnected match percentage texts.
+- **Implemented Fix:** Added `semantics(mergeDescendants = true)` with `Role.Button` and unified `accessibleDescription` (`"${movie.title}, ${recommendation.matchPercentage} percent match..."`), and set the inner poster's `contentDescription = null`.
+- **Benefit:** Eliminates speech stutter and double-announcements, providing a single, coherent announcement for each recommendation card.
+
 ---
 
 ## 3. Preserved Functionality
@@ -116,7 +121,7 @@ All available automated test suites, static analysis, and build checks were exec
 | `.\gradlew.bat compileDebugAndroidTestKotlin --console=plain` | **BUILD SUCCESSFUL** | Instrumentation test sources compiled without errors |
 | `.\gradlew.bat assembleRelease --console=plain` | **BUILD SUCCESSFUL** | Release APK compiled with R8 shrinking enabled |
 | `python -m unittest discover -s tools -p "test_*.py" -v` | **PASS** | **8 packaging tests passed** |
-| `python tools/package_submission.py --scan-only` | **PASS** | 195 files scanned, **0 detected secrets** |
+| `python tools/package_submission.py --scan-only` | **PASS** | 197 files scanned, **0 detected secrets** |
 | `git diff --check` | **PASS** | Clean diff, 0 whitespace/conflict errors |
 
 *(Note: Baseline started at 243 tests; 8 new regression tests were added in `UiPolishRegressionTest.kt` to protect accessibility descriptions, currency formatting, catalogue conversions, and provider labels).*
@@ -143,4 +148,6 @@ All commits were genuinely authored and committed by **Saanvi Chandel** (`saanvi
 6. `c2485a0` — `ui: refine free movie catalogue cards and player navigation`
 7. `bba6a3e` — `a11y: enhance accessible descriptions and merge semantics on movie cards`
 8. `6124161` — `test: add regression coverage for component accessibility and presentation states`
-9. `[Pending]` — `docs: record Saanvi UI improvement pass and validation results`
+9. `a15cbc7` — `docs: record Saanvi UI improvement pass and validation results`
+10. `4e84569` — `a11y: add merge semantics and accessible description to quiz result cards`
+11. `[Pending]` — `docs: finalize UI polish documentation and verification handover`
