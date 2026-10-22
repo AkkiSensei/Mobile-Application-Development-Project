@@ -579,7 +579,7 @@ private fun ComparisonRow(
     }
 }
 
-private fun formatCurrency(amount: Long): String {
+internal fun formatCurrency(amount: Long): String {
     return try {
         "$" + NumberFormat.getIntegerInstance(Locale.US).format(amount)
     } catch (_: Exception) {
