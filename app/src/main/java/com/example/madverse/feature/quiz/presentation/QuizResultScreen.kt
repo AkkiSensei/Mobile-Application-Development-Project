@@ -41,6 +41,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -220,6 +224,7 @@ private fun RecommendedMovieCard(
     onClick: () -> Unit
 ) {
     val movie = recommendation.movie
+    val accessibleDescription = "${movie.title}, ${recommendation.matchPercentage} percent match${if (movie.voteAverage > 0) ", rated ${movie.formattedRating} out of 10" else ""}"
 
     Box(
         modifier = Modifier
@@ -227,7 +232,14 @@ private fun RecommendedMovieCard(
             .clip(RoundedCornerShape(16.dp))
             .background(ObsidianSurfaceVariant)
             .border(1.dp, ObsidianCardBorder, RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
+            .semantics(mergeDescendants = true) {
+                role = Role.Button
+                contentDescription = accessibleDescription
+            }
+            .clickable(
+                role = Role.Button,
+                onClick = onClick
+            )
             .padding(12.dp)
     ) {
         Row(
@@ -258,7 +270,7 @@ private fun RecommendedMovieCard(
                 } else {
                     AsyncImage(
                         model = movie.posterUrl,
-                        contentDescription = movie.title,
+                        contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
