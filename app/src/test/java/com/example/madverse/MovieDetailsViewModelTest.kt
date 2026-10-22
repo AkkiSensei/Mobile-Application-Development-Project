@@ -471,6 +471,53 @@ class MovieDetailsViewModelTest {
         assertEquals("Fast Movie 200", (viewModel.uiState.value.detailsState as UiState.Success).data.title)
     }
 
+    @Test fun invalidInitialIdShowsErrorAndMakesNoRequests() = runTest(testDispatcher) {
+        val vm = MovieDetailsViewModel(fakeMovieRepository, fakeFavoritesRepository, fakeWatchlistRepository,
+            SavedStateHandle(mapOf(Screen.ARG_MOVIE_ID to -1)))
+        advanceUntilIdle()
+        assertTrue(vm.uiState.value.detailsState is UiState.Error)
+        assertEquals(0, fakeMovieRepository.detailsCallCount)
+    }
+
+    @Test fun regionChangeClearsOldDestinationsSynchronously() = runTest(testDispatcher) {
+        fakeMovieRepository.providersResult = Resource.Success(MovieWatchProviders(550,
+            "https://www.themoviedb.org/movie/550/watch?locale=IN",
+            listOf(WatchProvider(8, "Netflix", null, ProviderType.STREAMING_SUBSCRIPTION)), emptyList(), emptyList()))
+        val vm = MovieDetailsViewModel(fakeMovieRepository, fakeFavoritesRepository, fakeWatchlistRepository,
+            SavedStateHandle(mapOf(Screen.ARG_MOVIE_ID to 550)))
+        advanceUntilIdle()
+        assertTrue(vm.uiState.value.hasAnyWatchProviders)
+        vm.setRegion("US")
+        assertFalse(vm.uiState.value.hasAnyWatchProviders)
+        assertEquals(null, vm.uiState.value.tmdbWatchPageUrl)
+        assertTrue(vm.uiState.value.watchProvidersState is UiState.Loading)
+        advanceUntilIdle()
+    }
+
+    @Test fun providerResponseForAnotherMovieIsRejectedAndRetryRecovers() = runTest(testDispatcher) {
+        fakeMovieRepository.providersResult = Resource.Success(MovieWatchProviders(99, "https://www.themoviedb.org/movie/99/watch",
+            emptyList(), emptyList(), emptyList()))
+        val vm = MovieDetailsViewModel(fakeMovieRepository, fakeFavoritesRepository, fakeWatchlistRepository,
+            SavedStateHandle(mapOf(Screen.ARG_MOVIE_ID to 550)))
+        advanceUntilIdle()
+        assertTrue(vm.uiState.value.watchProvidersState is UiState.Error)
+        assertEquals(null, vm.uiState.value.tmdbWatchPageUrl)
+        fakeMovieRepository.providersResult = Resource.Success(MovieWatchProviders(550, "https://www.themoviedb.org/movie/550/watch",
+            emptyList(), emptyList(), emptyList()))
+        vm.fetchWatchProviders(550); advanceUntilIdle()
+        assertTrue(vm.uiState.value.watchProvidersState is UiState.Empty)
+    }
+
+    @Test fun changingToInvalidMovieClearsProviderDestinations() = runTest(testDispatcher) {
+        fakeMovieRepository.providersResult = Resource.Success(MovieWatchProviders(550, "https://www.themoviedb.org/movie/550/watch",
+            emptyList(), emptyList(), emptyList()))
+        val vm = MovieDetailsViewModel(fakeMovieRepository, fakeFavoritesRepository, fakeWatchlistRepository,
+            SavedStateHandle(mapOf(Screen.ARG_MOVIE_ID to 550)))
+        advanceUntilIdle(); vm.loadMovieDetails(0)
+        assertTrue(vm.uiState.value.detailsState is UiState.Error)
+        assertEquals(null, vm.uiState.value.tmdbWatchPageUrl)
+    }
+
     private class FakeMovieRepository : MovieRepository {
         var providerDelays: Map<String, Long> = emptyMap()
         var movieDelays: Map<Int, Long> = emptyMap()

@@ -15,6 +15,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
@@ -48,15 +51,14 @@ class MovieDetailsViewModel @Inject constructor(
     private var favoritesJob: Job? = null
     private var watchlistJob: Job? = null
     private var providersJob: Job? = null
+    private var providerVersion = 0L
 
     var currentMovieId: Int = 0
         private set
 
     init {
         val navMovieId = savedStateHandle.get<Int>(Screen.ARG_MOVIE_ID) ?: 0
-        if (navMovieId > 0) {
-            loadMovieDetails(navMovieId)
-        }
+        loadMovieDetails(navMovieId)
     }
 
     /**
@@ -71,6 +73,7 @@ class MovieDetailsViewModel @Inject constructor(
         favoritesJob?.cancel()
         watchlistJob?.cancel()
         providersJob?.cancel()
+        providerVersion++
 
         currentMovieId = movieId
 
@@ -85,7 +88,9 @@ class MovieDetailsViewModel @Inject constructor(
                     videosState = UiState.Loading,
                     watchProvidersState = UiState.Loading,
                     isFavorite = false,
-                    isInWatchlist = false
+                    isInWatchlist = false,
+                    flatrateProviders = emptyList(), rentProviders = emptyList(), buyProviders = emptyList(),
+                    tmdbWatchPageUrl = null
                 )
             }
             return
@@ -161,13 +166,15 @@ class MovieDetailsViewModel @Inject constructor(
     private fun fetchDetails(movieId: Int) {
         detailsJob?.cancel()
         detailsJob = viewModelScope.launch {
-            movieRepository.getMovieDetails(movieId).collect { resource ->
+            flow { emitAll(movieRepository.getMovieDetails(movieId)) }
+                .catch { emit(Resource.Error("Unable to load movie details. Please retry.")) }.collect { resource ->
                 if (currentMovieId != movieId) return@collect
                 _uiState.update { current ->
                     current.copy(
                         detailsState = when (resource) {
                             is Resource.Loading -> UiState.Loading
-                            is Resource.Success -> UiState.Success(resource.data)
+                            is Resource.Success -> if (resource.data.id == movieId) UiState.Success(resource.data)
+                                else UiState.Error("Details did not match this movie. Please retry.")
                             is Resource.Error -> {
                                 val isOffline = resource.cause is IOException ||
                                         resource.message.contains("network", ignoreCase = true) ||
@@ -233,6 +240,7 @@ class MovieDetailsViewModel @Inject constructor(
      * Updates selected regional country code and refreshes provider availability.
      */
     fun setRegion(countryCode: String) {
+        if (RegionConfig.SUPPORTED_REGIONS.none { it.countryCode == countryCode }) return
         if (_uiState.value.selectedCountryCode == countryCode) return
         _uiState.update { it.copy(selectedCountryCode = countryCode) }
         if (currentMovieId > 0) {
@@ -248,9 +256,10 @@ class MovieDetailsViewModel @Inject constructor(
         movieId: Int,
         countryCode: String = _uiState.value.selectedCountryCode
     ) {
+        if (movieId <= 0 || movieId != currentMovieId) return
         providersJob?.cancel()
-        providersJob = viewModelScope.launch {
-            _uiState.update { current ->
+        val version = ++providerVersion
+        _uiState.update { current ->
                 current.copy(
                     selectedCountryCode = countryCode,
                     watchProvidersState = UiState.Loading,
@@ -259,15 +268,18 @@ class MovieDetailsViewModel @Inject constructor(
                     buyProviders = emptyList(),
                     tmdbWatchPageUrl = null
                 )
-            }
+        }
+        providersJob = viewModelScope.launch {
             try {
                 movieRepository.getMovieWatchProviders(movieId, countryCode = countryCode).collect { resource ->
-                    if (currentMovieId != movieId) return@collect
+                    if (currentMovieId != movieId || providerVersion != version) return@collect
                     _uiState.update { current ->
                         when (resource) {
                             is Resource.Loading -> current.copy(watchProvidersState = UiState.Loading)
                             is Resource.Success -> {
                                 val providers = resource.data
+                                if (providers.movieId != movieId) return@update current.copy(
+                                    watchProvidersState = UiState.Error("Watch options did not match this movie. Please retry."))
                                 val sortedFlatrate = providers.flatrate.sortedBy { it.providerName }
                                 val sortedRent = providers.rent.sortedBy { it.providerName }
                                 val sortedBuy = providers.buy.sortedBy { it.providerName }
@@ -312,6 +324,7 @@ class MovieDetailsViewModel @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                if (currentMovieId != movieId || providerVersion != version) return@launch
                 _uiState.update { current ->
                     current.copy(
                         watchProvidersState = UiState.Error(

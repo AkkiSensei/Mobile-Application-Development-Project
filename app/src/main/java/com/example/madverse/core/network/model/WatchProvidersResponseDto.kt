@@ -12,11 +12,12 @@ data class WatchProvidersResponseDto(
     @SerializedName("results") val results: Map<String, CountryWatchProvidersDto>?
 ) {
     fun toDomain(movieId: Int, countryCode: String = RegionConfig.DEFAULT_COUNTRY_CODE): MovieWatchProviders {
+        require(id == movieId) { "Watch-provider response did not match the requested movie." }
         // Availability is regional: never label another country's catalog as this region's.
         val countryData = results?.get(countryCode)
 
         fun mapProviders(items: List<ProviderItemDto>?, type: ProviderType): List<WatchProvider> {
-            return items?.map { item ->
+            return items?.distinctBy { it.providerId }?.map { item ->
                 WatchProvider(
                     providerId = item.providerId,
                     providerName = item.providerName ?: "Unknown Provider",

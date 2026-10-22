@@ -28,6 +28,19 @@ import org.junit.Test
  * mapped domain models regardless of what partial/null data TMDB returns.
  */
 class DtoMappingTest {
+    @Test(expected = IllegalArgumentException::class)
+    fun watchProvidersRejectMismatchedMovieIdentity() {
+        WatchProvidersResponseDto(99, emptyMap()).toDomain(550)
+    }
+
+    @Test fun watchProvidersDeduplicateWithinEachCategory() {
+        val item = ProviderItemDto(8, "Netflix", "/logo.jpg", 0)
+        val result = WatchProvidersResponseDto(550, mapOf("IN" to CountryWatchProvidersDto(null,
+            listOf(item, item), listOf(item), emptyList()))).toDomain(550)
+        assertEquals(1, result.flatrate.size)
+        assertEquals(1, result.rent.size)
+        assertEquals(ProviderType.RENT, result.rent.single().type)
+    }
 
     // -----------------------------------------------------------------------
     // MovieDto → Movie
