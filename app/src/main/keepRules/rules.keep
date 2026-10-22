@@ -10,3 +10,15 @@
 #-keepclassmembers class fqcn.of.javascript.interface.for.webview {
 #   public *;
 #}
+
+# Gson constructs these API DTOs reflectively, including nested generic response
+# types. Keep their shape while allowing renamed classes/fields: every wire
+# field has @SerializedName. Do not keep the whole application or library graph.
+-keep,allowobfuscation class com.example.madverse.core.network.model.** { *; }
+-keepattributes Signature,RuntimeVisibleAnnotations,AnnotationDefault
+
+# The embedded player receives callbacks from JavaScript. Preserve annotated
+# bridge methods even though their callers are outside the Java call graph.
+-keepclassmembers class com.pierfrancescosoffritti.androidyoutubeplayer.** {
+    @android.webkit.JavascriptInterface <methods>;
+}
