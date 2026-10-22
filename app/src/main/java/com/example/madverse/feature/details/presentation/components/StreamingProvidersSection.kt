@@ -13,11 +13,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -30,6 +32,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -97,7 +103,6 @@ fun StreamingProvidersSection(
                 )
             }
 
-            // Region Indicator Badge
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
@@ -105,12 +110,20 @@ fun StreamingProvidersSection(
                     .border(1.dp, ObsidianCardBorder, RoundedCornerShape(8.dp))
                     .then(
                         if (onRegionClick != null) {
-                            Modifier.clickable(onClick = onRegionClick)
+                            Modifier
+                                .clickable(
+                                    role = Role.Button,
+                                    onClick = onRegionClick
+                                )
+                                .semantics {
+                                    role = Role.Button
+                                    contentDescription = "Change streaming region, currently $regionLabel"
+                                }
                         } else {
                             Modifier
                         }
                     )
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -161,23 +174,47 @@ fun StreamingProvidersSection(
                         .border(1.dp, ObsidianCardBorder, RoundedCornerShape(12.dp))
                         .padding(14.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = null,
-                            tint = ContentLowEmphasis,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Text(
-                            text = errorMessage,
-                            style = MaterialTheme.typography.bodySmall.copy(color = ContentMediumEmphasis)
-                        )
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = null,
+                                tint = ContentLowEmphasis,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = errorMessage,
+                                style = MaterialTheme.typography.bodySmall.copy(color = ContentMediumEmphasis)
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = onRetry,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .defaultMinSize(minHeight = 44.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, ObsidianCardBorder),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = ContentHighEmphasis
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = CinematicAmber
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Retry watch options",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium)
+                            )
+                        }
                     }
                 }
-                OutlinedButton(onClick = onRetry) { Text("Retry watch options") }
             }
 
             !hasProviders -> {
