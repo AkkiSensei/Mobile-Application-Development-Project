@@ -63,7 +63,9 @@ fun WatchProviderBadge(
         modifier = modifier
             .width(size + 14.dp)
             .semantics {
-                role = Role.Button
+                if (onClick != null) {
+                    role = Role.Button
+                }
                 contentDescription = "${provider.providerName} streaming provider"
             }
             .then(
