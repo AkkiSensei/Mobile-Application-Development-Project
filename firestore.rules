@@ -1,0 +1,75 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Authentication and ownership helpers
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isString(val) {
+      return val is string;
+    }
+
+    function isNumber(val) {
+      return val is int || val is float;
+    }
+
+    // Account root document: /users/{userId}
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+        && request.resource.data.keys().hasAll(['uid', 'updatedAt'])
+        && request.resource.data.uid == userId
+        && isNumber(request.resource.data.updatedAt)
+        && (!('email' in request.resource.data) || request.resource.data.email == null || isString(request.resource.data.email))
+        && (!('displayName' in request.resource.data) || request.resource.data.displayName == null || isString(request.resource.data.displayName))
+        && (!('photoUrl' in request.resource.data) || request.resource.data.photoUrl == null || isString(request.resource.data.photoUrl));
+      allow delete: if isOwner(userId);
+
+      // Favorites subcollection: /users/{userId}/favorites/{movieId}
+      match /favorites/{movieId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.keys().hasAll(['movieId', 'title', 'savedTimestamp'])
+          && request.resource.data.movieId is int
+          && isString(request.resource.data.title)
+          && isNumber(request.resource.data.savedTimestamp);
+        allow delete: if isOwner(userId);
+      }
+
+      // Watchlist subcollection: /users/{userId}/watchlist/{movieId}
+      match /watchlist/{movieId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.keys().hasAll(['movieId', 'title', 'savedTimestamp'])
+          && request.resource.data.movieId is int
+          && isString(request.resource.data.title)
+          && isNumber(request.resource.data.savedTimestamp);
+        allow delete: if isOwner(userId);
+      }
+
+      // Preferences document: /users/{userId}/preferences/{prefId}
+      match /preferences/{prefId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && prefId == 'current'
+          && request.resource.data.keys().hasAll(['mood', 'era', 'runtimePreference', 'updatedTimestamp'])
+          && isString(request.resource.data.mood)
+          && isString(request.resource.data.era)
+          && isString(request.resource.data.runtimePreference)
+          && isNumber(request.resource.data.updatedTimestamp);
+        allow delete: if isOwner(userId);
+      }
+    }
+
+    // Deny access to any unspecified collection
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

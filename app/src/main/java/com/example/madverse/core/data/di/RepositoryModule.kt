@@ -50,4 +50,22 @@ abstract class RepositoryModule {
     abstract fun bindQuizRepository(
         impl: QuizRepositoryImpl
     ): QuizRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAuthRepository(
+        impl: com.example.madverse.core.data.repository.impl.FirebaseAuthRepositoryImpl
+    ): com.example.madverse.core.data.repository.AuthRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSessionManager(
+        impl: com.example.madverse.core.data.repository.impl.SessionManagerImpl
+    ): com.example.madverse.core.data.repository.SessionManager
+
+    @Binds
+    @Singleton
+    abstract fun bindCloudSyncService(
+        impl: com.example.madverse.core.data.repository.impl.FirestoreSyncServiceImpl
+    ): com.example.madverse.core.data.repository.CloudSyncService
 }

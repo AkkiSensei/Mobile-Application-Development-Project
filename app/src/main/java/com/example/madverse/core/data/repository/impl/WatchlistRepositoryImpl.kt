@@ -1,45 +1,72 @@
 package com.example.madverse.core.data.repository.impl
 
+import com.example.madverse.core.data.repository.CloudSyncService
+import com.example.madverse.core.data.repository.DefaultSessionManager
+import com.example.madverse.core.data.repository.NoOpCloudSyncService
+import com.example.madverse.core.data.repository.SessionManager
 import com.example.madverse.core.data.repository.WatchlistRepository
 import com.example.madverse.core.database.dao.WatchlistDao
 import com.example.madverse.core.database.entity.WatchlistEntity
 import com.example.madverse.core.model.Movie
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Room-backed implementation of [WatchlistRepository].
+ * Room-backed and Firestore-synchronized implementation of [WatchlistRepository].
  *
- * Watchlist movies are persisted locally in the `watchlist_movies` table.
- * All list and membership queries are reactive [Flow] streams so the UI
- * stays in sync automatically when the database is mutated.
+ * All queries are reactive [Flow] streams bound to [SessionManager.currentUserIdFlow],
+ * guaranteeing total data isolation across guest sessions and authenticated users.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 @Singleton
 class WatchlistRepositoryImpl @Inject constructor(
-    private val watchlistDao: WatchlistDao
+    private val watchlistDao: WatchlistDao,
+    private val sessionManager: SessionManager,
+    private val syncService: CloudSyncService
 ) : WatchlistRepository {
 
+    // Secondary constructor preserving backward compatibility for isolated unit tests
+    constructor(watchlistDao: WatchlistDao) : this(
+        watchlistDao = watchlistDao,
+        sessionManager = DefaultSessionManager(),
+        syncService = NoOpCloudSyncService()
+    )
+
     override fun getWatchlistMovies(): Flow<List<Movie>> =
-        watchlistDao.getAllWatchlistMovies().map { entities ->
-            entities.map { it.toDomain() }
+        sessionManager.currentUserIdFlow.flatMapLatest { userId ->
+            watchlistDao.getAllWatchlistMovies(userId).map { entities ->
+                entities.map { it.toDomain() }
+            }
         }
 
     override fun isMovieInWatchlist(movieId: Int): Flow<Boolean> =
-        watchlistDao.isMovieInWatchlist(movieId)
+        sessionManager.currentUserIdFlow.flatMapLatest { userId ->
+            watchlistDao.isMovieInWatchlist(movieId, userId)
+        }
 
-    override suspend fun isMovieInWatchlistOnce(movieId: Int): Boolean =
-        watchlistDao.isMovieInWatchlistOnce(movieId)
+    override suspend fun isMovieInWatchlistOnce(movieId: Int): Boolean {
+        val userId = sessionManager.currentUserId
+        return watchlistDao.isMovieInWatchlistOnce(movieId, userId)
+    }
 
-    override suspend fun getWatchlistMovieById(movieId: Int): Movie? =
-        watchlistDao.getWatchlistMovieById(movieId)?.toDomain()
+    override suspend fun getWatchlistMovieById(movieId: Int): Movie? {
+        val userId = sessionManager.currentUserId
+        return watchlistDao.getWatchlistMovieById(movieId, userId)?.toDomain()
+    }
 
     override suspend fun addToWatchlist(movie: Movie) {
-        watchlistDao.insertMovie(WatchlistEntity.fromDomain(movie))
+        val userId = sessionManager.currentUserId
+        watchlistDao.insertMovie(WatchlistEntity.fromDomain(movie, userId = userId))
+        syncService.pushWatchlist(userId, movie)
     }
 
     override suspend fun removeFromWatchlist(movieId: Int) {
-        watchlistDao.deleteMovieById(movieId)
+        val userId = sessionManager.currentUserId
+        watchlistDao.deleteMovieById(movieId, userId)
+        syncService.deleteWatchlist(userId, movieId)
     }
 }

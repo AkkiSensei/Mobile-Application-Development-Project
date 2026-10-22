@@ -45,4 +45,10 @@ object DatabaseModule {
     fun provideUserPreferenceDao(database: MADVerseDatabase): UserPreferenceDao {
         return database.userPreferenceDao()
     }
+
+    @Provides
+    @Singleton
+    fun providePendingSyncDao(database: MADVerseDatabase): com.example.madverse.core.database.dao.PendingSyncDao {
+        return database.pendingSyncDao()
+    }
 }

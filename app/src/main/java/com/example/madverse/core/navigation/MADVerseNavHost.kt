@@ -20,6 +20,8 @@ import com.example.madverse.feature.genres.presentation.GenreExplorerScreen
 import com.example.madverse.feature.recommendations.presentation.RecommendationsScreen
 import com.example.madverse.feature.comparison.presentation.ComparisonScreen
 import com.example.madverse.feature.freemovies.presentation.FreeMoviesScreen
+import com.example.madverse.feature.auth.presentation.AuthScreen
+import com.example.madverse.feature.profile.presentation.ProfileScreen
 
 @Composable
 fun MADVerseNavHost(
@@ -150,6 +152,42 @@ fun MADVerseNavHost(
             YouTubePlayerScreen(
                 onNavigateBack = {
                     navController.popBackStack()
+                }
+            )
+        }
+
+        composable(route = Screen.Auth.route) {
+            AuthScreen(
+                onAuthSuccess = {
+                    navController.navigate(Screen.Profile.route) {
+                        popUpTo(Screen.Auth.route) { inclusive = true }
+                    }
+                },
+                onContinueAsGuest = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable(route = Screen.Profile.route) {
+            ProfileScreen(
+                onNavigateToAuth = {
+                    navController.navigate(Screen.Auth.route)
+                },
+                onNavigateToFavorites = {
+                    navController.navigate(Screen.Favorites.route)
+                },
+                onNavigateToWatchlist = {
+                    navController.navigate(Screen.Watchlist.route)
+                },
+                onRetakeQuiz = {
+                    navController.navigate(Screen.Quiz.route)
+                },
+                onSignedOut = {
+                    navController.navigate(Screen.Discover.route) {
+                        popUpTo(Screen.Discover.route) { inclusive = false }
+                        launchSingleTop = true
+                    }
                 }
             )
         }

@@ -135,30 +135,42 @@ class CollectionIsolationTest {
     }
 
     private class TestFavoriteDao : FavoriteDao {
-        val records = mutableMapOf<Int, FavoriteEntity>()
+        val records = mutableMapOf<Pair<Int, String>, FavoriteEntity>()
         val flow = MutableStateFlow<List<FavoriteEntity>>(emptyList())
 
         private fun emit() { flow.value = records.values.sortedByDescending { it.savedTimestamp } }
-        override fun getAllFavorites(): Flow<List<FavoriteEntity>> = flow
-        override suspend fun getFavoriteById(movieId: Int): FavoriteEntity? = records[movieId]
-        override fun isFavorite(movieId: Int): Flow<Boolean> = flow.map { list -> list.any { it.movieId == movieId } }
-        override suspend fun isFavoriteOnce(movieId: Int): Boolean = records.containsKey(movieId)
-        override suspend fun insertFavorite(movie: FavoriteEntity) { records[movie.movieId] = movie; emit() }
-        override suspend fun deleteFavorite(movie: FavoriteEntity) { records.remove(movie.movieId); emit() }
-        override suspend fun deleteFavoriteById(movieId: Int) { records.remove(movieId); emit() }
+        override fun getAllFavorites(userId: String): Flow<List<FavoriteEntity>> =
+            flow.map { list -> list.filter { it.userId == userId } }
+        override suspend fun getFavoriteById(movieId: Int, userId: String): FavoriteEntity? = records[movieId to userId]
+        override fun isFavorite(movieId: Int, userId: String): Flow<Boolean> =
+            flow.map { list -> list.any { it.movieId == movieId && it.userId == userId } }
+        override suspend fun isFavoriteOnce(movieId: Int, userId: String): Boolean = records.containsKey(movieId to userId)
+        override suspend fun insertFavorite(movie: FavoriteEntity) { records[movie.movieId to movie.userId] = movie; emit() }
+        override suspend fun deleteFavorite(movie: FavoriteEntity) { records.remove(movie.movieId to movie.userId); emit() }
+        override suspend fun deleteFavoriteById(movieId: Int, userId: String) { records.remove(movieId to userId); emit() }
+        override suspend fun deleteAllFavoritesForUser(userId: String) { records.entries.removeAll { it.key.second == userId }; emit() }
+        override fun getFavoritesCount(userId: String): Flow<Int> = flow.map { list -> list.count { it.userId == userId } }
+        override suspend fun getFavoritesCountOnce(userId: String): Int = records.values.count { it.userId == userId }
+        override suspend fun getAllFavoritesOnce(userId: String): List<FavoriteEntity> = records.values.filter { it.userId == userId }
     }
 
     private class TestWatchlistDao : WatchlistDao {
-        val records = mutableMapOf<Int, WatchlistEntity>()
+        val records = mutableMapOf<Pair<Int, String>, WatchlistEntity>()
         val flow = MutableStateFlow<List<WatchlistEntity>>(emptyList())
 
         private fun emit() { flow.value = records.values.sortedByDescending { it.savedTimestamp } }
-        override fun getAllWatchlistMovies(): Flow<List<WatchlistEntity>> = flow
-        override suspend fun getWatchlistMovieById(movieId: Int): WatchlistEntity? = records[movieId]
-        override fun isMovieInWatchlist(movieId: Int): Flow<Boolean> = flow.map { list -> list.any { it.movieId == movieId } }
-        override suspend fun isMovieInWatchlistOnce(movieId: Int): Boolean = records.containsKey(movieId)
-        override suspend fun insertMovie(movie: WatchlistEntity) { records[movie.movieId] = movie; emit() }
-        override suspend fun deleteMovie(movie: WatchlistEntity) { records.remove(movie.movieId); emit() }
-        override suspend fun deleteMovieById(movieId: Int) { records.remove(movieId); emit() }
+        override fun getAllWatchlistMovies(userId: String): Flow<List<WatchlistEntity>> =
+            flow.map { list -> list.filter { it.userId == userId } }
+        override suspend fun getWatchlistMovieById(movieId: Int, userId: String): WatchlistEntity? = records[movieId to userId]
+        override fun isMovieInWatchlist(movieId: Int, userId: String): Flow<Boolean> =
+            flow.map { list -> list.any { it.movieId == movieId && it.userId == userId } }
+        override suspend fun isMovieInWatchlistOnce(movieId: Int, userId: String): Boolean = records.containsKey(movieId to userId)
+        override suspend fun insertMovie(movie: WatchlistEntity) { records[movie.movieId to movie.userId] = movie; emit() }
+        override suspend fun deleteMovie(movie: WatchlistEntity) { records.remove(movie.movieId to movie.userId); emit() }
+        override suspend fun deleteMovieById(movieId: Int, userId: String) { records.remove(movieId to userId); emit() }
+        override suspend fun deleteAllWatchlistForUser(userId: String) { records.entries.removeAll { it.key.second == userId }; emit() }
+        override fun getWatchlistCount(userId: String): Flow<Int> = flow.map { list -> list.count { it.userId == userId } }
+        override suspend fun getWatchlistCountOnce(userId: String): Int = records.values.count { it.userId == userId }
+        override suspend fun getAllWatchlistOnce(userId: String): List<WatchlistEntity> = records.values.filter { it.userId == userId }
     }
 }

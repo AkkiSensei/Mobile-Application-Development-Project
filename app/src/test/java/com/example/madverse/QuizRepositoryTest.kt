@@ -11,6 +11,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -203,7 +204,7 @@ class QuizRepositoryTest {
     @Test
     fun userPreferenceEntity_malformedData_recoversGracefullyWithDefaults() {
         val corruptedEntity = UserPreferenceEntity(
-            id = 1,
+            userId = "guest",
             genreIdsCsv = "invalid,28,,NaN,878",
             mood = "NON_EXISTENT_MOOD",
             era = "UNKNOWN_ERA",
@@ -227,23 +228,24 @@ class QuizRepositoryTest {
     }
 
     private class TestUserPreferenceDao : UserPreferenceDao {
-        private var storedEntity: UserPreferenceEntity? = null
-        private val flow = MutableStateFlow<UserPreferenceEntity?>(null)
+        private val records = mutableMapOf<String, UserPreferenceEntity>()
+        private val flow = MutableStateFlow<Map<String, UserPreferenceEntity>>(emptyMap())
 
-        val rowCount: Int get() = if (storedEntity != null) 1 else 0
+        val rowCount: Int get() = records.size
 
-        override fun getUserPreferenceProfile(): Flow<UserPreferenceEntity?> = flow
+        override fun getUserPreferenceProfile(userId: String): Flow<UserPreferenceEntity?> =
+            flow.map { it[userId] }
 
-        override suspend fun getUserPreferenceProfileOnce(): UserPreferenceEntity? = storedEntity
+        override suspend fun getUserPreferenceProfileOnce(userId: String): UserPreferenceEntity? = records[userId]
 
         override suspend fun saveUserPreferenceProfile(profile: UserPreferenceEntity) {
-            storedEntity = profile
-            flow.value = profile
+            records[profile.userId] = profile
+            flow.value = records.toMap()
         }
 
-        override suspend fun clearUserPreferenceProfile() {
-            storedEntity = null
-            flow.value = null
+        override suspend fun clearUserPreferenceProfile(userId: String) {
+            records.remove(userId)
+            flow.value = records.toMap()
         }
     }
 }

@@ -11,7 +11,8 @@ import com.example.madverse.core.model.UserPreferenceProfile
 @Entity(tableName = "user_preference_profile")
 data class UserPreferenceEntity(
     @PrimaryKey
-    val id: Int = 1, // Singleton row for the device's user profile
+    @ColumnInfo(name = "user_id")
+    val userId: String = "guest",
 
     @ColumnInfo(name = "genre_ids_csv")
     val genreIdsCsv: String, // Comma-separated genre IDs, e.g. "28,878,12"
@@ -71,9 +72,12 @@ data class UserPreferenceEntity(
     }
 
     companion object {
-        fun fromDomain(profile: UserPreferenceProfile): UserPreferenceEntity {
+        fun fromDomain(
+            profile: UserPreferenceProfile,
+            userId: String = "guest"
+        ): UserPreferenceEntity {
             return UserPreferenceEntity(
-                id = 1,
+                userId = userId,
                 genreIdsCsv = profile.selectedGenreIds.joinToString(","),
                 mood = profile.mood.name,
                 era = profile.era.name,

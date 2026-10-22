@@ -210,35 +210,52 @@ class FavoritesRepositoryTest {
     }
 
     private class TestFavoriteDao : FavoriteDao {
-        private val records = mutableMapOf<Int, FavoriteEntity>()
+        private val records = mutableMapOf<Pair<Int, String>, FavoriteEntity>()
         private val flow = MutableStateFlow<List<FavoriteEntity>>(emptyList())
 
         private fun emit() {
             flow.value = records.values.sortedByDescending { it.savedTimestamp }
         }
 
-        override fun getAllFavorites(): Flow<List<FavoriteEntity>> = flow
+        override fun getAllFavorites(userId: String): Flow<List<FavoriteEntity>> =
+            flow.map { list -> list.filter { it.userId == userId } }
 
-        override suspend fun getFavoriteById(movieId: Int): FavoriteEntity? = records[movieId]
+        override suspend fun getFavoriteById(movieId: Int, userId: String): FavoriteEntity? =
+            records[movieId to userId]
 
-        override fun isFavorite(movieId: Int): Flow<Boolean> =
-            flow.map { list -> list.any { it.movieId == movieId } }
+        override fun isFavorite(movieId: Int, userId: String): Flow<Boolean> =
+            flow.map { list -> list.any { it.movieId == movieId && it.userId == userId } }
 
-        override suspend fun isFavoriteOnce(movieId: Int): Boolean = records.containsKey(movieId)
+        override suspend fun isFavoriteOnce(movieId: Int, userId: String): Boolean =
+            records.containsKey(movieId to userId)
 
         override suspend fun insertFavorite(movie: FavoriteEntity) {
-            records[movie.movieId] = movie
+            records[movie.movieId to movie.userId] = movie
             emit()
         }
 
         override suspend fun deleteFavorite(movie: FavoriteEntity) {
-            records.remove(movie.movieId)
+            records.remove(movie.movieId to movie.userId)
             emit()
         }
 
-        override suspend fun deleteFavoriteById(movieId: Int) {
-            records.remove(movieId)
+        override suspend fun deleteFavoriteById(movieId: Int, userId: String) {
+            records.remove(movieId to userId)
             emit()
         }
+
+        override suspend fun deleteAllFavoritesForUser(userId: String) {
+            records.entries.removeAll { it.key.second == userId }
+            emit()
+        }
+
+        override fun getFavoritesCount(userId: String): Flow<Int> =
+            flow.map { list -> list.count { it.userId == userId } }
+
+        override suspend fun getFavoritesCountOnce(userId: String): Int =
+            records.values.count { it.userId == userId }
+
+        override suspend fun getAllFavoritesOnce(userId: String): List<FavoriteEntity> =
+            records.values.filter { it.userId == userId }.sortedByDescending { it.savedTimestamp }
     }
 }

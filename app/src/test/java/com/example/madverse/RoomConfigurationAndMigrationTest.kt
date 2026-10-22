@@ -21,9 +21,11 @@ class RoomConfigurationAndMigrationTest {
     @Test
     fun databaseMetadata_constantsMatchArchitectureBlueprint() {
         assertEquals("madverse_database.db", MADVerseDatabase.DATABASE_NAME)
-        assertEquals(1, MADVerseDatabase.DATABASE_VERSION)
+        assertEquals(2, MADVerseDatabase.DATABASE_VERSION)
         assertNotNull(MADVerseDatabase.ALL_MIGRATIONS)
-        assertEquals(0, MADVerseDatabase.ALL_MIGRATIONS.size)
+        assertEquals(1, MADVerseDatabase.ALL_MIGRATIONS.size)
+        assertEquals(1, MADVerseDatabase.ALL_MIGRATIONS[0].startVersion)
+        assertEquals(2, MADVerseDatabase.ALL_MIGRATIONS[0].endVersion)
     }
 
     @Test
@@ -43,5 +45,8 @@ class RoomConfigurationAndMigrationTest {
 
         val userPrefDaoImpl = Class.forName("com.example.madverse.core.database.dao.UserPreferenceDao_Impl")
         assertTrue(UserPreferenceDao::class.java.isAssignableFrom(userPrefDaoImpl))
+
+        val pendingSyncDaoImpl = Class.forName("com.example.madverse.core.database.dao.PendingSyncDao_Impl")
+        assertTrue(com.example.madverse.core.database.dao.PendingSyncDao::class.java.isAssignableFrom(pendingSyncDaoImpl))
     }
 }

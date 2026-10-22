@@ -5,11 +5,16 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.example.madverse.core.model.Movie
 
-@Entity(tableName = "favorite_movies")
+@Entity(
+    tableName = "favorite_movies",
+    primaryKeys = ["movie_id", "user_id"]
+)
 data class FavoriteEntity(
-    @PrimaryKey
     @ColumnInfo(name = "movie_id")
     val movieId: Int,
+
+    @ColumnInfo(name = "user_id", defaultValue = "guest")
+    val userId: String = "guest",
 
     @ColumnInfo(name = "title")
     val title: String,
@@ -50,10 +55,12 @@ data class FavoriteEntity(
     companion object {
         fun fromDomain(
             movie: Movie,
+            userId: String = "guest",
             savedTimestamp: Long = System.currentTimeMillis()
         ): FavoriteEntity {
             return FavoriteEntity(
                 movieId = movie.id,
+                userId = userId,
                 title = movie.title,
                 posterPath = movie.posterUrl,
                 backdropPath = movie.backdropUrl,

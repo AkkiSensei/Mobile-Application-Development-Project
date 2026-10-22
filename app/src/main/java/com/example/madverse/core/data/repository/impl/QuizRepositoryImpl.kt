@@ -10,6 +10,7 @@ import com.example.madverse.core.model.QuizQuestion
 import com.example.madverse.core.model.RuntimePreference
 import com.example.madverse.core.model.UserPreferenceProfile
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -25,34 +26,53 @@ import javax.inject.Singleton
  * so that MADVerse's recommendation engine and quiz UI share a single,
  * authoritative question set without requiring a network call.
  */
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @Singleton
 class QuizRepositoryImpl @Inject constructor(
-    private val userPreferenceDao: UserPreferenceDao
+    private val userPreferenceDao: UserPreferenceDao,
+    private val sessionManager: com.example.madverse.core.data.repository.SessionManager,
+    private val syncService: com.example.madverse.core.data.repository.CloudSyncService
 ) : QuizRepository {
 
+    // Secondary constructor preserving backward compatibility for isolated unit tests
+    constructor(userPreferenceDao: UserPreferenceDao) : this(
+        userPreferenceDao = userPreferenceDao,
+        sessionManager = com.example.madverse.core.data.repository.DefaultSessionManager(),
+        syncService = com.example.madverse.core.data.repository.NoOpCloudSyncService()
+    )
+
     override fun hasSavedProfile(): Flow<Boolean> =
-        userPreferenceDao.getUserPreferenceProfile().map { it != null }
+        sessionManager.currentUserIdFlow.flatMapLatest { userId ->
+            userPreferenceDao.getUserPreferenceProfile(userId).map { it != null }
+        }
 
     // -------------------------------------------------------------------------
     // Preference Profile Persistence
     // -------------------------------------------------------------------------
 
     override fun getUserPreferenceProfile(): Flow<UserPreferenceProfile> =
-        userPreferenceDao.getUserPreferenceProfile().map { entity ->
-            entity?.toDomain() ?: UserPreferenceProfile()
+        sessionManager.currentUserIdFlow.flatMapLatest { userId ->
+            userPreferenceDao.getUserPreferenceProfile(userId).map { entity ->
+                entity?.toDomain() ?: UserPreferenceProfile()
+            }
         }
 
-    override suspend fun getUserPreferenceProfileOnce(): UserPreferenceProfile =
-        userPreferenceDao.getUserPreferenceProfileOnce()?.toDomain() ?: UserPreferenceProfile()
+    override suspend fun getUserPreferenceProfileOnce(): UserPreferenceProfile {
+        val userId = sessionManager.currentUserId
+        return userPreferenceDao.getUserPreferenceProfileOnce(userId)?.toDomain() ?: UserPreferenceProfile()
+    }
 
     override suspend fun saveUserPreferenceProfile(profile: UserPreferenceProfile) {
+        val userId = sessionManager.currentUserId
         userPreferenceDao.saveUserPreferenceProfile(
-            UserPreferenceEntity.fromDomain(profile)
+            UserPreferenceEntity.fromDomain(profile, userId = userId)
         )
+        syncService.pushPreferences(userId, profile)
     }
 
     override suspend fun clearUserPreferenceProfile() {
-        userPreferenceDao.clearUserPreferenceProfile()
+        val userId = sessionManager.currentUserId
+        userPreferenceDao.clearUserPreferenceProfile(userId)
     }
 
     // -------------------------------------------------------------------------
