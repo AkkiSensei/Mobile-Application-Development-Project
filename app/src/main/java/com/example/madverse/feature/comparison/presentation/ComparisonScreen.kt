@@ -24,8 +24,9 @@ fun ComparisonScreen(onMovieClick: (Int) -> Unit, viewModel: ComparisonViewModel
         if (state.entries.isNotEmpty()) item {
             Column(Modifier.horizontalScroll(rememberScrollState())) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    state.entries.forEach { entry -> Column(Modifier.width(156.dp)) {
-                        val movie = entry.movie ?: entry.details?.toMovie()
+                    state.entries.forEachIndexed { index, entry -> key(entry.id) { Column(Modifier.width(156.dp)) {
+                        Text("Movie ${index + 1}", style = MaterialTheme.typography.labelLarge)
+                        val movie = remember(entry.movie, entry.details) { entry.details?.toMovie() ?: entry.movie }
                         if (movie != null) MoviePosterCard(movie, onClick = { onMovieClick(entry.id) }, cardWidth = 156.dp)
                         else Text("Movie ${entry.id}")
                         TextButton(onClick = { viewModel.remove(entry.id) }) { Text("Remove") }
@@ -35,7 +36,7 @@ fun ComparisonScreen(onMovieClick: (Int) -> Unit, viewModel: ComparisonViewModel
                             Text(entry.error, color = MaterialTheme.colorScheme.error)
                             TextButton(onClick = { viewModel.loadDetails(entry.id) }) { Text("Retry details") }
                         }
-                    } }
+                    } } }
                 }
                 ComparisonRow("Release", state.entries) { it.details?.releaseDate ?: it.movie?.releaseDate }
                 ComparisonRow("TMDB rating", state.entries) { entry ->
@@ -48,25 +49,29 @@ fun ComparisonScreen(onMovieClick: (Int) -> Unit, viewModel: ComparisonViewModel
                 ComparisonRow("Original language", state.entries) { it.details?.originalLanguage ?: it.movie?.originalLanguage }
                 // MovieDetails has no popularity field; never display toMovie()'s synthetic zero.
                 ComparisonRow("Popularity", state.entries) { it.movie?.popularity?.toString() }
+                ComparisonRow("Overview", state.entries) { it.details?.overview ?: it.movie?.overview }
+                ComparisonRow("Budget (USD)", state.entries) { it.details?.budget?.takeIf { value -> value > 0 }?.toString() }
+                ComparisonRow("Revenue (USD)", state.entries) { it.details?.revenue?.takeIf { value -> value > 0 }?.toString() }
             }
         }
         item {
             Text("${state.entries.size}/3 selected")
             if (state.replacingId != null) {
-                Text("Choose a search result to replace the selected movie.")
+                Text("Choose a search result for Movie ${state.entries.indexOfFirst { it.id == state.replacingId } + 1}.")
                 TextButton(onClick = { viewModel.replace(null) }) { Text("Cancel replacement") }
             }
             OutlinedTextField(value = state.query, onValueChange = viewModel::search, label = { Text("Search movies to compare") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            state.selectionError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
         if (state.searching) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
         state.searchError?.let { message -> item { SectionErrorCard(errorMessage = message, onRetry = { viewModel.search(state.query) }) } }
         if (state.query.isNotBlank() && !state.searching && state.searchError == null && state.results.isEmpty()) item { SectionEmptyCard(message = "No movies found. Try another title.") }
         items(state.results, key = { it.id }) { movie ->
             Column {
-                MovieHorizontalCard(movie, onClick = { onMovieClick(movie.id) })
+                MovieHorizontalCard(movie, onClick = { viewModel.select(movie) })
                 val selected = state.entries.any { it.id == movie.id }
                 OutlinedButton(onClick = { viewModel.select(movie) }, enabled = !selected && (state.entries.size < 3 || state.replacingId != null)) {
-                    Text(if (selected) "Selected" else if (state.replacingId != null) "Use as replacement" else "Add to comparison")
+                    Text(if (selected) "Selected" else if (state.replacingId != null) "Use as replacement" else "Add as Movie ${state.entries.size + 1}")
                 }
             }
         }
