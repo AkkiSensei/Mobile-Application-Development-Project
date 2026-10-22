@@ -77,7 +77,6 @@ fun MoviePosterCard(
     Column(
         modifier = modifier
             .width(cardWidth)
-            .clip(RoundedCornerShape(12.dp))
             .semantics(mergeDescendants = true) {
                 role = Role.Button
                 contentDescription = accessibleDescription

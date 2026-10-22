@@ -156,4 +156,26 @@ class UiPolishRegressionTest {
         assertTrue(isTopTierMatch(highMatch))
         assertFalse(isTopTierMatch(moderateMatch))
     }
+
+    @Test
+    fun moviePosterCard_releaseYearMetadata_isAccessibleAndPreserved() {
+        val movie = Movie(
+            id = 101,
+            title = "Test Movie",
+            overview = "Test overview",
+            posterUrl = "/test.jpg",
+            backdropUrl = null,
+            releaseDate = "2026-05-10",
+            voteAverage = 7.5,
+            voteCount = 1420,
+            genreIds = listOf(28),
+            popularity = 45.0
+        )
+
+        assertEquals("2026", movie.releaseYear)
+        assertEquals("1420 votes", "${movie.voteCount} votes")
+        val accessibleDescription = "${movie.title}, release year ${movie.releaseYear}${if (movie.voteAverage > 0) ", rated ${movie.formattedRating} out of 10" else ""}"
+        assertEquals("Test Movie, release year 2026, rated 7.5 out of 10", accessibleDescription)
+    }
 }
+
