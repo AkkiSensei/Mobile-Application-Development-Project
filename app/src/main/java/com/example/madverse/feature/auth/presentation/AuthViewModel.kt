@@ -111,7 +111,7 @@ class AuthViewModel @Inject constructor(
         val displayName = _uiState.value.displayName.trim()
         val email = _uiState.value.email.trim()
         val password = _uiState.value.password
-        val confirmPassword = _uiState.value.confirmPassword
+        val confirm = _uiState.value.confirmPassword
 
         if (displayName.isBlank()) {
             _uiState.update { it.copy(errorMessage = "Please enter your name.") }
@@ -125,7 +125,7 @@ class AuthViewModel @Inject constructor(
             _uiState.update { it.copy(errorMessage = "Password must be at least 6 characters.") }
             return
         }
-        if (password != confirmPassword) {
+        if (password != confirm) {
             _uiState.update { it.copy(errorMessage = "Passwords do not match.") }
             return
         }

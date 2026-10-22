@@ -36,7 +36,7 @@ class FakeCloudSyncService : CloudSyncService {
         _syncState.value = SyncState.Idle
     }
 
-    override suspend fun pushFavorite(userId: String, movie: Movie): Result<Unit> {
+    override suspend fun pushFavorite(userId: String, movie: Movie, enqueueOnFailure: Boolean): Result<Unit> {
         if (shouldFailNextOperation) {
             _syncState.value = SyncState.OfflinePending
             return Result.failure(failureException)
@@ -46,7 +46,7 @@ class FakeCloudSyncService : CloudSyncService {
         return Result.success(Unit)
     }
 
-    override suspend fun deleteFavorite(userId: String, movieId: Int): Result<Unit> {
+    override suspend fun deleteFavorite(userId: String, movieId: Int, enqueueOnFailure: Boolean): Result<Unit> {
         if (shouldFailNextOperation) {
             _syncState.value = SyncState.OfflinePending
             return Result.failure(failureException)
@@ -56,7 +56,7 @@ class FakeCloudSyncService : CloudSyncService {
         return Result.success(Unit)
     }
 
-    override suspend fun pushWatchlist(userId: String, movie: Movie): Result<Unit> {
+    override suspend fun pushWatchlist(userId: String, movie: Movie, enqueueOnFailure: Boolean): Result<Unit> {
         if (shouldFailNextOperation) {
             _syncState.value = SyncState.OfflinePending
             return Result.failure(failureException)
@@ -66,7 +66,7 @@ class FakeCloudSyncService : CloudSyncService {
         return Result.success(Unit)
     }
 
-    override suspend fun deleteWatchlist(userId: String, movieId: Int): Result<Unit> {
+    override suspend fun deleteWatchlist(userId: String, movieId: Int, enqueueOnFailure: Boolean): Result<Unit> {
         if (shouldFailNextOperation) {
             _syncState.value = SyncState.OfflinePending
             return Result.failure(failureException)
@@ -78,7 +78,8 @@ class FakeCloudSyncService : CloudSyncService {
 
     override suspend fun pushPreferences(
         userId: String,
-        profile: UserPreferenceProfile
+        profile: UserPreferenceProfile,
+        enqueueOnFailure: Boolean
     ): Result<Unit> {
         if (shouldFailNextOperation) {
             _syncState.value = SyncState.OfflinePending

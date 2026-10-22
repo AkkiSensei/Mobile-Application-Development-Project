@@ -62,6 +62,7 @@ class FakeAuthRepository(
         displayName: String?
     ): Result<AuthUser> {
         if (shouldFailNextOperation) return Result.failure(failureException)
+        emailVerificationSent = true
         val user = AuthUser(
             uid = "user_${email.hashCode()}",
             email = email,

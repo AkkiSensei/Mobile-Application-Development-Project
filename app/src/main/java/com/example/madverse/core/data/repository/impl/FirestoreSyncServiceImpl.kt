@@ -240,29 +240,33 @@ class FirestoreSyncServiceImpl @Inject constructor(
             }
     }
 
-    override suspend fun pushFavorite(userId: String, movie: Movie): Result<Unit> =
-        withContext(ioDispatcher) {
-            if (userId == "guest" || isApplyingRemoteUpdate) return@withContext Result.success(Unit)
-            runCatching {
-                val data = hashMapOf(
-                    "movieId" to movie.id,
-                    "title" to movie.title,
-                    "posterPath" to movie.posterUrl,
-                    "backdropPath" to movie.backdropUrl,
-                    "releaseDate" to movie.releaseDate,
-                    "voteAverage" to movie.voteAverage,
-                    "overview" to movie.overview,
-                    "savedTimestamp" to System.currentTimeMillis()
-                )
-                firestore.collection("users")
-                    .document(userId)
-                    .collection("favorites")
-                    .document(movie.id.toString())
-                    .set(data, SetOptions.merge())
-                    .awaitTask()
+    override suspend fun pushFavorite(
+        userId: String,
+        movie: Movie,
+        enqueueOnFailure: Boolean
+    ): Result<Unit> = withContext(ioDispatcher) {
+        if (userId == "guest" || isApplyingRemoteUpdate) return@withContext Result.success(Unit)
+        runCatching {
+            val data = hashMapOf(
+                "movieId" to movie.id,
+                "title" to movie.title,
+                "posterPath" to movie.posterUrl,
+                "backdropPath" to movie.backdropUrl,
+                "releaseDate" to movie.releaseDate,
+                "voteAverage" to movie.voteAverage,
+                "overview" to movie.overview,
+                "savedTimestamp" to System.currentTimeMillis()
+            )
+            firestore.collection("users")
+                .document(userId)
+                .collection("favorites")
+                .document(movie.id.toString())
+                .set(data, SetOptions.merge())
+                .awaitTask()
 
-                _syncState.value = SyncState.Synced
-            }.onFailure {
+            _syncState.value = SyncState.Synced
+        }.onFailure {
+            if (enqueueOnFailure) {
                 pendingSyncDao.insertAction(
                     PendingSyncEntity(
                         userId = userId,
@@ -271,23 +275,28 @@ class FirestoreSyncServiceImpl @Inject constructor(
                         itemId = movie.id.toString()
                     )
                 )
-                _syncState.value = SyncState.OfflinePending
             }
+            _syncState.value = SyncState.OfflinePending
         }
+    }
 
-    override suspend fun deleteFavorite(userId: String, movieId: Int): Result<Unit> =
-        withContext(ioDispatcher) {
-            if (userId == "guest" || isApplyingRemoteUpdate) return@withContext Result.success(Unit)
-            runCatching {
-                firestore.collection("users")
-                    .document(userId)
-                    .collection("favorites")
-                    .document(movieId.toString())
-                    .delete()
-                    .awaitTask()
+    override suspend fun deleteFavorite(
+        userId: String,
+        movieId: Int,
+        enqueueOnFailure: Boolean
+    ): Result<Unit> = withContext(ioDispatcher) {
+        if (userId == "guest" || isApplyingRemoteUpdate) return@withContext Result.success(Unit)
+        runCatching {
+            firestore.collection("users")
+                .document(userId)
+                .collection("favorites")
+                .document(movieId.toString())
+                .delete()
+                .awaitTask()
 
-                _syncState.value = SyncState.Synced
-            }.onFailure {
+            _syncState.value = SyncState.Synced
+        }.onFailure {
+            if (enqueueOnFailure) {
                 pendingSyncDao.insertAction(
                     PendingSyncEntity(
                         userId = userId,
@@ -296,33 +305,38 @@ class FirestoreSyncServiceImpl @Inject constructor(
                         itemId = movieId.toString()
                     )
                 )
-                _syncState.value = SyncState.OfflinePending
             }
+            _syncState.value = SyncState.OfflinePending
         }
+    }
 
-    override suspend fun pushWatchlist(userId: String, movie: Movie): Result<Unit> =
-        withContext(ioDispatcher) {
-            if (userId == "guest" || isApplyingRemoteUpdate) return@withContext Result.success(Unit)
-            runCatching {
-                val data = hashMapOf(
-                    "movieId" to movie.id,
-                    "title" to movie.title,
-                    "posterPath" to movie.posterUrl,
-                    "backdropPath" to movie.backdropUrl,
-                    "releaseDate" to movie.releaseDate,
-                    "voteAverage" to movie.voteAverage,
-                    "overview" to movie.overview,
-                    "savedTimestamp" to System.currentTimeMillis()
-                )
-                firestore.collection("users")
-                    .document(userId)
-                    .collection("watchlist")
-                    .document(movie.id.toString())
-                    .set(data, SetOptions.merge())
-                    .awaitTask()
+    override suspend fun pushWatchlist(
+        userId: String,
+        movie: Movie,
+        enqueueOnFailure: Boolean
+    ): Result<Unit> = withContext(ioDispatcher) {
+        if (userId == "guest" || isApplyingRemoteUpdate) return@withContext Result.success(Unit)
+        runCatching {
+            val data = hashMapOf(
+                "movieId" to movie.id,
+                "title" to movie.title,
+                "posterPath" to movie.posterUrl,
+                "backdropPath" to movie.backdropUrl,
+                "releaseDate" to movie.releaseDate,
+                "voteAverage" to movie.voteAverage,
+                "overview" to movie.overview,
+                "savedTimestamp" to System.currentTimeMillis()
+            )
+            firestore.collection("users")
+                .document(userId)
+                .collection("watchlist")
+                .document(movie.id.toString())
+                .set(data, SetOptions.merge())
+                .awaitTask()
 
-                _syncState.value = SyncState.Synced
-            }.onFailure {
+            _syncState.value = SyncState.Synced
+        }.onFailure {
+            if (enqueueOnFailure) {
                 pendingSyncDao.insertAction(
                     PendingSyncEntity(
                         userId = userId,
@@ -331,23 +345,28 @@ class FirestoreSyncServiceImpl @Inject constructor(
                         itemId = movie.id.toString()
                     )
                 )
-                _syncState.value = SyncState.OfflinePending
             }
+            _syncState.value = SyncState.OfflinePending
         }
+    }
 
-    override suspend fun deleteWatchlist(userId: String, movieId: Int): Result<Unit> =
-        withContext(ioDispatcher) {
-            if (userId == "guest" || isApplyingRemoteUpdate) return@withContext Result.success(Unit)
-            runCatching {
-                firestore.collection("users")
-                    .document(userId)
-                    .collection("watchlist")
-                    .document(movieId.toString())
-                    .delete()
-                    .awaitTask()
+    override suspend fun deleteWatchlist(
+        userId: String,
+        movieId: Int,
+        enqueueOnFailure: Boolean
+    ): Result<Unit> = withContext(ioDispatcher) {
+        if (userId == "guest" || isApplyingRemoteUpdate) return@withContext Result.success(Unit)
+        runCatching {
+            firestore.collection("users")
+                .document(userId)
+                .collection("watchlist")
+                .document(movieId.toString())
+                .delete()
+                .awaitTask()
 
-                _syncState.value = SyncState.Synced
-            }.onFailure {
+            _syncState.value = SyncState.Synced
+        }.onFailure {
+            if (enqueueOnFailure) {
                 pendingSyncDao.insertAction(
                     PendingSyncEntity(
                         userId = userId,
@@ -356,13 +375,15 @@ class FirestoreSyncServiceImpl @Inject constructor(
                         itemId = movieId.toString()
                     )
                 )
-                _syncState.value = SyncState.OfflinePending
             }
+            _syncState.value = SyncState.OfflinePending
         }
+    }
 
     override suspend fun pushPreferences(
         userId: String,
-        profile: UserPreferenceProfile
+        profile: UserPreferenceProfile,
+        enqueueOnFailure: Boolean
     ): Result<Unit> = withContext(ioDispatcher) {
         if (userId == "guest" || isApplyingRemoteUpdate) return@withContext Result.success(Unit)
         runCatching {
@@ -384,14 +405,16 @@ class FirestoreSyncServiceImpl @Inject constructor(
 
             _syncState.value = SyncState.Synced
         }.onFailure {
-            pendingSyncDao.insertAction(
-                PendingSyncEntity(
-                    userId = userId,
-                    actionType = "UPSERT",
-                    entityType = "PREFERENCE",
-                    itemId = "current"
+            if (enqueueOnFailure) {
+                pendingSyncDao.insertAction(
+                    PendingSyncEntity(
+                        userId = userId,
+                        actionType = "UPSERT",
+                        entityType = "PREFERENCE",
+                        itemId = "current"
+                    )
                 )
-            )
+            }
             _syncState.value = SyncState.OfflinePending
         }
     }
@@ -541,34 +564,56 @@ class FirestoreSyncServiceImpl @Inject constructor(
         if (pending.isEmpty()) return@withContext
 
         for (action in pending) {
+            // Guard: ensure action strictly belongs to the target userId
+            if (action.userId != userId) continue
             try {
-                when (action.entityType) {
+                val result: Result<Unit> = when (action.entityType) {
                     "FAVORITE" -> {
-                        val movieId = action.itemId.toIntOrNull() ?: continue
-                        if (action.actionType == "DELETE") {
-                            deleteFavorite(userId, movieId)
+                        val movieId = action.itemId.toIntOrNull()
+                        if (movieId == null) {
+                            Result.success(Unit) // corrupted itemId, drop it
+                        } else if (action.actionType == "DELETE") {
+                            deleteFavorite(userId, movieId, enqueueOnFailure = false)
                         } else {
                             val local = favoriteDao.getFavoriteById(movieId, userId)
-                            if (local != null) pushFavorite(userId, local.toDomain())
+                            if (local != null) {
+                                pushFavorite(userId, local.toDomain(), enqueueOnFailure = false)
+                            } else {
+                                Result.success(Unit) // obsolete upsert for deleted local item
+                            }
                         }
                     }
                     "WATCHLIST" -> {
-                        val movieId = action.itemId.toIntOrNull() ?: continue
-                        if (action.actionType == "DELETE") {
-                            deleteWatchlist(userId, movieId)
+                        val movieId = action.itemId.toIntOrNull()
+                        if (movieId == null) {
+                            Result.success(Unit)
+                        } else if (action.actionType == "DELETE") {
+                            deleteWatchlist(userId, movieId, enqueueOnFailure = false)
                         } else {
                             val local = watchlistDao.getWatchlistMovieById(movieId, userId)
-                            if (local != null) pushWatchlist(userId, local.toDomain())
+                            if (local != null) {
+                                pushWatchlist(userId, local.toDomain(), enqueueOnFailure = false)
+                            } else {
+                                Result.success(Unit)
+                            }
                         }
                     }
                     "PREFERENCE" -> {
                         val local = userPreferenceDao.getUserPreferenceProfileOnce(userId)
-                        if (local != null) pushPreferences(userId, local.toDomain())
+                        if (local != null) {
+                            pushPreferences(userId, local.toDomain(), enqueueOnFailure = false)
+                        } else {
+                            Result.success(Unit)
+                        }
                     }
+                    else -> Result.success(Unit)
                 }
-                pendingSyncDao.deleteActionById(action.id)
+
+                if (result.isSuccess) {
+                    pendingSyncDao.deleteActionById(action.id)
+                }
             } catch (_: Exception) {
-                // Keep in pending queue for next sync retry
+                // Keep in pending queue for next retry
             }
         }
     }

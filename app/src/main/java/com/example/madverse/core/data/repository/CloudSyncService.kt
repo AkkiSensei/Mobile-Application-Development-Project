@@ -16,11 +16,11 @@ interface CloudSyncService {
     fun startUserSession(userId: String)
     fun stopUserSession()
 
-    suspend fun pushFavorite(userId: String, movie: Movie): Result<Unit>
-    suspend fun deleteFavorite(userId: String, movieId: Int): Result<Unit>
-    suspend fun pushWatchlist(userId: String, movie: Movie): Result<Unit>
-    suspend fun deleteWatchlist(userId: String, movieId: Int): Result<Unit>
-    suspend fun pushPreferences(userId: String, profile: UserPreferenceProfile): Result<Unit>
+    suspend fun pushFavorite(userId: String, movie: Movie, enqueueOnFailure: Boolean = true): Result<Unit>
+    suspend fun deleteFavorite(userId: String, movieId: Int, enqueueOnFailure: Boolean = true): Result<Unit>
+    suspend fun pushWatchlist(userId: String, movie: Movie, enqueueOnFailure: Boolean = true): Result<Unit>
+    suspend fun deleteWatchlist(userId: String, movieId: Int, enqueueOnFailure: Boolean = true): Result<Unit>
+    suspend fun pushPreferences(userId: String, profile: UserPreferenceProfile, enqueueOnFailure: Boolean = true): Result<Unit>
 
     suspend fun syncAll(userId: String): Result<Unit>
     suspend fun mergeGuestDataIntoAccount(authenticatedUserId: String): Result<MergeSummary>
@@ -37,11 +37,11 @@ class NoOpCloudSyncService : CloudSyncService {
     override fun startUserSession(userId: String) {}
     override fun stopUserSession() {}
 
-    override suspend fun pushFavorite(userId: String, movie: Movie): Result<Unit> = Result.success(Unit)
-    override suspend fun deleteFavorite(userId: String, movieId: Int): Result<Unit> = Result.success(Unit)
-    override suspend fun pushWatchlist(userId: String, movie: Movie): Result<Unit> = Result.success(Unit)
-    override suspend fun deleteWatchlist(userId: String, movieId: Int): Result<Unit> = Result.success(Unit)
-    override suspend fun pushPreferences(userId: String, profile: UserPreferenceProfile): Result<Unit> = Result.success(Unit)
+    override suspend fun pushFavorite(userId: String, movie: Movie, enqueueOnFailure: Boolean): Result<Unit> = Result.success(Unit)
+    override suspend fun deleteFavorite(userId: String, movieId: Int, enqueueOnFailure: Boolean): Result<Unit> = Result.success(Unit)
+    override suspend fun pushWatchlist(userId: String, movie: Movie, enqueueOnFailure: Boolean): Result<Unit> = Result.success(Unit)
+    override suspend fun deleteWatchlist(userId: String, movieId: Int, enqueueOnFailure: Boolean): Result<Unit> = Result.success(Unit)
+    override suspend fun pushPreferences(userId: String, profile: UserPreferenceProfile, enqueueOnFailure: Boolean): Result<Unit> = Result.success(Unit)
 
     override suspend fun syncAll(userId: String): Result<Unit> = Result.success(Unit)
     override suspend fun mergeGuestDataIntoAccount(authenticatedUserId: String): Result<MergeSummary> =
