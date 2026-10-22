@@ -68,6 +68,28 @@ class LibraryViewModelsTest {
         )
     }
 
+    @Test fun collectionWriteFailuresAreVisibleAndRetryable() = runTest(testDispatcher) {
+        fakeFavoritesRepository.writeError = IOException("Disk full")
+        fakeWatchlistRepository.writeError = IOException("Disk full")
+        val favorites = FavoritesViewModel(fakeFavoritesRepository)
+        val watchlist = WatchlistViewModel(fakeWatchlistRepository)
+        val library = LibraryViewModel(fakeFavoritesRepository, fakeWatchlistRepository)
+        favorites.removeFromFavorites(1); watchlist.removeFromWatchlist(1)
+        library.addToFavorites(createMovie(1, "Movie")); advanceUntilIdle()
+        org.junit.Assert.assertNotNull(favorites.actionError.value)
+        org.junit.Assert.assertNotNull(watchlist.actionError.value)
+        org.junit.Assert.assertNotNull(library.actionError.value)
+        assertTrue(fakeFavoritesRepository.removedMovieIds.isEmpty())
+        assertTrue(fakeWatchlistRepository.removedMovieIds.isEmpty())
+        fakeFavoritesRepository.writeError = null; fakeWatchlistRepository.writeError = null
+        favorites.dismissActionError(); watchlist.dismissActionError(); library.dismissActionError()
+        favorites.removeFromFavorites(1); watchlist.removeFromWatchlist(1)
+        library.addToFavorites(createMovie(1, "Movie")); advanceUntilIdle()
+        assertEquals(listOf(1), fakeFavoritesRepository.removedMovieIds)
+        assertEquals(listOf(1), fakeWatchlistRepository.removedMovieIds)
+        org.junit.Assert.assertNull(library.actionError.value)
+    }
+
     // =========================================================================
     // FavoritesViewModel Tests
     // =========================================================================
@@ -336,6 +358,7 @@ class LibraryViewModelsTest {
 private class FakeFavoritesRepository : FavoritesRepository {
     private val favoritesFlow = MutableStateFlow<List<Movie>>(emptyList())
     var throwError: Boolean = false
+    var writeError: Exception? = null
     val addedMovies = mutableListOf<Movie>()
     val removedMovieIds = mutableListOf<Int>()
 
@@ -360,11 +383,13 @@ private class FakeFavoritesRepository : FavoritesRepository {
         favoritesFlow.value.find { it.id == movieId }
 
     override suspend fun addToFavorites(movie: Movie) {
+        writeError?.let { throw it }
         addedMovies.add(movie)
         favoritesFlow.value = favoritesFlow.value.filterNot { it.id == movie.id } + movie
     }
 
     override suspend fun removeFromFavorites(movieId: Int) {
+        writeError?.let { throw it }
         removedMovieIds.add(movieId)
         favoritesFlow.value = favoritesFlow.value.filterNot { it.id == movieId }
     }
@@ -373,6 +398,7 @@ private class FakeFavoritesRepository : FavoritesRepository {
 private class FakeWatchlistRepository : WatchlistRepository {
     private val watchlistFlow = MutableStateFlow<List<Movie>>(emptyList())
     var throwError: Boolean = false
+    var writeError: Exception? = null
     val addedMovies = mutableListOf<Movie>()
     val removedMovieIds = mutableListOf<Int>()
 
@@ -397,11 +423,13 @@ private class FakeWatchlistRepository : WatchlistRepository {
         watchlistFlow.value.find { it.id == movieId }
 
     override suspend fun addToWatchlist(movie: Movie) {
+        writeError?.let { throw it }
         addedMovies.add(movie)
         watchlistFlow.value = watchlistFlow.value.filterNot { it.id == movie.id } + movie
     }
 
     override suspend fun removeFromWatchlist(movieId: Int) {
+        writeError?.let { throw it }
         removedMovieIds.add(movieId)
         watchlistFlow.value = watchlistFlow.value.filterNot { it.id == movieId }
     }

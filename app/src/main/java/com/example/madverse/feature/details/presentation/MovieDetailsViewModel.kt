@@ -3,6 +3,7 @@ package com.example.madverse.feature.details.presentation
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.madverse.core.common.ui.RepositoryActions
 import com.example.madverse.core.common.config.RegionConfig
 import com.example.madverse.core.common.result.Resource
 import com.example.madverse.core.common.ui.UiState
@@ -41,6 +42,10 @@ class MovieDetailsViewModel @Inject constructor(
     private val watchlistRepository: WatchlistRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
+    private val libraryActions = RepositoryActions(viewModelScope)
+    val actionError = libraryActions.error
+    fun dismissActionError() = libraryActions.dismissError()
+
 
     private val _uiState = MutableStateFlow(MovieDetailsUiState())
     val uiState: StateFlow<MovieDetailsUiState> = _uiState.asStateFlow()
@@ -137,8 +142,8 @@ class MovieDetailsViewModel @Inject constructor(
         if (details.id != currentMovieId) return
         val movie = details.toMovie()
 
-        viewModelScope.launch {
-            if (_uiState.value.isFavorite) {
+        libraryActions.run("favorite:${movie.id}") {
+            if (favoritesRepository.isFavoriteOnce(movie.id)) {
                 favoritesRepository.removeFromFavorites(movie.id)
             } else {
                 favoritesRepository.addToFavorites(movie)
@@ -154,8 +159,8 @@ class MovieDetailsViewModel @Inject constructor(
         if (details.id != currentMovieId) return
         val movie = details.toMovie()
 
-        viewModelScope.launch {
-            if (_uiState.value.isInWatchlist) {
+        libraryActions.run("watchlist:${movie.id}") {
+            if (watchlistRepository.isMovieInWatchlistOnce(movie.id)) {
                 watchlistRepository.removeFromWatchlist(movie.id)
             } else {
                 watchlistRepository.addToWatchlist(movie)

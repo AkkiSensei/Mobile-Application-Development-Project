@@ -30,6 +30,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.example.madverse.core.designsystem.components.LibraryActionError
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,6 +65,9 @@ fun FavoritesScreen(
     modifier: Modifier = Modifier,
     viewModel: FavoritesViewModel = hiltViewModel()
 ) {
+    val actionError by viewModel.actionError.collectAsStateWithLifecycle()
+    LibraryActionError(actionError, viewModel::dismissActionError)
+
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val sortOption by viewModel.sortOption.collectAsStateWithLifecycle()
 

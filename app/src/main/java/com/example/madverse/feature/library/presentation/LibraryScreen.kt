@@ -17,6 +17,7 @@ import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.example.madverse.core.designsystem.components.LibraryActionError
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -41,6 +42,9 @@ fun LibraryScreen(
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = hiltViewModel()
 ) {
+    val actionError by viewModel.actionError.collectAsStateWithLifecycle()
+    LibraryActionError(actionError, viewModel::dismissActionError)
+
     val selectedTab by viewModel.selectedTab.collectAsStateWithLifecycle()
     val sortOption by viewModel.sortOption.collectAsStateWithLifecycle()
     val watchlistState by viewModel.watchlistState.collectAsStateWithLifecycle()

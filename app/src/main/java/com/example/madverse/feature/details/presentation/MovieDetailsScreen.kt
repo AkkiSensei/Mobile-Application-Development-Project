@@ -46,6 +46,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.example.madverse.core.designsystem.components.LibraryActionError
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -120,6 +121,9 @@ fun MovieDetailsScreen(
     onNavigateToPlayer: ((videoId: String, title: String, category: com.example.madverse.core.model.VideoCategory) -> Unit)? = null,
     viewModel: MovieDetailsViewModel = hiltViewModel()
 ) {
+    val actionError by viewModel.actionError.collectAsStateWithLifecycle()
+    LibraryActionError(actionError, viewModel::dismissActionError)
+
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showRegionSelector by rememberSaveable { mutableStateOf(false) }

@@ -2,6 +2,7 @@ package com.example.madverse.feature.library.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.madverse.core.common.ui.RepositoryActions
 import com.example.madverse.core.common.ui.UiState
 import com.example.madverse.core.data.repository.FavoritesRepository
 import com.example.madverse.core.model.Movie
@@ -28,6 +29,10 @@ import javax.inject.Inject
 class FavoritesViewModel @Inject constructor(
     private val favoritesRepository: FavoritesRepository
 ) : ViewModel() {
+    private val libraryActions = RepositoryActions(viewModelScope)
+    val actionError = libraryActions.error
+    fun dismissActionError() = libraryActions.dismissError()
+
 
     private val _refreshTrigger = MutableStateFlow(0)
 
@@ -60,13 +65,13 @@ class FavoritesViewModel @Inject constructor(
     }
 
     fun removeFromFavorites(movieId: Int) {
-        viewModelScope.launch {
+        libraryActions.run("favorite:${movieId}") {
             favoritesRepository.removeFromFavorites(movieId)
         }
     }
 
     fun addToFavorites(movie: Movie) {
-        viewModelScope.launch {
+        libraryActions.run("favorite:${movie.id}") {
             favoritesRepository.addToFavorites(movie)
         }
     }

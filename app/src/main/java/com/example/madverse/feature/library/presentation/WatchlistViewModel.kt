@@ -2,6 +2,7 @@ package com.example.madverse.feature.library.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.madverse.core.common.ui.RepositoryActions
 import com.example.madverse.core.common.ui.UiState
 import com.example.madverse.core.data.repository.WatchlistRepository
 import com.example.madverse.core.model.Movie
@@ -28,6 +29,10 @@ import javax.inject.Inject
 class WatchlistViewModel @Inject constructor(
     private val watchlistRepository: WatchlistRepository
 ) : ViewModel() {
+    private val libraryActions = RepositoryActions(viewModelScope)
+    val actionError = libraryActions.error
+    fun dismissActionError() = libraryActions.dismissError()
+
 
     private val _refreshTrigger = MutableStateFlow(0)
 
@@ -60,13 +65,13 @@ class WatchlistViewModel @Inject constructor(
     }
 
     fun removeFromWatchlist(movieId: Int) {
-        viewModelScope.launch {
+        libraryActions.run("watchlist:${movieId}") {
             watchlistRepository.removeFromWatchlist(movieId)
         }
     }
 
     fun addToWatchlist(movie: Movie) {
-        viewModelScope.launch {
+        libraryActions.run("watchlist:${movie.id}") {
             watchlistRepository.addToWatchlist(movie)
         }
     }
