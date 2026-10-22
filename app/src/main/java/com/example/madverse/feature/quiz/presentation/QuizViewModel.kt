@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import javax.inject.Inject
 
 /**
@@ -25,6 +27,7 @@ class QuizViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(QuizUiState(isLoading = true))
     val uiState: StateFlow<QuizUiState> = _uiState.asStateFlow()
+    private var restoreJob: Job? = null
 
     init {
         restoreExistingPreferences()
@@ -34,7 +37,8 @@ class QuizViewModel @Inject constructor(
      * Restores existing user preference profile from Room on launch.
      */
     fun restoreExistingPreferences() {
-        viewModelScope.launch {
+        restoreJob?.cancel()
+        restoreJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             try {
                 val existingProfile = quizRepository.getUserPreferenceProfileOnce()
@@ -50,6 +54,8 @@ class QuizViewModel @Inject constructor(
                 } else {
                     _uiState.update { it.copy(isLoading = false, initialProfileRestored = false) }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
@@ -165,10 +171,11 @@ class QuizViewModel @Inject constructor(
      * Persists quiz answers into Room via [QuizRepository] and marks completion.
      */
     fun submitQuiz(onComplete: () -> Unit = {}) {
+        if (_uiState.value.isSaving || _uiState.value.isLoading) return
+        val profile = _uiState.value.answers.toUserPreferenceProfile()
+        _uiState.update { it.copy(isSaving = true, errorMessage = null) }
         viewModelScope.launch {
-            _uiState.update { it.copy(isSaving = true, errorMessage = null) }
             try {
-                val profile = _uiState.value.answers.toUserPreferenceProfile()
                 quizRepository.saveUserPreferenceProfile(profile)
                 _uiState.update {
                     it.copy(
@@ -178,6 +185,8 @@ class QuizViewModel @Inject constructor(
                     )
                 }
                 onComplete()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
@@ -185,6 +194,8 @@ class QuizViewModel @Inject constructor(
                         errorMessage = e.localizedMessage ?: "Failed to save preferences."
                     )
                 }
+            } finally {
+                _uiState.update { it.copy(isSaving = false) }
             }
         }
     }
@@ -193,9 +204,12 @@ class QuizViewModel @Inject constructor(
      * Clears local answers and resets quiz flow to Step 1.
      */
     fun resetQuiz() {
+        if (_uiState.value.isSaving) return
+        restoreJob?.cancel()
         _uiState.update {
             it.copy(
                 currentStep = QuestionStep.GENRES,
+                isLoading = false,
                 answers = QuizAnswers(),
                 isComplete = false,
                 showCompletionConfirmation = false

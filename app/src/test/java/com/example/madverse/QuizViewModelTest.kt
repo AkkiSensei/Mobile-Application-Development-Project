@@ -257,6 +257,36 @@ class QuizViewModelTest {
         assertFalse(state.showCompletionConfirmation)
     }
 
+    @Test fun cancelledSaveDoesNotBecomeErrorOrCompleteQuiz() = runTest {
+        fakeQuizRepository.cancelSave = true
+        val vm = QuizViewModel(fakeQuizRepository); advanceUntilIdle()
+        vm.toggleGenre(28)
+        var completed = false
+        vm.submitQuiz { completed = true }; advanceUntilIdle()
+        assertFalse(completed); assertFalse(vm.uiState.value.isComplete)
+        assertFalse(vm.uiState.value.isSaving)
+        assertNull(vm.uiState.value.errorMessage)
+    }
+
+    @Test fun duplicateSubmissionWritesOnceAndCompletesOnce() = runTest {
+        val vm = QuizViewModel(fakeQuizRepository); advanceUntilIdle()
+        vm.toggleGenre(28)
+        var completions = 0
+        vm.submitQuiz { completions++ }; vm.submitQuiz { completions++ }
+        assertTrue(vm.uiState.value.isSaving)
+        advanceUntilIdle()
+        assertEquals(1, fakeQuizRepository.saveCalls)
+        assertEquals(1, completions)
+    }
+
+    @Test fun cancelledRestoreDoesNotReportDatabaseFailure() = runTest {
+        fakeQuizRepository.cancelRestore = true
+        val vm = QuizViewModel(fakeQuizRepository); advanceUntilIdle()
+        assertNull(vm.uiState.value.errorMessage)
+        vm.resetQuiz()
+        assertFalse(vm.uiState.value.isLoading)
+    }
+
     @Test
     fun quizProfileMapper_bidirectionalMappingIntegrity() {
         val answers = QuizAnswers(
@@ -305,12 +335,20 @@ class QuizViewModelTest {
 private class FakeQuizRepository : QuizRepository {
     private val profileFlow = MutableStateFlow(UserPreferenceProfile())
     var shouldThrowOnSave = false
+    var cancelSave = false
+    var cancelRestore = false
+    var saveCalls = 0
 
     override fun getUserPreferenceProfile(): Flow<UserPreferenceProfile> = profileFlow
 
-    override suspend fun getUserPreferenceProfileOnce(): UserPreferenceProfile = profileFlow.value
+    override suspend fun getUserPreferenceProfileOnce(): UserPreferenceProfile {
+        if (cancelRestore) throw kotlinx.coroutines.CancellationException("Cancelled")
+        return profileFlow.value
+    }
 
     override suspend fun saveUserPreferenceProfile(profile: UserPreferenceProfile) {
+        saveCalls++
+        if (cancelSave) throw kotlinx.coroutines.CancellationException("Cancelled")
         if (shouldThrowOnSave) {
             throw IOException("Disk write failure")
         }
