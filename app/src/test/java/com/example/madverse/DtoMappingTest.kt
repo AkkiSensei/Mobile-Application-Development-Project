@@ -359,7 +359,7 @@ class DtoMappingTest {
         assertEquals("Tom Hanks", domain.name)
         assertEquals("Forrest Gump", domain.character)
         assertEquals(0, domain.order)
-        assertTrue(domain.profileUrl?.startsWith(ApiConstants.TMDB_IMAGE_BASE_W500) == true)
+        assertEquals("${ApiConstants.TMDB_PROFILE_BASE_W185}/tomhanks.jpg", domain.profileUrl)
     }
 
     @Test

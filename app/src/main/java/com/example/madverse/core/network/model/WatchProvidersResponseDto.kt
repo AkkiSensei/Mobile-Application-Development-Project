@@ -21,7 +21,7 @@ data class WatchProvidersResponseDto(
                 WatchProvider(
                     providerId = item.providerId,
                     providerName = item.providerName ?: "Unknown Provider",
-                    logoUrl = item.logoPath?.let { "${ApiConstants.TMDB_IMAGE_BASE_W500}$it" },
+                    logoUrl = item.logoPath?.takeIf(String::isNotBlank)?.let { "${ApiConstants.TMDB_LOGO_BASE_W154}$it" },
                     type = type
                 )
             } ?: emptyList()

@@ -34,7 +34,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -46,7 +45,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.SubcomposeAsyncImage
-import coil.request.ImageRequest
 import com.example.madverse.core.designsystem.theme.CinematicAmber
 import com.example.madverse.core.designsystem.theme.CinematicCrimson
 import com.example.madverse.core.designsystem.theme.ContentHighEmphasis
@@ -102,10 +100,7 @@ fun MoviePosterCard(
                 MoviePosterFallback(title = movie.title)
             } else {
                 SubcomposeAsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(movie.posterUrl)
-                        .crossfade(true)
-                        .build(),
+                    model = movie.posterUrl,
                     contentDescription = movie.title,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
@@ -216,10 +211,7 @@ fun HeroFeaturedMovieCard(
     ) {
         if (!heroImageUrl.isNullOrBlank()) {
             SubcomposeAsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(heroImageUrl)
-                    .crossfade(true)
-                    .build(),
+                model = heroImageUrl,
                 contentDescription = movie.title,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
@@ -386,10 +378,7 @@ fun MovieHorizontalCard(
                 MoviePosterFallback(title = movie.title)
             } else {
                 SubcomposeAsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(movie.posterUrl)
-                        .crossfade(true)
-                        .build(),
+                    model = movie.posterUrl,
                     contentDescription = movie.title,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),

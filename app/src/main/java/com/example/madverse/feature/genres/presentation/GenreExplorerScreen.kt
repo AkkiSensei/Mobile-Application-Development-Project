@@ -15,6 +15,7 @@ import com.example.madverse.core.designsystem.components.*
 @Composable
 fun GenreExplorerScreen(onMovieClick: (Int) -> Unit, viewModel: GenreExplorerViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val sortedMovies = remember(state.movies, state.sort) { state.sortedMovies }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item { Text("Explore by genre", style = MaterialTheme.typography.headlineSmall) }
         item {
@@ -45,7 +46,7 @@ fun GenreExplorerScreen(onMovieClick: (Int) -> Unit, viewModel: GenreExplorerVie
                 items(MovieSort.entries) { sort -> FilterChip(selected = state.sort == sort, onClick = { viewModel.setSort(sort) }, label = { Text(sort.label) }) }
             }
         }
-        items(state.sortedMovies, key = { it.id }) { movie -> MovieHorizontalCard(movie, onClick = { onMovieClick(movie.id) }) }
+        items(sortedMovies, key = { it.id }) { movie -> MovieHorizontalCard(movie, onClick = { onMovieClick(movie.id) }) }
         if (state.loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
         state.error?.let { message -> item { SectionErrorCard(errorMessage = message, onRetry = viewModel::loadMore) } }
         if (!state.loading && state.error == null && state.movies.isEmpty()) item { SectionEmptyCard(message = "No movies match these filters. Try a wider year range or lower rating.") }

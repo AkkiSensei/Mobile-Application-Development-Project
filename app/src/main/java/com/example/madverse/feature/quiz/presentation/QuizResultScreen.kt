@@ -41,15 +41,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.SubcomposeAsyncImage
-import coil.request.ImageRequest
+import coil.compose.AsyncImage
 import com.example.madverse.core.common.ui.UiState
 import com.example.madverse.core.designsystem.components.GenreChip
 import com.example.madverse.core.designsystem.components.MADVerseEmptyState
@@ -258,11 +256,8 @@ private fun RecommendedMovieCard(
                         )
                     }
                 } else {
-                    SubcomposeAsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(movie.posterUrl)
-                            .crossfade(true)
-                            .build(),
+                    AsyncImage(
+                        model = movie.posterUrl,
                         contentDescription = movie.title,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()

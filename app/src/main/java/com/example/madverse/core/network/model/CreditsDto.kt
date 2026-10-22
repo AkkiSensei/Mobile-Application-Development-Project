@@ -21,7 +21,7 @@ data class CastDto(
             id = id,
             name = name ?: "Unknown",
             character = character ?: "",
-            profileUrl = profilePath?.let { "${ApiConstants.TMDB_IMAGE_BASE_W500}$it" },
+            profileUrl = profilePath?.takeIf(String::isNotBlank)?.let { "${ApiConstants.TMDB_PROFILE_BASE_W185}$it" },
             order = order ?: 999
         )
     }

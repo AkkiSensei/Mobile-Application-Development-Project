@@ -69,8 +69,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.SubcomposeAsyncImage
-import coil.request.ImageRequest
+import coil.compose.AsyncImage
 import com.example.madverse.core.common.ui.UiState
 import com.example.madverse.core.designsystem.components.GenreChipFlowRow
 import com.example.madverse.core.designsystem.components.MovieRatingBadge
@@ -241,21 +240,15 @@ private fun MovieDetailsContent(
             ) {
                 // Backdrop Image
                 if (!movie.backdropUrl.isNullOrBlank()) {
-                    SubcomposeAsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(movie.backdropUrl)
-                            .crossfade(true)
-                            .build(),
+                    AsyncImage(
+                        model = movie.backdropUrl,
                         contentDescription = movie.title,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
                 } else if (!movie.posterUrl.isNullOrBlank()) {
-                    SubcomposeAsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(movie.posterUrl)
-                            .crossfade(true)
-                            .build(),
+                    AsyncImage(
+                        model = movie.posterUrl,
                         contentDescription = movie.title,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
@@ -320,11 +313,8 @@ private fun MovieDetailsContent(
                             .border(1.dp, ObsidianCardBorder, RoundedCornerShape(12.dp))
                     ) {
                         if (!movie.posterUrl.isNullOrBlank()) {
-                            SubcomposeAsyncImage(
-                                model = ImageRequest.Builder(LocalContext.current)
-                                    .data(movie.posterUrl)
-                                    .crossfade(true)
-                                    .build(),
+                            AsyncImage(
+                                model = movie.posterUrl,
                                 contentDescription = movie.title,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
@@ -648,11 +638,8 @@ private fun CastItemCard(actor: CastMember) {
             contentAlignment = Alignment.Center
         ) {
             if (!actor.profileUrl.isNullOrBlank()) {
-                SubcomposeAsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(actor.profileUrl)
-                        .crossfade(true)
-                        .build(),
+                AsyncImage(
+                    model = actor.profileUrl,
                     contentDescription = actor.name,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
