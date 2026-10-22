@@ -78,7 +78,7 @@ fun MoviePosterCard(
         modifier = modifier
             .width(cardWidth)
             .clip(RoundedCornerShape(12.dp))
-            .semantics {
+            .semantics(mergeDescendants = true) {
                 role = Role.Button
                 contentDescription = accessibleDescription
             }
@@ -101,7 +101,7 @@ fun MoviePosterCard(
             } else {
                 SubcomposeAsyncImage(
                     model = movie.posterUrl,
-                    contentDescription = movie.title,
+                    contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
                     loading = {
@@ -200,7 +200,7 @@ fun HeroFeaturedMovieCard(
             .clip(RoundedCornerShape(16.dp))
             .background(ObsidianSurface)
             .border(1.dp, ObsidianCardBorder, RoundedCornerShape(16.dp))
-            .semantics {
+            .semantics(mergeDescendants = true) {
                 role = Role.Button
                 contentDescription = accessibleDescription
             }
@@ -212,7 +212,7 @@ fun HeroFeaturedMovieCard(
         if (!heroImageUrl.isNullOrBlank()) {
             SubcomposeAsyncImage(
                 model = heroImageUrl,
-                contentDescription = movie.title,
+                contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
                 loading = {
@@ -354,7 +354,7 @@ fun MovieHorizontalCard(
             .clip(RoundedCornerShape(12.dp))
             .background(ObsidianSurface)
             .border(1.dp, ObsidianCardBorder, RoundedCornerShape(12.dp))
-            .semantics {
+            .semantics(mergeDescendants = true) {
                 role = Role.Button
                 contentDescription = accessibleDescription
             }
@@ -379,7 +379,7 @@ fun MovieHorizontalCard(
             } else {
                 SubcomposeAsyncImage(
                     model = movie.posterUrl,
-                    contentDescription = movie.title,
+                    contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
                     error = { MoviePosterFallback(title = movie.title) }
