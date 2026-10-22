@@ -84,3 +84,7 @@ Kept: Kotlin, resources, manifest, Gradle scripts/version catalogue, wrapper scr
 5. **Authorized full-length in-app playback actually verified? No — PENDING.**
 6. **Ready for a demo? Partially ready.** Prepared for a supervised device acceptance session; uninterrupted playback and end-to-end feature demonstration are not certified.
 7. **Remaining prerequisites?** A device/emulator for manual acceptance; accessible publisher/upload evidence for a fresh exact-chain recheck; the original 2000shra.md/delivered artifact to verify its claims. Production signing, privacy/store review and rights review remain separate release work.
+
+## K. Subsequent UI/UX & Reliability Pass (2026-10-22)
+
+A comprehensive, non-destructive UI/UX, accessibility, and reliability pass was conducted by Saanvi Chandel. Complete documentation of screen-by-screen enhancements, component accessibility semantics, preserved YouTube playback, and regression test suites is available in [UI_UX_POLISH_PASS.md](UI_UX_POLISH_PASS.md).
