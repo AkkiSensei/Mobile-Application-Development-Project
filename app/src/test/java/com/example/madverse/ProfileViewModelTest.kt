@@ -96,6 +96,37 @@ class ProfileViewModelTest {
     }
 
     @Test
+    fun authState_transitionFromLoadingToAuthenticated_clearsLoadingState() = runTest {
+        authRepository.setLoading()
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.isLoading)
+
+        val user = AuthUser("uid_100", "active@madverse.com", "Active User", null, true)
+        authRepository.setAuthenticated(user)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isLoading)
+        assertFalse(state.isGuest)
+        assertEquals("uid_100", state.authUser?.uid)
+    }
+
+    @Test
+    fun authState_transitionFromLoadingToGuest_clearsLoadingState() = runTest {
+        authRepository.setLoading()
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.isLoading)
+
+        authRepository.setGuest()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isLoading)
+        assertTrue(state.isGuest)
+        assertNull(state.authUser)
+    }
+
+    @Test
     fun libraryCounts_reactivelyUpdateFromRepositories() = runTest {
         advanceUntilIdle()
         assertEquals(0, viewModel.uiState.value.favoritesCount)

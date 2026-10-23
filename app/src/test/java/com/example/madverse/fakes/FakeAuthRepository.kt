@@ -42,6 +42,10 @@ class FakeAuthRepository(
         _authState.value = AuthState.Guest
     }
 
+    fun setLoading() {
+        _authState.value = AuthState.Loading
+    }
+
     override suspend fun signInWithEmail(email: String, password: String): Result<AuthUser> {
         if (shouldFailNextOperation) return Result.failure(failureException)
         val user = AuthUser(

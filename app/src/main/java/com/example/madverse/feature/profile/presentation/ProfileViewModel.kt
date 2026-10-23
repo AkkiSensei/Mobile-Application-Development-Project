@@ -67,7 +67,8 @@ class ProfileViewModel @Inject constructor(
                             it.copy(
                                 authUser = authState.user,
                                 isGuest = false,
-                                editedName = authState.user.displayName ?: ""
+                                editedName = authState.user.displayName ?: "",
+                                isLoading = false
                             )
                         }
                     }
@@ -76,7 +77,8 @@ class ProfileViewModel @Inject constructor(
                             it.copy(
                                 authUser = null,
                                 isGuest = true,
-                                editedName = ""
+                                editedName = "",
+                                isLoading = false
                             )
                         }
                     }

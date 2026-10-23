@@ -23,9 +23,16 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isOwner(userId);
       allow create, update: if isOwner(userId)
-        && request.resource.data.keys().hasAll(['uid', 'updatedAt'])
+        && request.resource.data.keys().hasAll(['uid'])
+        && request.resource.data.keys().hasOnly([
+          'uid', 'updatedAt', 'updatedAtTimestamp', 'createdAtTimestamp',
+          'syncVersion', 'email', 'displayName', 'photoUrl'
+        ])
         && request.resource.data.uid == userId
-        && isNumber(request.resource.data.updatedAt)
+        && (!('updatedAt' in request.resource.data) || isNumber(request.resource.data.updatedAt))
+        && (!('updatedAtTimestamp' in request.resource.data) || isNumber(request.resource.data.updatedAtTimestamp))
+        && (!('createdAtTimestamp' in request.resource.data) || isNumber(request.resource.data.createdAtTimestamp))
+        && (!('syncVersion' in request.resource.data) || isNumber(request.resource.data.syncVersion))
         && (!('email' in request.resource.data) || request.resource.data.email == null || isString(request.resource.data.email))
         && (!('displayName' in request.resource.data) || request.resource.data.displayName == null || isString(request.resource.data.displayName))
         && (!('photoUrl' in request.resource.data) || request.resource.data.photoUrl == null || isString(request.resource.data.photoUrl));
@@ -36,9 +43,25 @@ service cloud.firestore {
         allow read: if isOwner(userId);
         allow create, update: if isOwner(userId)
           && request.resource.data.keys().hasAll(['movieId', 'title', 'savedTimestamp'])
+          && request.resource.data.keys().hasOnly([
+            'movieId', 'title', 'savedTimestamp', 'posterPath', 'posterUrl',
+            'backdropPath', 'backdropUrl', 'releaseDate', 'voteAverage',
+            'voteCount', 'overview', 'genreIds', 'updatedAtTimestamp'
+          ])
           && request.resource.data.movieId is int
+          && string(request.resource.data.movieId) == movieId
           && isString(request.resource.data.title)
-          && isNumber(request.resource.data.savedTimestamp);
+          && isNumber(request.resource.data.savedTimestamp)
+          && (!('posterPath' in request.resource.data) || request.resource.data.posterPath == null || isString(request.resource.data.posterPath))
+          && (!('posterUrl' in request.resource.data) || request.resource.data.posterUrl == null || isString(request.resource.data.posterUrl))
+          && (!('backdropPath' in request.resource.data) || request.resource.data.backdropPath == null || isString(request.resource.data.backdropPath))
+          && (!('backdropUrl' in request.resource.data) || request.resource.data.backdropUrl == null || isString(request.resource.data.backdropUrl))
+          && (!('releaseDate' in request.resource.data) || request.resource.data.releaseDate == null || isString(request.resource.data.releaseDate))
+          && (!('overview' in request.resource.data) || request.resource.data.overview == null || isString(request.resource.data.overview))
+          && (!('voteAverage' in request.resource.data) || request.resource.data.voteAverage == null || isNumber(request.resource.data.voteAverage))
+          && (!('voteCount' in request.resource.data) || request.resource.data.voteCount == null || request.resource.data.voteCount is int)
+          && (!('genreIds' in request.resource.data) || request.resource.data.genreIds == null || request.resource.data.genreIds is list)
+          && (!('updatedAtTimestamp' in request.resource.data) || request.resource.data.updatedAtTimestamp == null || isNumber(request.resource.data.updatedAtTimestamp));
         allow delete: if isOwner(userId);
       }
 
@@ -47,9 +70,25 @@ service cloud.firestore {
         allow read: if isOwner(userId);
         allow create, update: if isOwner(userId)
           && request.resource.data.keys().hasAll(['movieId', 'title', 'savedTimestamp'])
+          && request.resource.data.keys().hasOnly([
+            'movieId', 'title', 'savedTimestamp', 'posterPath', 'posterUrl',
+            'backdropPath', 'backdropUrl', 'releaseDate', 'voteAverage',
+            'voteCount', 'overview', 'genreIds', 'updatedAtTimestamp'
+          ])
           && request.resource.data.movieId is int
+          && string(request.resource.data.movieId) == movieId
           && isString(request.resource.data.title)
-          && isNumber(request.resource.data.savedTimestamp);
+          && isNumber(request.resource.data.savedTimestamp)
+          && (!('posterPath' in request.resource.data) || request.resource.data.posterPath == null || isString(request.resource.data.posterPath))
+          && (!('posterUrl' in request.resource.data) || request.resource.data.posterUrl == null || isString(request.resource.data.posterUrl))
+          && (!('backdropPath' in request.resource.data) || request.resource.data.backdropPath == null || isString(request.resource.data.backdropPath))
+          && (!('backdropUrl' in request.resource.data) || request.resource.data.backdropUrl == null || isString(request.resource.data.backdropUrl))
+          && (!('releaseDate' in request.resource.data) || request.resource.data.releaseDate == null || isString(request.resource.data.releaseDate))
+          && (!('overview' in request.resource.data) || request.resource.data.overview == null || isString(request.resource.data.overview))
+          && (!('voteAverage' in request.resource.data) || request.resource.data.voteAverage == null || isNumber(request.resource.data.voteAverage))
+          && (!('voteCount' in request.resource.data) || request.resource.data.voteCount == null || request.resource.data.voteCount is int)
+          && (!('genreIds' in request.resource.data) || request.resource.data.genreIds == null || request.resource.data.genreIds is list)
+          && (!('updatedAtTimestamp' in request.resource.data) || request.resource.data.updatedAtTimestamp == null || isNumber(request.resource.data.updatedAtTimestamp));
         allow delete: if isOwner(userId);
       }
 
@@ -59,10 +98,17 @@ service cloud.firestore {
         allow create, update: if isOwner(userId)
           && prefId == 'current'
           && request.resource.data.keys().hasAll(['mood', 'era', 'runtimePreference', 'updatedTimestamp'])
+          && request.resource.data.keys().hasOnly([
+            'genreIds', 'mood', 'era', 'runtimePreference',
+            'preferredLanguage', 'minRatingThreshold', 'updatedTimestamp'
+          ])
           && isString(request.resource.data.mood)
           && isString(request.resource.data.era)
           && isString(request.resource.data.runtimePreference)
-          && isNumber(request.resource.data.updatedTimestamp);
+          && isNumber(request.resource.data.updatedTimestamp)
+          && (!('genreIds' in request.resource.data) || request.resource.data.genreIds == null || request.resource.data.genreIds is list)
+          && (!('preferredLanguage' in request.resource.data) || request.resource.data.preferredLanguage == null || isString(request.resource.data.preferredLanguage))
+          && (!('minRatingThreshold' in request.resource.data) || request.resource.data.minRatingThreshold == null || isNumber(request.resource.data.minRatingThreshold));
         allow delete: if isOwner(userId);
       }
     }
