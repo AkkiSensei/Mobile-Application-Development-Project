@@ -37,6 +37,8 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicLong
+import com.example.madverse.core.database.DatabaseTransactionRunner
+import com.example.madverse.core.database.DirectTransactionRunner
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -48,7 +50,8 @@ class FirestoreSyncServiceImpl @Inject constructor(
     private val userPreferenceDao: UserPreferenceDao,
     private val pendingSyncDao: PendingSyncDao,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
-    private val accountDeletionJournal: AccountDeletionJournal = InMemoryAccountDeletionJournal()
+    private val accountDeletionJournal: AccountDeletionJournal = InMemoryAccountDeletionJournal(),
+    private val databaseTransactionRunner: DatabaseTransactionRunner = DirectTransactionRunner()
 ) : CloudSyncService {
 
     private val scope = CoroutineScope(SupervisorJob() + ioDispatcher)
@@ -122,6 +125,10 @@ class FirestoreSyncServiceImpl @Inject constructor(
                     return@addSnapshotListener
                 }
                 if (snapshot == null) return@addSnapshotListener
+                if (snapshot.metadata.hasPendingWrites()) {
+                    // Local write in progress, do not perform full Room reconciliation yet
+                    return@addSnapshotListener
+                }
 
                 scope.launch {
                     if (activeUserId != userId || currentSessionToken != token) return@launch
@@ -141,8 +148,10 @@ class FirestoreSyncServiceImpl @Inject constructor(
 
                         val remoteMovieIds = snapshot.documents.mapNotNull { it.getLong("movieId")?.toInt() }.toSet()
                         val localFavs = favoriteDao.getAllFavoritesOnce(userId)
+                        val localFavMap = localFavs.associateBy { it.movieId }
 
-                        // Insert or update remote documents, protecting local pending removals
+                        // Filter to only modified/new favorites to avoid redundant Room disk writes and InvalidationTracker cascades
+                        val toInsert = mutableListOf<FavoriteEntity>()
                         for (doc in snapshot.documents) {
                             val movieId = doc.getLong("movieId")?.toInt() ?: continue
                             if (movieId in pendingDeleteIds) {
@@ -157,29 +166,51 @@ class FirestoreSyncServiceImpl @Inject constructor(
                             val overview = doc.getString("overview")
                             val savedTimestamp = doc.getLong("savedTimestamp") ?: System.currentTimeMillis()
 
-                            favoriteDao.insertFavorite(
-                                FavoriteEntity(
-                                    movieId = movieId,
-                                    userId = userId,
-                                    title = title,
-                                    posterPath = posterPath,
-                                    backdropPath = backdropPath,
-                                    releaseDate = releaseDate,
-                                    voteAverage = voteAverage,
-                                    overview = overview,
-                                    savedTimestamp = savedTimestamp
+                            val existing = localFavMap[movieId]
+                            if (existing == null ||
+                                existing.title != title ||
+                                existing.posterPath != posterPath ||
+                                existing.backdropPath != backdropPath ||
+                                existing.releaseDate != releaseDate ||
+                                existing.voteAverage != voteAverage ||
+                                existing.overview != overview
+                            ) {
+                                toInsert.add(
+                                    FavoriteEntity(
+                                        movieId = movieId,
+                                        userId = userId,
+                                        title = title,
+                                        posterPath = posterPath,
+                                        backdropPath = backdropPath,
+                                        releaseDate = releaseDate,
+                                        voteAverage = voteAverage,
+                                        overview = overview,
+                                        savedTimestamp = savedTimestamp
+                                    )
                                 )
-                            )
+                            }
                         }
 
                         // Remove locally cached records that no longer exist remotely, protecting local pending additions
+                        val toDelete = mutableListOf<Int>()
                         for (local in localFavs) {
                             if (local.movieId !in remoteMovieIds) {
                                 if (local.movieId in pendingUpsertIds) {
                                     // User added this locally; do not erase it!
                                     continue
                                 }
-                                favoriteDao.deleteFavoriteById(local.movieId, userId)
+                                toDelete.add(local.movieId)
+                            }
+                        }
+
+                        if (toInsert.isNotEmpty() || toDelete.isNotEmpty()) {
+                            databaseTransactionRunner.runInTransaction {
+                                for (fav in toInsert) {
+                                    favoriteDao.insertFavorite(fav)
+                                }
+                                for (movieId in toDelete) {
+                                    favoriteDao.deleteFavoriteById(movieId, userId)
+                                }
                             }
                         }
                         _syncState.value = SyncState.Synced
@@ -199,6 +230,10 @@ class FirestoreSyncServiceImpl @Inject constructor(
                     return@addSnapshotListener
                 }
                 if (snapshot == null) return@addSnapshotListener
+                if (snapshot.metadata.hasPendingWrites()) {
+                    // Local write in progress, do not perform full Room reconciliation yet
+                    return@addSnapshotListener
+                }
 
                 scope.launch {
                     if (activeUserId != userId || currentSessionToken != token) return@launch
@@ -218,7 +253,9 @@ class FirestoreSyncServiceImpl @Inject constructor(
 
                         val remoteMovieIds = snapshot.documents.mapNotNull { it.getLong("movieId")?.toInt() }.toSet()
                         val localWatch = watchlistDao.getAllWatchlistOnce(userId)
+                        val localWatchMap = localWatch.associateBy { it.movieId }
 
+                        val toInsert = mutableListOf<WatchlistEntity>()
                         for (doc in snapshot.documents) {
                             val movieId = doc.getLong("movieId")?.toInt() ?: continue
                             if (movieId in pendingDeleteIds) {
@@ -233,28 +270,50 @@ class FirestoreSyncServiceImpl @Inject constructor(
                             val overview = doc.getString("overview")
                             val savedTimestamp = doc.getLong("savedTimestamp") ?: System.currentTimeMillis()
 
-                            watchlistDao.insertMovie(
-                                WatchlistEntity(
-                                    movieId = movieId,
-                                    userId = userId,
-                                    title = title,
-                                    posterPath = posterPath,
-                                    backdropPath = backdropPath,
-                                    releaseDate = releaseDate,
-                                    voteAverage = voteAverage,
-                                    overview = overview,
-                                    savedTimestamp = savedTimestamp
+                            val existing = localWatchMap[movieId]
+                            if (existing == null ||
+                                existing.title != title ||
+                                existing.posterPath != posterPath ||
+                                existing.backdropPath != backdropPath ||
+                                existing.releaseDate != releaseDate ||
+                                existing.voteAverage != voteAverage ||
+                                existing.overview != overview
+                            ) {
+                                toInsert.add(
+                                    WatchlistEntity(
+                                        movieId = movieId,
+                                        userId = userId,
+                                        title = title,
+                                        posterPath = posterPath,
+                                        backdropPath = backdropPath,
+                                        releaseDate = releaseDate,
+                                        voteAverage = voteAverage,
+                                        overview = overview,
+                                        savedTimestamp = savedTimestamp
+                                    )
                                 )
-                            )
+                            }
                         }
 
+                        val toDelete = mutableListOf<Int>()
                         for (local in localWatch) {
                             if (local.movieId !in remoteMovieIds) {
                                 if (local.movieId in pendingUpsertIds) {
                                     // User added this locally; do not erase it!
                                     continue
                                 }
-                                watchlistDao.deleteMovieById(local.movieId, userId)
+                                toDelete.add(local.movieId)
+                            }
+                        }
+
+                        if (toInsert.isNotEmpty() || toDelete.isNotEmpty()) {
+                            databaseTransactionRunner.runInTransaction {
+                                for (watch in toInsert) {
+                                    watchlistDao.insertMovie(watch)
+                                }
+                                for (movieId in toDelete) {
+                                    watchlistDao.deleteMovieById(movieId, userId)
+                                }
                             }
                         }
                         _syncState.value = SyncState.Synced
@@ -275,6 +334,9 @@ class FirestoreSyncServiceImpl @Inject constructor(
                     return@addSnapshotListener
                 }
                 if (snapshot == null || !snapshot.exists()) return@addSnapshotListener
+                if (snapshot.metadata.hasPendingWrites()) {
+                    return@addSnapshotListener
+                }
 
                 scope.launch {
                     if (activeUserId != userId || currentSessionToken != token) return@launch
@@ -296,19 +358,30 @@ class FirestoreSyncServiceImpl @Inject constructor(
                         val preferredLanguage = snapshot.getString("preferredLanguage")
                         val minRatingThreshold = snapshot.getDouble("minRatingThreshold") ?: 6.0
                         val updatedTimestamp = snapshot.getLong("updatedTimestamp") ?: System.currentTimeMillis()
+                        val genreCsv = genreIds.joinToString(",")
 
-                        userPreferenceDao.saveUserPreferenceProfile(
-                            UserPreferenceEntity(
-                                userId = userId,
-                                genreIdsCsv = genreIds.joinToString(","),
-                                mood = mood,
-                                era = era,
-                                runtimePreference = runtimePreference,
-                                preferredLanguage = preferredLanguage,
-                                minRatingThreshold = minRatingThreshold,
-                                updatedTimestamp = updatedTimestamp
+                        val currentLocalPref = userPreferenceDao.getUserPreferenceProfileOnce(userId)
+                        if (currentLocalPref == null ||
+                            currentLocalPref.genreIdsCsv != genreCsv ||
+                            currentLocalPref.mood != mood ||
+                            currentLocalPref.era != era ||
+                            currentLocalPref.runtimePreference != runtimePreference ||
+                            currentLocalPref.preferredLanguage != preferredLanguage ||
+                            currentLocalPref.minRatingThreshold != minRatingThreshold
+                        ) {
+                            userPreferenceDao.saveUserPreferenceProfile(
+                                UserPreferenceEntity(
+                                    userId = userId,
+                                    genreIdsCsv = genreCsv,
+                                    mood = mood,
+                                    era = era,
+                                    runtimePreference = runtimePreference,
+                                    preferredLanguage = preferredLanguage,
+                                    minRatingThreshold = minRatingThreshold,
+                                    updatedTimestamp = updatedTimestamp
+                                )
                             )
-                        )
+                        }
                         _syncState.value = SyncState.Synced
                     } finally {
                         isApplyingRemoteUpdate = false
@@ -619,11 +692,11 @@ class FirestoreSyncServiceImpl @Inject constructor(
             val userFavs = favoriteDao.getAllFavoritesOnce(authenticatedUserId)
             val existingFavIds = userFavs.map { it.movieId }.toSet()
 
+            val toMergeFavs = mutableListOf<FavoriteEntity>()
             for (fav in guestFavs) {
                 if (fav.movieId !in existingFavIds) {
                     val mergedFav = fav.copy(userId = authenticatedUserId)
-                    favoriteDao.insertFavorite(mergedFav)
-                    pushFavorite(authenticatedUserId, mergedFav.toDomain())
+                    toMergeFavs.add(mergedFav)
                     favCount++
                 }
             }
@@ -633,13 +706,31 @@ class FirestoreSyncServiceImpl @Inject constructor(
             val userWatch = watchlistDao.getAllWatchlistOnce(authenticatedUserId)
             val existingWatchIds = userWatch.map { it.movieId }.toSet()
 
+            val toMergeWatch = mutableListOf<WatchlistEntity>()
             for (w in guestWatch) {
                 if (w.movieId !in existingWatchIds) {
                     val mergedWatch = w.copy(userId = authenticatedUserId)
-                    watchlistDao.insertMovie(mergedWatch)
-                    pushWatchlist(authenticatedUserId, mergedWatch.toDomain())
+                    toMergeWatch.add(mergedWatch)
                     watchCount++
                 }
+            }
+
+            if (toMergeFavs.isNotEmpty() || toMergeWatch.isNotEmpty()) {
+                databaseTransactionRunner.runInTransaction {
+                    for (fav in toMergeFavs) {
+                        favoriteDao.insertFavorite(fav)
+                    }
+                    for (watch in toMergeWatch) {
+                        watchlistDao.insertMovie(watch)
+                    }
+                }
+            }
+
+            for (fav in toMergeFavs) {
+                pushFavorite(authenticatedUserId, fav.toDomain())
+            }
+            for (watch in toMergeWatch) {
+                pushWatchlist(authenticatedUserId, watch.toDomain())
             }
 
             // 3. Merge Preferences with deterministic resolution
