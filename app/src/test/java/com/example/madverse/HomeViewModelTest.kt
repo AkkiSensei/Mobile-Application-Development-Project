@@ -151,6 +151,20 @@ class HomeViewModelTest {
     }
 
     @Test
+    fun isAnyOffline_whenOfflineErrorPresent_returnsTrue() = runTest(testDispatcher) {
+        fakeMovieRepository.trendingFlow = flowOf(Resource.Error("Network error", java.io.IOException("Offline")))
+        fakeMovieRepository.topRatedFlow = flowOf(Resource.Error("Generic server error"))
+        fakeMovieRepository.upcomingFlow = flowOf(Resource.Error("Generic server error"))
+
+        val viewModel = HomeViewModel(fakeMovieRepository)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.isFullError)
+        assertTrue(state.isAnyOffline)
+    }
+
+    @Test
     fun retryTrending_recoversFromError() = runTest(testDispatcher) {
         fakeMovieRepository.trendingFlow = flowOf(Resource.Error("Initial failure"))
         fakeMovieRepository.topRatedFlow = flowOf(Resource.Success(listOf(createMovie(1, "Top Rated"))))

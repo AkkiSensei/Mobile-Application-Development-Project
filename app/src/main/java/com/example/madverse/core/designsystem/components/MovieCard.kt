@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -710,15 +711,20 @@ fun SectionErrorCard(
                     contentColor = ContentHighEmphasis
                 ),
                 shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.height(36.dp)
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .semantics {
+                        role = Role.Button
+                        contentDescription = "Retry loading section"
+                    }
             ) {
                 Icon(
                     imageVector = Icons.Filled.Refresh,
                     contentDescription = null,
-                    modifier = Modifier.size(14.dp)
+                    modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Retry", fontSize = 12.sp)
+                Text("Retry", fontSize = 13.sp)
             }
         }
     }

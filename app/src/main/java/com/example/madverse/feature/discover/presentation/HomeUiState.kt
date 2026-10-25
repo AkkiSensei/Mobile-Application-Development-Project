@@ -36,6 +36,12 @@ data class HomeUiState(
         get() = (trendingState as? UiState.Success)?.data?.let { list ->
             if (list.size > 1) list.drop(1) else list
         } ?: emptyList()
+
+    /** True if any of the failed sections reported an offline or network error. */
+    val isAnyOffline: Boolean
+        get() = (trendingState as? UiState.Error)?.isOffline == true ||
+                (topRatedState as? UiState.Error)?.isOffline == true ||
+                (upcomingState as? UiState.Error)?.isOffline == true
 }
 
 typealias DiscoverUiState = HomeUiState
