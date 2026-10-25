@@ -136,10 +136,11 @@ class HomeViewModel @Inject constructor(
         return when (this) {
             is Resource.Loading -> UiState.Loading
             is Resource.Success -> {
-                if (data.isEmpty()) {
+                val uniqueMovies = data.filter { it.id > 0 }.distinctBy(Movie::id)
+                if (uniqueMovies.isEmpty()) {
                     UiState.Empty(emptyMessage)
                 } else {
-                    UiState.Success(data)
+                    UiState.Success(uniqueMovies)
                 }
             }
             is Resource.Error -> {

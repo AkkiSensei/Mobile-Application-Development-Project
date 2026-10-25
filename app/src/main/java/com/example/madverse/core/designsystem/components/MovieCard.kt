@@ -108,15 +108,8 @@ fun MoviePosterCard(
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .background(ObsidianSurfaceVariant),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                color = CinematicCrimson,
-                                strokeWidth = 2.dp
-                            )
-                        }
+                                .background(ObsidianSurfaceVariant)
+                        )
                     },
                     error = {
                         MoviePosterFallback(title = movie.title)
@@ -219,14 +212,8 @@ fun HeroFeaturedMovieCard(
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(ObsidianSurfaceVariant),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(32.dp),
-                            color = CinematicCrimson
-                        )
-                    }
+                            .background(ObsidianSurfaceVariant)
+                    )
                 },
                 error = {
                     MoviePosterFallback(title = movie.title)
@@ -382,6 +369,13 @@ fun MovieHorizontalCard(
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
+                    loading = {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(ObsidianSurfaceVariant)
+                        )
+                    },
                     error = { MoviePosterFallback(title = movie.title) }
                 )
             }
