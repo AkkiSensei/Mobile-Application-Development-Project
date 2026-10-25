@@ -13,6 +13,7 @@ data class HomeUiState(
     val trendingState: UiState<List<Movie>> = UiState.Loading,
     val topRatedState: UiState<List<Movie>> = UiState.Loading,
     val upcomingState: UiState<List<Movie>> = UiState.Loading,
+    val recentlyViewed: List<Movie> = emptyList(),
     val isRefreshing: Boolean = false
 ) {
     /** True if all three sections are currently in their initial loading state. */

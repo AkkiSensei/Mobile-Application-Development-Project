@@ -5,11 +5,14 @@ import androidx.lifecycle.viewModelScope
 import com.example.madverse.core.common.result.Resource
 import com.example.madverse.core.common.ui.UiState
 import com.example.madverse.core.data.repository.MovieRepository
+import com.example.madverse.core.data.repository.RecentlyViewedRepository
 import com.example.madverse.core.model.Movie
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.IOException
@@ -21,8 +24,20 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val movieRepository: MovieRepository
+    private val movieRepository: MovieRepository,
+    private val recentlyViewedRepository: RecentlyViewedRepository
 ) : ViewModel() {
+
+    // Overload for backward compatibility with isolated unit tests
+    constructor(movieRepository: MovieRepository) : this(
+        movieRepository = movieRepository,
+        recentlyViewedRepository = object : RecentlyViewedRepository {
+            override fun getRecentlyViewed(limit: Int) = flowOf(emptyList<Movie>())
+            override suspend fun getRecentlyViewedOnce(limit: Int) = emptyList<Movie>()
+            override suspend fun recordMovieView(movie: Movie) {}
+            override suspend fun clearHistory() {}
+        }
+    )
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
@@ -33,7 +48,18 @@ class HomeViewModel @Inject constructor(
     private var refreshJob: kotlinx.coroutines.Job? = null
 
     init {
+        observeRecentlyViewed()
         loadAllSections()
+    }
+
+    private fun observeRecentlyViewed() {
+        viewModelScope.launch {
+            recentlyViewedRepository.getRecentlyViewed(limit = 20)
+                .catch { /* Graceful degradation: empty recently viewed list */ }
+                .collect { list ->
+                    _uiState.update { it.copy(recentlyViewed = list) }
+                }
+        }
     }
 
     /**

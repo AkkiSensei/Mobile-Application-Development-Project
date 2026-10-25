@@ -518,6 +518,65 @@ class MovieDetailsViewModelTest {
         assertEquals(null, vm.uiState.value.tmdbWatchPageUrl)
     }
 
+    @Test
+    fun successfulDetailsLoad_recordsMovieInRecentlyViewed() = runTest(testDispatcher) {
+        val details = createMovieDetails(id = 550, title = "Fight Club")
+        fakeMovieRepository.detailsResult = Resource.Success(details)
+
+        val recordedMovies = mutableListOf<Movie>()
+        val fakeRecentlyViewedRepo = object : com.example.madverse.core.data.repository.RecentlyViewedRepository {
+            override fun getRecentlyViewed(limit: Int) = flowOf(recordedMovies)
+            override suspend fun getRecentlyViewedOnce(limit: Int) = recordedMovies
+            override suspend fun recordMovieView(movie: Movie) {
+                recordedMovies.add(movie)
+            }
+            override suspend fun clearHistory() {
+                recordedMovies.clear()
+            }
+        }
+
+        val vm = MovieDetailsViewModel(
+            movieRepository = fakeMovieRepository,
+            favoritesRepository = fakeFavoritesRepository,
+            watchlistRepository = fakeWatchlistRepository,
+            recentlyViewedRepository = fakeRecentlyViewedRepo,
+            savedStateHandle = SavedStateHandle(mapOf(Screen.ARG_MOVIE_ID to 550))
+        )
+        advanceUntilIdle()
+
+        assertEquals(1, recordedMovies.size)
+        assertEquals(550, recordedMovies.first().id)
+        assertEquals("Fight Club", recordedMovies.first().title)
+    }
+
+    @Test
+    fun failedDetailsLoad_doesNotRecordMovieInRecentlyViewed() = runTest(testDispatcher) {
+        fakeMovieRepository.detailsResult = Resource.Error("Network error")
+
+        val recordedMovies = mutableListOf<Movie>()
+        val fakeRecentlyViewedRepo = object : com.example.madverse.core.data.repository.RecentlyViewedRepository {
+            override fun getRecentlyViewed(limit: Int) = flowOf(recordedMovies)
+            override suspend fun getRecentlyViewedOnce(limit: Int) = recordedMovies
+            override suspend fun recordMovieView(movie: Movie) {
+                recordedMovies.add(movie)
+            }
+            override suspend fun clearHistory() {
+                recordedMovies.clear()
+            }
+        }
+
+        val vm = MovieDetailsViewModel(
+            movieRepository = fakeMovieRepository,
+            favoritesRepository = fakeFavoritesRepository,
+            watchlistRepository = fakeWatchlistRepository,
+            recentlyViewedRepository = fakeRecentlyViewedRepo,
+            savedStateHandle = SavedStateHandle(mapOf(Screen.ARG_MOVIE_ID to 550))
+        )
+        advanceUntilIdle()
+
+        assertTrue("No movie should be recorded if details load fails", recordedMovies.isEmpty())
+    }
+
     private class FakeMovieRepository : MovieRepository {
         var providerDelays: Map<String, Long> = emptyMap()
         var movieDelays: Map<Int, Long> = emptyMap()

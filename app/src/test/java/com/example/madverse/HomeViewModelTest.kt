@@ -266,6 +266,26 @@ class HomeViewModelTest {
         assertEquals("New Movie", (trendingState as UiState.Success).data.first().title)
     }
 
+    @Test
+    fun init_observesRecentlyViewedMoviesFromRepository() = runTest(testDispatcher) {
+        val recentMovies = listOf(createMovie(10, "Recent 1"), createMovie(11, "Recent 2"))
+        val fakeRecentRepo = object : com.example.madverse.core.data.repository.RecentlyViewedRepository {
+            override fun getRecentlyViewed(limit: Int) = flowOf(recentMovies)
+            override suspend fun getRecentlyViewedOnce(limit: Int) = recentMovies
+            override suspend fun recordMovieView(movie: Movie) {}
+            override suspend fun clearHistory() {}
+        }
+
+        val viewModel = HomeViewModel(
+            movieRepository = fakeMovieRepository,
+            recentlyViewedRepository = fakeRecentRepo
+        )
+        advanceUntilIdle()
+
+        assertEquals(2, viewModel.uiState.value.recentlyViewed.size)
+        assertEquals("Recent 1", viewModel.uiState.value.recentlyViewed[0].title)
+    }
+
     private class FakeMovieRepository : MovieRepository {
         var trendingFlow: Flow<Resource<List<Movie>>> = flowOf(Resource.Loading)
         var topRatedFlow: Flow<Resource<List<Movie>>> = flowOf(Resource.Loading)

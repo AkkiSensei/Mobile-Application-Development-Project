@@ -9,6 +9,7 @@ import com.example.madverse.core.common.result.Resource
 import com.example.madverse.core.common.ui.UiState
 import com.example.madverse.core.data.repository.FavoritesRepository
 import com.example.madverse.core.data.repository.MovieRepository
+import com.example.madverse.core.data.repository.RecentlyViewedRepository
 import com.example.madverse.core.data.repository.WatchlistRepository
 import com.example.madverse.core.navigation.Screen
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -33,6 +34,7 @@ import javax.inject.Inject
  * - Video trailers & clips metadata integration
  * - Streaming watch-provider availability integration point
  * - Favorites and Watchlist persistence integration points using R1 repositories
+ * - Recently Viewed history recording upon successful details loading
  * - Resilient error mapping and retry handling
  */
 @HiltViewModel
@@ -40,8 +42,29 @@ class MovieDetailsViewModel @Inject constructor(
     private val movieRepository: MovieRepository,
     private val favoritesRepository: FavoritesRepository,
     private val watchlistRepository: WatchlistRepository,
+    private val recentlyViewedRepository: RecentlyViewedRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
+
+    // Overload preserving backward compatibility for tests
+    constructor(
+        movieRepository: MovieRepository,
+        favoritesRepository: FavoritesRepository,
+        watchlistRepository: WatchlistRepository,
+        savedStateHandle: SavedStateHandle
+    ) : this(
+        movieRepository = movieRepository,
+        favoritesRepository = favoritesRepository,
+        watchlistRepository = watchlistRepository,
+        recentlyViewedRepository = object : RecentlyViewedRepository {
+            override fun getRecentlyViewed(limit: Int) = kotlinx.coroutines.flow.flowOf(emptyList<com.example.madverse.core.model.Movie>())
+            override suspend fun getRecentlyViewedOnce(limit: Int) = emptyList<com.example.madverse.core.model.Movie>()
+            override suspend fun recordMovieView(movie: com.example.madverse.core.model.Movie) {}
+            override suspend fun clearHistory() {}
+        },
+        savedStateHandle = savedStateHandle
+    )
+
     private val libraryActions = RepositoryActions(viewModelScope)
     val actionError = libraryActions.error
     fun dismissActionError() = libraryActions.dismissError()
@@ -178,8 +201,18 @@ class MovieDetailsViewModel @Inject constructor(
                     current.copy(
                         detailsState = when (resource) {
                             is Resource.Loading -> UiState.Loading
-                            is Resource.Success -> if (resource.data.id == movieId) UiState.Success(resource.data)
-                                else UiState.Error("Details did not match this movie. Please retry.")
+                            is Resource.Success -> if (resource.data.id == movieId) {
+                                viewModelScope.launch {
+                                    try {
+                                        recentlyViewedRepository.recordMovieView(resource.data.toMovie())
+                                    } catch (_: Exception) {
+                                        // Local history update should never fail movie details presentation
+                                    }
+                                }
+                                UiState.Success(resource.data)
+                            } else {
+                                UiState.Error("Details did not match this movie. Please retry.")
+                            }
                             is Resource.Error -> {
                                 val isOffline = resource.cause is IOException ||
                                         resource.message.contains("network", ignoreCase = true) ||

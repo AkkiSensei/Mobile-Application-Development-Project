@@ -179,6 +179,24 @@ private fun DiscoverContent(
         }
 
         // -------------------------------------------------------------
+        // Section: Recently Viewed (Local History)
+        // -------------------------------------------------------------
+        if (uiState.recentlyViewed.isNotEmpty()) {
+            item(key = "section_recently_viewed") {
+                SectionHeader(
+                    title = "Recently Viewed",
+                    subtitle = "Pick up where you left off"
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                MovieHorizontalCarousel(
+                    movies = uiState.recentlyViewed,
+                    onMovieClick = onMovieClick
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+        }
+
+        // -------------------------------------------------------------
         // Section 2: Top Rated Movies
         // -------------------------------------------------------------
         item(key = "section_top_rated") {
