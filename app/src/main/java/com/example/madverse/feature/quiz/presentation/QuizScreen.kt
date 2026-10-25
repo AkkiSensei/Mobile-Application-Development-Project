@@ -39,6 +39,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -273,6 +278,12 @@ private fun QuizErrorView(
             Spacer(modifier = Modifier.height(16.dp))
             Button(
                 onClick = onRetry,
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .semantics {
+                        role = Role.Button
+                        contentDescription = "Retry restoring taste preferences"
+                    },
                 colors = ButtonDefaults.buttonColors(containerColor = CinematicCrimson)
             ) {
                 Text("Retry")
@@ -357,6 +368,12 @@ fun QuizCompletionConfirmationDialog(
             Button(
                 onClick = onConfirm,
                 enabled = !isSaving,
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .semantics {
+                        role = Role.Button
+                        contentDescription = "Save taste profile and find movie matches"
+                    },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = CinematicCrimson,
                     contentColor = ContentHighEmphasis
@@ -386,6 +403,12 @@ fun QuizCompletionConfirmationDialog(
             if (!isSaving) {
                 OutlinedButton(
                     onClick = onDismiss,
+                    modifier = Modifier
+                        .defaultMinSize(minHeight = 48.dp)
+                        .semantics {
+                            role = Role.Button
+                            contentDescription = "Review answers before saving"
+                        },
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     Text("Review")
