@@ -423,6 +423,67 @@ class RecommendationEngineTest {
         assertEquals(sciFiActionMovie.id, firstRec.movie.id)
     }
 
+    @Test
+    fun useCase_filtersOutCandidatesBelowMinimumRatingThreshold() = runTest {
+        val fakeQuizRepo = FakeQuizRepository()
+        fakeQuizRepo.profile = UserPreferenceProfile(
+            selectedGenreIds = setOf(28, 878, 35),
+            minRatingThreshold = 6.5
+        )
+
+        val fakeMovieRepo = FakeMovieRepository()
+        // lowRatedMovie has voteAverage = 4.5, sciFiActionMovie has 8.2
+        fakeMovieRepo.candidates = listOf(sciFiActionMovie, lowRatedMovie)
+
+        val useCase = GetPersonalizedRecommendationsUseCase(
+            quizRepository = fakeQuizRepo,
+            movieRepository = fakeMovieRepo,
+            recommendationEngine = engine
+        )
+
+        val resourceFlow = useCase(limit = 10)
+        val resourceList = mutableListOf<Resource<*>>()
+        resourceFlow.collect { resourceList.add(it) }
+
+        val success = resourceList.last() as Resource.Success<*>
+        @Suppress("UNCHECKED_CAST")
+        val ranked = success.data as List<com.example.madverse.core.model.ScoredMovieRecommendation>
+
+        assertEquals(1, ranked.size)
+        assertEquals(sciFiActionMovie.id, ranked.first().movie.id)
+        assertFalse(ranked.any { it.movie.id == lowRatedMovie.id })
+    }
+
+    @Test
+    fun useCaseWithProfile_filtersOutCandidatesBelowMinimumRatingThreshold() = runTest {
+        val fakeQuizRepo = FakeQuizRepository()
+        val fakeMovieRepo = FakeMovieRepository()
+        fakeMovieRepo.candidates = listOf(sciFiActionMovie, romanceDramaMovie, lowRatedMovie)
+
+        val useCase = GetPersonalizedRecommendationsUseCase(
+            quizRepository = fakeQuizRepo,
+            movieRepository = fakeMovieRepo,
+            recommendationEngine = engine
+        )
+
+        val profile = UserPreferenceProfile(
+            minRatingThreshold = 7.0
+        )
+
+        val resourceFlow = useCase.invokeWithProfile(profile = profile, limit = 10)
+        val resourceList = mutableListOf<Resource<*>>()
+        resourceFlow.collect { resourceList.add(it) }
+
+        val success = resourceList.last() as Resource.Success<*>
+        @Suppress("UNCHECKED_CAST")
+        val ranked = success.data as List<com.example.madverse.core.model.ScoredMovieRecommendation>
+
+        // sciFiActionMovie: 8.2, romanceDramaMovie: 7.5, lowRatedMovie: 4.5
+        assertEquals(2, ranked.size)
+        assertTrue(ranked.all { it.movie.voteAverage >= 7.0 })
+        assertFalse(ranked.any { it.movie.id == lowRatedMovie.id })
+    }
+
     private class FakeQuizRepository : QuizRepository {
         var profile: UserPreferenceProfile = UserPreferenceProfile()
 

@@ -201,7 +201,7 @@ class MovieRepositoryImpl @Inject constructor(
             val releaseDateGte = startYear?.let { "$it-01-01" }
             val releaseDateLte = endYear?.let { "$it-12-31" }
 
-            tmdbApi.discoverMovies(
+            val movies = tmdbApi.discoverMovies(
                 withGenres = genreParam,
                 releaseDateGte = releaseDateGte,
                 releaseDateLte = releaseDateLte,
@@ -212,6 +212,12 @@ class MovieRepositoryImpl @Inject constructor(
                 .results
                 .orEmpty()
                 .map { it.toDomain() }
+
+            if (minRating != null && minRating > 0.0) {
+                movies.filter { it.voteAverage >= minRating }
+            } else {
+                movies
+            }
         })
     }
 
