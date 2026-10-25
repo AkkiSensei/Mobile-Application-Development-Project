@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 480" width="100%" height="100%">
+  <defs>
+    <linearGradient id="cardBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#18152E" />
+      <stop offset="100%" stop-color="#0E0D1C" />
+    </linearGradient>
+
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#A855F7" />
+      <stop offset="100%" stop-color="#6366F1" />
+    </linearGradient>
+
+    <linearGradient id="cardGlow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#8B5CF6" stop-opacity="0.3" />
+      <stop offset="100%" stop-color="#EC4899" stop-opacity="0.1" />
+    </linearGradient>
+
+    <pattern id="cardDots" width="20" height="20" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1" fill="#3B3564" fill-opacity="0.3" />
+    </pattern>
+  </defs>
+
+  <!-- Canvas Background -->
+  <rect width="1100" height="480" rx="14" fill="#0A0B14" />
+  <rect width="1100" height="480" rx="14" fill="url(#cardDots)" />
+  <rect width="1098" height="478" x="1" y="1" rx="13" fill="none" stroke="#2D284B" stroke-width="1.2" />
+
+  <!-- Section Header -->
+  <g transform="translate(550, 45)" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+    <text x="0" y="0" font-size="12" font-weight="700" letter-spacing="2" fill="#A78BFA">CORE APPLICATION ARCHITECTURE</text>
+    <text x="0" y="24" font-size="20" font-weight="700" fill="#F1F5F9">Engineered Subsystems &amp; User Journeys</text>
+  </g>
+
+  <!-- 4 Feature Cards Layout: 2x2 Grid -->
+  <g transform="translate(50, 100)" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+
+    <!-- Card 1: Discovery & Resilient Search -->
+    <g transform="translate(0, 0)">
+      <rect width="480" height="160" rx="10" fill="url(#cardBg)" stroke="#38305E" stroke-width="1" />
+      <rect width="480" height="3" rx="1" fill="url(#headerGrad)" />
+      
+      <!-- Icon & Title -->
+      <circle cx="36" cy="36" r="16" fill="#252044" />
+      <path d="M30 36 L34 40 L42 31" fill="none" stroke="#A78BFA" stroke-width="2" stroke-linecap="round" />
+      <text x="64" y="34" font-size="15" font-weight="700" fill="#F8FAFC">Discovery &amp; Debounced Search</text>
+      <text x="64" y="48" font-size="11" font-weight="600" fill="#818CF8">TMDB REST API • Kotlin Coroutines</text>
+
+      <!-- Details -->
+      <text x="24" y="82" font-size="12.5" fill="#94A3B8" line-height="18">
+        <tspan x="24" dy="0">• 300ms reactive query debouncing with active Flow cancellation</tspan>
+        <tspan x="24" dy="20">• Resilient safeApiCall handling with fallback error &amp; empty states</tspan>
+        <tspan x="24" dy="20">• Hero spotlight carousel and paginated genre discovery filters</tspan>
+      </text>
+    </g>
+
+    <!-- Card 2: Deterministic Recommendation Engine -->
+    <g transform="translate(520, 0)">
+      <rect width="480" height="160" rx="10" fill="url(#cardBg)" stroke="#38305E" stroke-width="1" />
+      <rect width="480" height="3" rx="1" fill="url(#headerGrad)" />
+      
+      <!-- Icon & Title -->
+      <circle cx="36" cy="36" r="16" fill="#252044" />
+      <polygon points="36,26 39,33 46,33 40,38 42,45 36,41 30,45 32,38 26,33 33,33" fill="#A78BFA" />
+      <text x="64" y="34" font-size="15" font-weight="700" fill="#F8FAFC">Deterministic Recommendation Engine</text>
+      <text x="64" y="48" font-size="11" font-weight="600" fill="#C084FC">Pure Domain Math • Explainable AI</text>
+
+      <!-- Details -->
+      <text x="24" y="82" font-size="12.5" fill="#94A3B8">
+        <tspan x="24" dy="0">• 6-factor normalized score: Genre (30%), Mood (20%), Era/Quality (15% ea)</tspan>
+        <tspan x="24" dy="20">• Language (10%), Runtime (10%) with unambiguous 4-level tie-breaking</tspan>
+        <tspan x="24" dy="20">• Pure domain execution without external latency or API token costs</tspan>
+      </text>
+    </g>
+
+    <!-- Card 3: Dual Media Playback Routes -->
+    <g transform="translate(0, 190)">
+      <rect width="480" height="160" rx="10" fill="url(#cardBg)" stroke="#38305E" stroke-width="1" />
+      <rect width="480" height="3" rx="1" fill="url(#headerGrad)" />
+      
+      <!-- Icon & Title -->
+      <circle cx="36" cy="36" r="16" fill="#252044" />
+      <polygon points="32,28 44,36 32,44" fill="#A78BFA" />
+      <text x="64" y="34" font-size="15" font-weight="700" fill="#F8FAFC">Dual-Route Media Pipeline</text>
+      <text x="64" y="48" font-size="11" font-weight="600" fill="#818CF8">Android YouTube Player Core 13.0.0</text>
+
+      <!-- Details -->
+      <text x="24" y="82" font-size="12.5" fill="#94A3B8">
+        <tspan x="24" dy="0">• Route 1: Curated Free Movies catalogue with complete film playback</tspan>
+        <tspan x="24" dy="20">• Route 2: Movie Details workflow for promotional trailers &amp; teasers</tspan>
+        <tspan x="24" dy="20">• Strict URL sanitization, embed eligibility checks &amp; external fallbacks</tspan>
+      </text>
+    </g>
+
+    <!-- Card 4: Local Persistence & Cloud Synchronization -->
+    <g transform="translate(520, 190)">
+      <rect width="480" height="160" rx="10" fill="url(#cardBg)" stroke="#38305E" stroke-width="1" />
+      <rect width="480" height="3" rx="1" fill="url(#headerGrad)" />
+      
+      <!-- Icon & Title -->
+      <circle cx="36" cy="36" r="16" fill="#252044" />
+      <path d="M30 40 L30 33 A6 6 0 0 1 42 33 L42 40" fill="none" stroke="#A78BFA" stroke-width="2" />
+      <rect x="28" y="38" width="16" height="10" rx="2" fill="#A78BFA" />
+      <text x="64" y="34" font-size="15" font-weight="700" fill="#F8FAFC">Room Persistence &amp; Cloud Sync</text>
+      <text x="64" y="48" font-size="11" font-weight="600" fill="#C084FC">Room SQLite • Firebase Auth &amp; Firestore</text>
+
+      <!-- Details -->
+      <text x="24" y="82" font-size="12.5" fill="#94A3B8">
+        <tspan x="24" dy="0">• Reactive Flow-backed DAOs for isolated Favorites &amp; Watchlist</tspan>
+        <tspan x="24" dy="20">• User-scoped Firestore security rules safeguarding cloud preferences</tspan>
+        <tspan x="24" dy="20">• Resilient offline queue replay guarantees seamless online recovery</tspan>
+      </text>
+    </g>
+
+  </g>
+</svg>

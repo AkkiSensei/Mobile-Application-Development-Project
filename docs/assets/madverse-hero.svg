@@ -1,0 +1,200 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#070913" />
+      <stop offset="45%" stop-color="#0F1123" />
+      <stop offset="80%" stop-color="#18132F" />
+      <stop offset="100%" stop-color="#0A0818" />
+    </linearGradient>
+
+    <!-- Vibrant Violet/Purple Brand Gradients -->
+    <linearGradient id="brandGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#C084FC" />
+      <stop offset="35%" stop-color="#A855F7" />
+      <stop offset="70%" stop-color="#7C3AED" />
+      <stop offset="100%" stop-color="#6366F1" />
+    </linearGradient>
+
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#818CF8" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#C084FC" stop-opacity="0.2" />
+    </linearGradient>
+
+    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1E1B38" stop-opacity="0.75" />
+      <stop offset="100%" stop-color="#111024" stop-opacity="0.85" />
+    </linearGradient>
+
+    <!-- Radial Glows -->
+    <radialGradient id="nebulaGlowLeft" cx="15%" cy="30%" r="45%">
+      <stop offset="0%" stop-color="#7C3AED" stop-opacity="0.32" />
+      <stop offset="50%" stop-color="#6366F1" stop-opacity="0.12" />
+      <stop offset="100%" stop-color="#070913" stop-opacity="0" />
+    </radialGradient>
+
+    <radialGradient id="nebulaGlowRight" cx="85%" cy="65%" r="50%">
+      <stop offset="0%" stop-color="#9333EA" stop-opacity="0.28" />
+      <stop offset="60%" stop-color="#4F46E5" stop-opacity="0.08" />
+      <stop offset="100%" stop-color="#070913" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Glow Filter -->
+    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <!-- Grid Pattern -->
+    <pattern id="cinemaGrid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#2E2856" stroke-width="0.75" stroke-opacity="0.25" />
+      <circle cx="40" cy="40" r="1" fill="#7C3AED" fill-opacity="0.3" />
+    </pattern>
+  </defs>
+
+  <!-- Background Base -->
+  <rect width="1200" height="420" rx="16" fill="url(#bgGrad)" />
+  <rect width="1200" height="420" rx="16" fill="url(#cinemaGrid)" />
+
+  <!-- Ambient Light Orbs -->
+  <circle cx="180" cy="140" r="260" fill="url(#nebulaGlowLeft)" />
+  <circle cx="1020" cy="270" r="300" fill="url(#nebulaGlowRight)" />
+
+  <!-- Outer Border -->
+  <rect width="1198" height="418" x="1" y="1" rx="15" fill="none" stroke="#4C3A82" stroke-width="1.2" stroke-opacity="0.45" />
+
+  <!-- Geometric Cinematic Film Strips / Light Beams -->
+  <g opacity="0.4">
+    <!-- Slanted Light Beams -->
+    <path d="M-50 420 L280 0 L360 0 L30 420 Z" fill="url(#accentGrad)" opacity="0.12" />
+    <path d="M840 420 L1120 0 L1180 0 L900 420 Z" fill="url(#accentGrad)" opacity="0.15" />
+
+    <!-- Film Frame Elements (Left Side) -->
+    <g transform="translate(60, 65)">
+      <rect width="48" height="290" rx="6" fill="#13122B" stroke="#3F3472" stroke-width="1" />
+      <!-- Sprocket Holes -->
+      <rect x="8" y="14" width="12" height="18" rx="3" fill="#2A244D" />
+      <rect x="8" y="44" width="12" height="18" rx="3" fill="#2A244D" />
+      <rect x="8" y="74" width="12" height="18" rx="3" fill="#7C3AED" fill-opacity="0.6" />
+      <rect x="8" y="104" width="12" height="18" rx="3" fill="#2A244D" />
+      <rect x="8" y="134" width="12" height="18" rx="3" fill="#2A244D" />
+      <rect x="8" y="164" width="12" height="18" rx="3" fill="#A855F7" fill-opacity="0.7" />
+      <rect x="8" y="194" width="12" height="18" rx="3" fill="#2A244D" />
+      <rect x="8" y="224" width="12" height="18" rx="3" fill="#2A244D" />
+      <rect x="8" y="254" width="12" height="18" rx="3" fill="#2A244D" />
+
+      <rect x="28" y="14" width="12" height="18" rx="3" fill="#2A244D" />
+      <rect x="28" y="44" width="12" height="18" rx="3" fill="#2A244D" />
+      <rect x="28" y="74" width="12" height="18" rx="3" fill="#7C3AED" fill-opacity="0.6" />
+      <rect x="28" y="104" width="12" height="18" rx="3" fill="#2A244D" />
+      <rect x="28" y="134" width="12" height="18" rx="3" fill="#2A244D" />
+      <rect x="28" y="164" width="12" height="18" rx="3" fill="#A855F7" fill-opacity="0.7" />
+      <rect x="28" y="194" width="12" height="18" rx="3" fill="#2A244D" />
+      <rect x="28" y="224" width="12" height="18" rx="3" fill="#2A244D" />
+      <rect x="28" y="254" width="12" height="18" rx="3" fill="#2A244D" />
+    </g>
+
+    <!-- Film Frame Elements (Right Side) -->
+    <g transform="translate(1092, 65)">
+      <rect width="48" height="290" rx="6" fill="#13122B" stroke="#3F3472" stroke-width="1" />
+      <rect x="8" y="14" width="12" height="18" rx="3" fill="#2A244D" />
+      <rect x="8" y="44" width="12" height="18" rx="3" fill="#2A244D" />
+      <rect x="8" y="74" width="12" height="18" rx="3" fill="#2A244D" />
+      <rect x="8" y="104" width="12" height="18" rx="3" fill="#6366F1" fill-opacity="0.6" />
+      <rect x="8" y="134" width="12" height="18" rx="3" fill="#2A244D" />
+      <rect x="8" y="164" width="12" height="18" rx="3" fill="#2A244D" />
+      <rect x="8" y="194" width="12" height="18" rx="3" fill="#C084FC" fill-opacity="0.7" />
+      <rect x="8" y="224" width="12" height="18" rx="3" fill="#2A244D" />
+      <rect x="8" y="254" width="12" height="18" rx="3" fill="#2A244D" />
+
+      <rect x="28" y="14" width="12" height="18" rx="3" fill="#2A244D" />
+      <rect x="28" y="44" width="12" height="18" rx="3" fill="#2A244D" />
+      <rect x="28" y="74" width="12" height="18" rx="3" fill="#2A244D" />
+      <rect x="28" y="104" width="12" height="18" rx="3" fill="#6366F1" fill-opacity="0.6" />
+      <rect x="28" y="134" width="12" height="18" rx="3" fill="#2A244D" />
+      <rect x="28" y="164" width="12" height="18" rx="3" fill="#2A244D" />
+      <rect x="28" y="194" width="12" height="18" rx="3" fill="#C084FC" fill-opacity="0.7" />
+      <rect x="28" y="224" width="12" height="18" rx="3" fill="#2A244D" />
+      <rect x="28" y="254" width="12" height="18" rx="3" fill="#2A244D" />
+    </g>
+  </g>
+
+  <!-- Central Content Container -->
+  <g text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+
+    <!-- Top Badge / Category Pill -->
+    <g transform="translate(600, 72)">
+      <rect x="-165" y="-15" width="330" height="30" rx="15" fill="#1B173B" stroke="#6366F1" stroke-width="1.2" stroke-opacity="0.6" />
+      <circle cx="-145" cy="0" r="4" fill="#10B981" />
+      <text x="-130" y="4" font-size="11.5" font-weight="700" letter-spacing="1.5" fill="#C7D2FE" text-anchor="start">
+        ANDROID MOBILE ENGINEERING
+      </text>
+      <text x="135" y="4" font-size="11" font-weight="600" fill="#A78BFA" text-anchor="end">
+        KOTLIN &amp; COMPOSE
+      </text>
+    </g>
+
+    <!-- Main Title: MADVERSE -->
+    <g transform="translate(600, 160)">
+      <!-- Drop Shadow / Glow -->
+      <text x="0" y="5" font-size="76" font-weight="900" letter-spacing="12" fill="#000000" fill-opacity="0.5" filter="url(#softGlow)">
+        MADVERSE
+      </text>
+      <!-- Gradient Fill -->
+      <text x="0" y="0" font-size="76" font-weight="900" letter-spacing="12" fill="url(#brandGrad)">
+        MADVERSE
+      </text>
+    </g>
+
+    <!-- Subtitle / Cinematic Tagline -->
+    <text x="600" y="212" font-size="22" font-weight="400" letter-spacing="4" fill="#E2E8F0">
+      DISCOVER YOUR NEXT FAVOURITE
+    </text>
+
+    <!-- Divider Line with Diamond Center -->
+    <g transform="translate(600, 238)">
+      <line x1="-220" y1="0" x2="-20" y2="0" stroke="#4C3A82" stroke-width="1" stroke-opacity="0.7" />
+      <polygon points="0,-4 5,0 0,4 -5,0" fill="#A855F7" />
+      <line x1="20" y1="0" x2="220" y2="0" stroke="#4C3A82" stroke-width="1" stroke-opacity="0.7" />
+    </g>
+
+    <!-- One-Sentence Engineering Definition -->
+    <text x="600" y="274" font-size="15" font-weight="400" fill="#94A3B8" letter-spacing="0.5">
+      Cinematic Android discovery platform powered by deterministic recommendations,
+    </text>
+    <text x="600" y="298" font-size="15" font-weight="400" fill="#94A3B8" letter-spacing="0.5">
+      curated in-app streaming, Room offline-first caching, and TMDB integration.
+    </text>
+
+    <!-- Pill Feature Badges -->
+    <g transform="translate(600, 350)">
+      <!-- Pill 1: Deterministic Engine -->
+      <g transform="translate(-320, 0)">
+        <rect x="-85" y="-16" width="170" height="32" rx="8" fill="url(#cardGrad)" stroke="#3E3863" stroke-width="1" />
+        <text x="0" y="5" font-size="12" font-weight="600" fill="#DDD6FE">6-Factor Matcher</text>
+      </g>
+
+      <!-- Pill 2: Dual Media Routes -->
+      <g transform="translate(-105, 0)">
+        <rect x="-95" y="-16" width="190" height="32" rx="8" fill="url(#cardGrad)" stroke="#3E3863" stroke-width="1" />
+        <text x="0" y="5" font-size="12" font-weight="600" fill="#DDD6FE">Dual-Route Playback</text>
+      </g>
+
+      <!-- Pill 3: Offline-First Room -->
+      <g transform="translate(105, 0)">
+        <rect x="-85" y="-16" width="170" height="32" rx="8" fill="url(#cardGrad)" stroke="#3E3863" stroke-width="1" />
+        <text x="0" y="5" font-size="12" font-weight="600" fill="#DDD6FE">Room SQLite Sync</text>
+      </g>
+
+      <!-- Pill 4: 291 Passing Tests -->
+      <g transform="translate(310, 0)">
+        <rect x="-85" y="-16" width="170" height="32" rx="8" fill="url(#cardGrad)" stroke="#10B981" stroke-width="1" stroke-opacity="0.4" />
+        <text x="0" y="5" font-size="12" font-weight="700" fill="#34D399">291 Unit Tests (100%)</text>
+      </g>
+    </g>
+
+  </g>
+</svg>
