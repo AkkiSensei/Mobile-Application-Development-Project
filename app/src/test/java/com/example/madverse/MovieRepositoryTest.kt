@@ -154,6 +154,35 @@ class MovieRepositoryTest {
         assertEquals(550, movies[0].id)
     }
 
+    @Test
+    fun getGenres_secondCallReturnsCachedGenresWithoutRehittingApi() = runTest {
+        var apiCalls = 0
+        val fakeApi = object : FakeBaseTmdbApi() {
+            override suspend fun getMovieGenres(): GenresResponseDto {
+                apiCalls++
+                return GenresResponseDto(listOf(GenreDto(28, "Action")))
+            }
+        }
+        val repository = createRepository(fakeApi)
+
+        // First call fetches from API and caches
+        val firstEmissions = repository.getGenres().toList()
+        assertEquals(2, firstEmissions.size)
+        assertTrue(firstEmissions[0] is Resource.Loading)
+        assertTrue(firstEmissions[1] is Resource.Success)
+        assertEquals(1, (firstEmissions[1] as Resource.Success).data.size)
+        assertEquals("Action", (firstEmissions[1] as Resource.Success).data[0].name)
+        assertEquals(1, apiCalls)
+
+        // Second call should return cached genres immediately without hitting API again
+        val secondEmissions = repository.getGenres().toList()
+        assertEquals(1, secondEmissions.size)
+        assertTrue(secondEmissions[0] is Resource.Success)
+        assertEquals(1, (secondEmissions[0] as Resource.Success).data.size)
+        assertEquals("Action", (secondEmissions[0] as Resource.Success).data[0].name)
+        assertEquals(1, apiCalls) // API was not called again
+    }
+
     private open class FakeBaseTmdbApi : TmdbApi {
         override suspend fun getTrendingMovies(page: Int): MovieResponseDto =
             MovieResponseDto(1, emptyList(), 1, 0)

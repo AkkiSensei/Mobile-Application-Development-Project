@@ -1,15 +1,19 @@
 package com.example.madverse.core.network
 
+import android.content.Context
 import com.example.madverse.core.common.network.ApiConstants
 import com.example.madverse.core.network.interceptor.AuthInterceptor
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import okhttp3.Cache
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.io.File
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
@@ -29,10 +33,15 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideOkHttpClient(
+        @ApplicationContext context: Context,
         authInterceptor: AuthInterceptor,
         loggingInterceptor: HttpLoggingInterceptor
     ): OkHttpClient {
+        val cacheSize = 10L * 1024 * 1024 // 10 MB HTTP disk cache
+        val httpCache = Cache(File(context.cacheDir, "http_cache"), cacheSize)
+
         return OkHttpClient.Builder()
+            .cache(httpCache)
             .addInterceptor(authInterceptor)
             .addInterceptor(loggingInterceptor)
             .connectTimeout(ApiConstants.TIMEOUT_SECONDS, TimeUnit.SECONDS)
