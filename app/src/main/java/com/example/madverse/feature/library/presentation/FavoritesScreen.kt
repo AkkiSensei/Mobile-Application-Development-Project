@@ -35,6 +35,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -162,16 +166,20 @@ fun FavoritesContent(
                                     modifier = Modifier
                                         .align(Alignment.TopEnd)
                                         .padding(6.dp)
-                                        .size(34.dp)
+                                        .size(44.dp)
                                         .clip(CircleShape)
                                         .background(ObsidianSurface.copy(alpha = 0.9f))
                                         .border(1.dp, ObsidianCardBorder, CircleShape)
+                                        .semantics {
+                                            role = Role.Button
+                                            contentDescription = "Remove ${movie.title} from favorites"
+                                        }
                                 ) {
                                     Icon(
                                         imageVector = Icons.Filled.DeleteOutline,
-                                        contentDescription = "Remove from Favorites",
+                                        contentDescription = null,
                                         tint = CinematicCrimson,
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(20.dp)
                                     )
                                 }
                             }
