@@ -6,10 +6,12 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.madverse.core.database.dao.FavoriteDao
 import com.example.madverse.core.database.dao.PendingSyncDao
+import com.example.madverse.core.database.dao.RecentlyViewedDao
 import com.example.madverse.core.database.dao.UserPreferenceDao
 import com.example.madverse.core.database.dao.WatchlistDao
 import com.example.madverse.core.database.entity.FavoriteEntity
 import com.example.madverse.core.database.entity.PendingSyncEntity
+import com.example.madverse.core.database.entity.RecentlyViewedEntity
 import com.example.madverse.core.database.entity.UserPreferenceEntity
 import com.example.madverse.core.database.entity.WatchlistEntity
 
@@ -18,9 +20,10 @@ import com.example.madverse.core.database.entity.WatchlistEntity
         WatchlistEntity::class,
         FavoriteEntity::class,
         UserPreferenceEntity::class,
-        PendingSyncEntity::class
+        PendingSyncEntity::class,
+        RecentlyViewedEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class MADVerseDatabase : RoomDatabase() {
@@ -28,10 +31,11 @@ abstract class MADVerseDatabase : RoomDatabase() {
     abstract fun favoriteDao(): FavoriteDao
     abstract fun userPreferenceDao(): UserPreferenceDao
     abstract fun pendingSyncDao(): PendingSyncDao
+    abstract fun recentlyViewedDao(): RecentlyViewedDao
 
     companion object {
         const val DATABASE_NAME = "madverse_database.db"
-        const val DATABASE_VERSION = 2
+        const val DATABASE_VERSION = 3
 
         /**
          * Clean Room migrations registry.
@@ -129,6 +133,30 @@ abstract class MADVerseDatabase : RoomDatabase() {
             }
         }
 
-        val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2)
+        /**
+         * Migration 2 -> 3:
+         * - Non-destructively creates `recently_viewed_movies` table for local viewing history.
+         * - Bounded to ~20 items, deduplicated by movie_id.
+         * - Preserves all existing user favorites, watchlists, preferences, and sync queue.
+         */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `recently_viewed_movies` (
+                        `movie_id` INTEGER NOT NULL,
+                        `title` TEXT NOT NULL,
+                        `poster_path` TEXT,
+                        `backdrop_path` TEXT,
+                        `release_date` TEXT,
+                        `vote_average` REAL NOT NULL,
+                        `overview` TEXT,
+                        `viewed_timestamp` INTEGER NOT NULL,
+                        PRIMARY KEY(`movie_id`)
+                    )
+                """.trimIndent())
+            }
+        }
+
+        val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
     }
 }

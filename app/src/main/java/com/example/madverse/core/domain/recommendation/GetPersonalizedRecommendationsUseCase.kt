@@ -46,9 +46,14 @@ class GetPersonalizedRecommendationsUseCase @Inject constructor(
                 is Resource.Loading -> emit(Resource.Loading)
                 is Resource.Error -> emit(Resource.Error(resource.message, resource.cause))
                 is Resource.Success -> {
+                    val eligibleCandidates = if (profile.minRatingThreshold > 0.0) {
+                        resource.data.filter { it.voteAverage >= profile.minRatingThreshold }
+                    } else {
+                        resource.data
+                    }
                     val ranked = recommendationEngine.scoreAndRank(
                         profile = profile,
-                        candidates = resource.data,
+                        candidates = eligibleCandidates,
                         limit = limit
                     )
                     emit(Resource.Success(ranked))
@@ -76,9 +81,14 @@ class GetPersonalizedRecommendationsUseCase @Inject constructor(
                 is Resource.Loading -> emit(Resource.Loading)
                 is Resource.Error -> emit(Resource.Error(resource.message, resource.cause))
                 is Resource.Success -> {
+                    val eligibleCandidates = if (profile.minRatingThreshold > 0.0) {
+                        resource.data.filter { it.voteAverage >= profile.minRatingThreshold }
+                    } else {
+                        resource.data
+                    }
                     val ranked = recommendationEngine.scoreAndRank(
                         profile = profile,
-                        candidates = resource.data,
+                        candidates = eligibleCandidates,
                         limit = limit
                     )
                     emit(Resource.Success(ranked))

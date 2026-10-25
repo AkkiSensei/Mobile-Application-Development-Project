@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -67,6 +68,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -129,13 +134,27 @@ fun ProfileScreen(
             confirmButton = {
                 Button(
                     onClick = { viewModel.signOut(onSignedOut) },
+                    modifier = Modifier
+                        .defaultMinSize(minHeight = 48.dp)
+                        .semantics {
+                            role = Role.Button
+                            contentDescription = "Confirm sign out"
+                        },
                     colors = ButtonDefaults.buttonColors(containerColor = CinematicCrimson)
                 ) {
                     Text("Sign Out", color = ContentHighEmphasis)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { viewModel.showSignOutDialog(false) }) {
+                TextButton(
+                    onClick = { viewModel.showSignOutDialog(false) },
+                    modifier = Modifier
+                        .defaultMinSize(minHeight = 48.dp)
+                        .semantics {
+                            role = Role.Button
+                            contentDescription = "Cancel sign out"
+                        }
+                ) {
                     Text("Cancel", color = ContentMediumEmphasis)
                 }
             }
@@ -165,13 +184,27 @@ fun ProfileScreen(
             confirmButton = {
                 Button(
                     onClick = { viewModel.deleteAccount(onSignedOut) },
+                    modifier = Modifier
+                        .defaultMinSize(minHeight = 48.dp)
+                        .semantics {
+                            role = Role.Button
+                            contentDescription = "Permanently delete account and all cloud data"
+                        },
                     colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
                 ) {
                     Text("Delete Everything", color = Color.White)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { viewModel.showDeleteAccountDialog(false) }) {
+                TextButton(
+                    onClick = { viewModel.showDeleteAccountDialog(false) },
+                    modifier = Modifier
+                        .defaultMinSize(minHeight = 48.dp)
+                        .semantics {
+                            role = Role.Button
+                            contentDescription = "Cancel account deletion"
+                        }
+                ) {
                     Text("Cancel", color = ContentMediumEmphasis)
                 }
             }
@@ -199,21 +232,48 @@ fun ProfileScreen(
                     .fillMaxWidth()
                     .padding(bottom = 16.dp)
             ) {
-                Row(
-                    modifier = Modifier.padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = uiState.errorMessage ?: "",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = ErrorRed,
-                        modifier = Modifier.weight(1f)
-                    )
-                    IconButton(
-                        onClick = { viewModel.dismissError() },
-                        modifier = Modifier.size(24.dp)
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("✕", color = ErrorRed)
+                        Text(
+                            text = uiState.errorMessage ?: "",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = ErrorRed,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(
+                            onClick = { viewModel.dismissError() },
+                            modifier = Modifier
+                                .defaultMinSize(minWidth = 44.dp, minHeight = 44.dp)
+                                .semantics {
+                                    role = Role.Button
+                                    contentDescription = "Dismiss error"
+                                }
+                        ) {
+                            Icon(Icons.Default.Close, contentDescription = null, tint = ErrorRed, modifier = Modifier.size(16.dp))
+                        }
+                    }
+
+                    if (uiState.errorMessage?.contains("recent authentication", ignoreCase = true) == true) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = onNavigateToAuth,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .defaultMinSize(minHeight = 44.dp)
+                                .semantics {
+                                    role = Role.Button
+                                    contentDescription = "Sign in to verify identity and retry deletion"
+                                },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = ErrorRed),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, ErrorRed)
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Login, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Sign In to Verify Identity", fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
@@ -243,9 +303,14 @@ fun ProfileScreen(
                     )
                     IconButton(
                         onClick = { viewModel.dismissInfo() },
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier
+                            .defaultMinSize(minWidth = 44.dp, minHeight = 44.dp)
+                            .semantics {
+                                role = Role.Button
+                                contentDescription = "Dismiss message"
+                            }
                     ) {
-                        Text("✕", color = SuccessGreen)
+                        Icon(Icons.Default.Close, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(16.dp))
                     }
                 }
             }
@@ -304,6 +369,12 @@ fun ProfileScreen(
             Spacer(modifier = Modifier.height(12.dp))
             Button(
                 onClick = onNavigateToAuth,
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .semantics {
+                        role = Role.Button
+                        contentDescription = "Sign in or create account"
+                    },
                 colors = ButtonDefaults.buttonColors(containerColor = CinematicCrimson),
                 shape = RoundedCornerShape(12.dp)
             ) {
@@ -742,7 +813,11 @@ fun ProfileScreen(
                 onClick = { viewModel.showSignOutDialog(true) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp),
+                    .height(48.dp)
+                    .semantics {
+                        role = Role.Button
+                        contentDescription = "Sign out of account"
+                    },
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = ContentHighEmphasis),
                 border = androidx.compose.foundation.BorderStroke(1.dp, ObsidianCardBorder)
@@ -756,6 +831,13 @@ fun ProfileScreen(
 
             TextButton(
                 onClick = { viewModel.showDeleteAccountDialog(true) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .defaultMinSize(minHeight = 48.dp)
+                    .semantics {
+                        role = Role.Button
+                        contentDescription = "Permanently delete account and all cloud data"
+                    },
                 colors = ButtonDefaults.textButtonColors(contentColor = ErrorRed)
             ) {
                 Icon(Icons.Default.DeleteForever, contentDescription = null, modifier = Modifier.size(18.dp))

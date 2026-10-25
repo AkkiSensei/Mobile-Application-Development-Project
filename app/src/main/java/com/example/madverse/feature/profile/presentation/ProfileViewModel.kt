@@ -8,6 +8,9 @@ import com.example.madverse.core.data.repository.FavoritesRepository
 import com.example.madverse.core.data.repository.QuizRepository
 import com.example.madverse.core.data.repository.SessionManager
 import com.example.madverse.core.data.repository.WatchlistRepository
+import com.example.madverse.core.data.account.AccountDeletionJournal
+import com.example.madverse.core.data.account.DeletionStage
+import com.example.madverse.core.data.account.InMemoryAccountDeletionJournal
 import com.example.madverse.core.model.AuthState
 import com.example.madverse.core.model.AuthUser
 import com.example.madverse.core.model.SyncState
@@ -48,7 +51,8 @@ class ProfileViewModel @Inject constructor(
     private val favoritesRepository: FavoritesRepository,
     private val watchlistRepository: WatchlistRepository,
     private val quizRepository: QuizRepository,
-    private val cloudSyncService: CloudSyncService
+    private val cloudSyncService: CloudSyncService,
+    private val accountDeletionJournal: AccountDeletionJournal = InMemoryAccountDeletionJournal()
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileUiState())
@@ -233,24 +237,46 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(showDeleteAccountDialog = false, isLoading = true, errorMessage = null) }
             val uid = authRepository.currentUserId
-            if (uid.isNotBlank() && uid != "guest") {
-                // Delete cloud and local data
-                cloudSyncService.deleteAllUserData(uid)
-                val result = authRepository.deleteAccount()
-                result.onSuccess {
-                    _uiState.update { it.copy(isLoading = false) }
-                    onDeleted()
-                }.onFailure { error ->
-                    val isRecentLogin = error is FirebaseAuthRecentLoginRequiredException ||
-                        error.message?.contains("recent", ignoreCase = true) == true ||
-                        error.javaClass.simpleName.contains("RecentLogin", ignoreCase = true)
-                    val message = if (isRecentLogin) {
-                        "This operation is sensitive and requires recent authentication. Please sign out, log back in, and try deleting your account again."
-                    } else {
-                        error.localizedMessage ?: "Failed to delete account. Please try again."
-                    }
-                    _uiState.update { it.copy(isLoading = false, errorMessage = message) }
+            if (uid.isBlank() || uid == "guest") {
+                _uiState.update { it.copy(isLoading = false, errorMessage = "Cannot delete guest session as an account.") }
+                return@launch
+            }
+
+            // 1. Record STARTED in durable journal before doing any destructive work
+            accountDeletionJournal.recordStage(uid, DeletionStage.STARTED)
+
+            // 2. Delete remote authentication FIRST. Local Room data must NEVER be deleted if Auth deletion fails!
+            val authResult = authRepository.deleteAccount()
+            authResult.onSuccess {
+                accountDeletionJournal.recordStage(uid, DeletionStage.REMOTE_AUTH_DELETED)
+
+                // 3. Remote Auth deletion confirmed successful! Now delete remote data and local Room data idempotently
+                try {
+                    cloudSyncService.deleteAllUserData(uid)
+                    accountDeletionJournal.recordStage(uid, DeletionStage.REMOTE_DATA_DELETED)
+                } catch (e: Exception) {
+                    accountDeletionJournal.recordStage(uid, DeletionStage.REMOTE_DATA_DELETED, e.localizedMessage)
                 }
+
+                // 4. Mark local cleanup and clear journal
+                accountDeletionJournal.recordStage(uid, DeletionStage.LOCAL_DATA_CLEANED)
+                accountDeletionJournal.clearJournal(uid)
+                accountDeletionJournal.recordStage(uid, DeletionStage.COMPLETED)
+
+                _uiState.update { it.copy(isLoading = false) }
+                onDeleted()
+            }.onFailure { error ->
+                accountDeletionJournal.recordStage(uid, DeletionStage.STARTED, error.localizedMessage)
+                val isRecentLogin = error is FirebaseAuthRecentLoginRequiredException ||
+                    error.message?.contains("recent", ignoreCase = true) == true ||
+                    error.javaClass.simpleName.contains("RecentLogin", ignoreCase = true)
+                val message = if (isRecentLogin) {
+                    "This operation is sensitive and requires recent authentication. Please sign out, log back in, and try deleting your account again."
+                } else {
+                    "Failed to delete account from server: ${error.localizedMessage ?: "Unknown error"}. Your local data has been preserved."
+                }
+                // Ambiguous or failed outcome: preserve local Room data and journal state; show truthful recovery UI
+                _uiState.update { it.copy(isLoading = false, errorMessage = message) }
             }
         }
     }

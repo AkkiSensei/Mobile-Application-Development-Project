@@ -13,6 +13,7 @@ data class HomeUiState(
     val trendingState: UiState<List<Movie>> = UiState.Loading,
     val topRatedState: UiState<List<Movie>> = UiState.Loading,
     val upcomingState: UiState<List<Movie>> = UiState.Loading,
+    val recentlyViewed: List<Movie> = emptyList(),
     val isRefreshing: Boolean = false
 ) {
     /** True if all three sections are currently in their initial loading state. */
@@ -36,6 +37,12 @@ data class HomeUiState(
         get() = (trendingState as? UiState.Success)?.data?.let { list ->
             if (list.size > 1) list.drop(1) else list
         } ?: emptyList()
+
+    /** True if any of the failed sections reported an offline or network error. */
+    val isAnyOffline: Boolean
+        get() = (trendingState as? UiState.Error)?.isOffline == true ||
+                (topRatedState as? UiState.Error)?.isOffline == true ||
+                (upcomingState as? UiState.Error)?.isOffline == true
 }
 
 typealias DiscoverUiState = HomeUiState

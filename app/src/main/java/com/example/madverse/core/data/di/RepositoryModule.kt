@@ -68,4 +68,10 @@ abstract class RepositoryModule {
     abstract fun bindCloudSyncService(
         impl: com.example.madverse.core.data.repository.impl.FirestoreSyncServiceImpl
     ): com.example.madverse.core.data.repository.CloudSyncService
+
+    @Binds
+    @Singleton
+    abstract fun bindRecentlyViewedRepository(
+        impl: com.example.madverse.core.data.repository.impl.RecentlyViewedRepositoryImpl
+    ): com.example.madverse.core.data.repository.RecentlyViewedRepository
 }

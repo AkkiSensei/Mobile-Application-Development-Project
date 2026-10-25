@@ -37,6 +37,7 @@ class SearchViewModel @Inject constructor(
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
 
     private var searchJob: Job? = null
+    private var currentQuerySequence: Long = 0L
 
     /**
      * Configurable debounce duration to support immediate execution in unit tests.
@@ -49,6 +50,7 @@ class SearchViewModel @Inject constructor(
      * and triggers a debounced search query.
      */
     fun onQueryChanged(newQuery: String) {
+        val sequence = ++currentQuerySequence
         _uiState.update { it.copy(query = newQuery) }
 
         val trimmed = newQuery.trim()
@@ -70,7 +72,7 @@ class SearchViewModel @Inject constructor(
             if (debounceDurationMillis > 0) {
                 delay(debounceDurationMillis)
             }
-            executeSearch(trimmed)
+            executeSearch(trimmed, sequence)
         }
     }
 
@@ -82,10 +84,11 @@ class SearchViewModel @Inject constructor(
         val trimmed = submittedQuery.trim()
         if (trimmed.isEmpty()) return
 
+        val sequence = ++currentQuerySequence
         _uiState.update { it.copy(query = submittedQuery) }
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
-            executeSearch(trimmed)
+            executeSearch(trimmed, sequence)
         }
     }
 
@@ -93,6 +96,7 @@ class SearchViewModel @Inject constructor(
      * Clears the search input and cancels any pending or active search.
      */
     fun onClearQuery() {
+        ++currentQuerySequence
         searchJob?.cancel()
         searchJob = null
         _uiState.update {
@@ -110,19 +114,20 @@ class SearchViewModel @Inject constructor(
     fun retry() {
         val trimmed = _uiState.value.query.trim()
         if (trimmed.isNotEmpty()) {
+            val sequence = ++currentQuerySequence
             searchJob?.cancel()
             searchJob = viewModelScope.launch {
-                executeSearch(trimmed)
+                executeSearch(trimmed, sequence)
             }
         }
     }
 
-    private suspend fun executeSearch(queryToSearch: String) {
+    private suspend fun executeSearch(queryToSearch: String, sequence: Long) {
         _uiState.update { it.copy(searchState = UiState.Loading) }
 
         movieRepository.searchMovies(query = queryToSearch).collect { resource ->
-            // Guard against stale results if query changed while request was in-flight
-            if (_uiState.value.query.trim() != queryToSearch) {
+            // Guard against stale results: must match active sequence and current query
+            if (sequence != currentQuerySequence || _uiState.value.query.trim() != queryToSearch) {
                 return@collect
             }
 
@@ -139,10 +144,11 @@ class SearchViewModel @Inject constructor(
         return when (this) {
             is Resource.Loading -> UiState.Loading
             is Resource.Success -> {
-                if (data.isEmpty()) {
+                val uniqueMovies = data.filter { it.id > 0 }.distinctBy(Movie::id)
+                if (uniqueMovies.isEmpty()) {
                     UiState.Empty("No movies found for \"$querySearched\".")
                 } else {
-                    UiState.Success(data)
+                    UiState.Success(uniqueMovies)
                 }
             }
             is Resource.Error -> {

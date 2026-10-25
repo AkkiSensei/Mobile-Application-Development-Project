@@ -11,6 +11,8 @@ import com.example.madverse.core.model.VideoTrailer
 import com.example.madverse.core.network.api.TmdbApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -152,14 +154,29 @@ class MovieRepositoryImpl @Inject constructor(
     // Genres
     // -------------------------------------------------------------------------
 
+    @Volatile
+    private var cachedGenres: List<Genre>? = null
+    private val genresMutex = kotlinx.coroutines.sync.Mutex()
+
     override fun getGenres(): Flow<Resource<List<Genre>>> = flow {
+        val cached = cachedGenres
+        if (cached != null && cached.isNotEmpty()) {
+            emit(Resource.Success(cached))
+            return@flow
+        }
         emit(Resource.Loading)
-        emit(safeApiCall {
+        val result = safeApiCall {
             tmdbApi.getMovieGenres()
                 .genres
                 .orEmpty()
                 .map { it.toDomain() }
-        })
+        }
+        if (result is Resource.Success && result.data.isNotEmpty()) {
+            genresMutex.withLock {
+                cachedGenres = result.data
+            }
+        }
+        emit(result)
     }
 
     // -------------------------------------------------------------------------
@@ -184,7 +201,7 @@ class MovieRepositoryImpl @Inject constructor(
             val releaseDateGte = startYear?.let { "$it-01-01" }
             val releaseDateLte = endYear?.let { "$it-12-31" }
 
-            tmdbApi.discoverMovies(
+            val movies = tmdbApi.discoverMovies(
                 withGenres = genreParam,
                 releaseDateGte = releaseDateGte,
                 releaseDateLte = releaseDateLte,
@@ -195,6 +212,12 @@ class MovieRepositoryImpl @Inject constructor(
                 .results
                 .orEmpty()
                 .map { it.toDomain() }
+
+            if (minRating != null && minRating > 0.0) {
+                movies.filter { it.voteAverage >= minRating }
+            } else {
+                movies
+            }
         })
     }
 

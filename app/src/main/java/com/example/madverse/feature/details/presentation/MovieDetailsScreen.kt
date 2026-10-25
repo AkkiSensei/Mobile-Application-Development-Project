@@ -14,12 +14,17 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import com.example.madverse.feature.details.presentation.components.StreamingProvidersSection
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -394,10 +399,12 @@ private fun MovieDetailsContent(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    MetaBadge(text = movie.releaseYear)
-                    MetaBadge(text = movie.formattedRuntime)
-                    MetaBadge(text = movie.originalLanguage.uppercase())
-                    MetaBadge(text = movie.status)
+                    MetaBadge(text = movie.releaseYear.ifBlank { "Year N/A" })
+                    MetaBadge(text = movie.formattedRuntime.ifBlank { "Runtime N/A" })
+                    MetaBadge(text = movie.originalLanguage.ifBlank { "EN" }.uppercase())
+                    if (movie.status.isNotBlank()) {
+                        MetaBadge(text = movie.status)
+                    }
                 }
             }
         }
@@ -420,11 +427,17 @@ private fun MovieDetailsContent(
                         contentColor = ContentHighEmphasis
                     ),
                     shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .defaultMinSize(minHeight = 48.dp)
+                        .semantics {
+                            role = Role.Button
+                            contentDescription = if (uiState.isFavorite) "Remove from favorites" else "Add to favorites"
+                        }
                 ) {
                     Icon(
                         imageVector = if (uiState.isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                        contentDescription = "Favorite",
+                        contentDescription = null,
                         tint = if (uiState.isFavorite) ContentHighEmphasis else CinematicCrimson,
                         modifier = Modifier.size(18.dp)
                     )
@@ -444,11 +457,17 @@ private fun MovieDetailsContent(
                         contentColor = if (uiState.isInWatchlist) ObsidianBackground else ContentHighEmphasis
                     ),
                     shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .defaultMinSize(minHeight = 48.dp)
+                        .semantics {
+                            role = Role.Button
+                            contentDescription = if (uiState.isInWatchlist) "Remove from watchlist" else "Add to watchlist"
+                        }
                 ) {
                     Icon(
                         imageVector = if (uiState.isInWatchlist) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                        contentDescription = "Watchlist",
+                        contentDescription = null,
                         tint = if (uiState.isInWatchlist) ObsidianBackground else CinematicAmber,
                         modifier = Modifier.size(18.dp)
                     )

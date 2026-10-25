@@ -1,7 +1,17 @@
 package com.example.madverse.core.data.repository.impl
 
+import com.example.madverse.core.data.repository.CloudSyncService
+import com.example.madverse.core.data.repository.DefaultSessionManager
+import com.example.madverse.core.data.repository.NoOpCloudSyncService
 import com.example.madverse.core.data.repository.QuizRepository
+import com.example.madverse.core.data.repository.SessionManager
+import com.example.madverse.core.data.sync.SyncPayloadSerializer
+import com.example.madverse.core.database.DatabaseTransactionRunner
+import com.example.madverse.core.database.DirectTransactionRunner
+import com.example.madverse.core.database.dao.NoOpPendingSyncDao
+import com.example.madverse.core.database.dao.PendingSyncDao
 import com.example.madverse.core.database.dao.UserPreferenceDao
+import com.example.madverse.core.database.entity.PendingSyncEntity
 import com.example.madverse.core.database.entity.UserPreferenceEntity
 import com.example.madverse.core.model.MovieEra
 import com.example.madverse.core.model.MovieMood
@@ -9,6 +19,7 @@ import com.example.madverse.core.model.QuizOption
 import com.example.madverse.core.model.QuizQuestion
 import com.example.madverse.core.model.RuntimePreference
 import com.example.madverse.core.model.UserPreferenceProfile
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
@@ -16,29 +27,42 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Room-backed implementation of [QuizRepository].
+ * Room-backed and Firestore-synchronized implementation of [QuizRepository].
  *
- * Stores and retrieves the singleton [UserPreferenceProfile] from the
- * `user_preference_profile` table via [UserPreferenceDao]. Also provides
- * the hard-coded quiz question set used by Shraddha's Quiz UI.
- *
- * The quiz question list is defined here (not in a separate ViewModel)
- * so that MADVerse's recommendation engine and quiz UI share a single,
- * authoritative question set without requiring a network call.
+ * Local mutations and their sync-queue entries are executed in atomic Room transactions.
+ * A failed queue insertion rolls back the local mutation to ensure complete state consistency.
+ * Exact-action acknowledgement only occurs after confirmed remote completion.
  */
-@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class)
 @Singleton
 class QuizRepositoryImpl @Inject constructor(
     private val userPreferenceDao: UserPreferenceDao,
-    private val sessionManager: com.example.madverse.core.data.repository.SessionManager,
-    private val syncService: com.example.madverse.core.data.repository.CloudSyncService
+    private val sessionManager: SessionManager,
+    private val syncService: CloudSyncService,
+    private val pendingSyncDao: PendingSyncDao,
+    private val transactionRunner: DatabaseTransactionRunner
 ) : QuizRepository {
 
-    // Secondary constructor preserving backward compatibility for isolated unit tests
+    // 3-arg constructor preserving backward compatibility for isolated unit tests
+    constructor(
+        userPreferenceDao: UserPreferenceDao,
+        sessionManager: SessionManager,
+        syncService: CloudSyncService
+    ) : this(
+        userPreferenceDao = userPreferenceDao,
+        sessionManager = sessionManager,
+        syncService = syncService,
+        pendingSyncDao = NoOpPendingSyncDao(),
+        transactionRunner = DirectTransactionRunner()
+    )
+
+    // 1-arg constructor preserving backward compatibility for isolated unit tests
     constructor(userPreferenceDao: UserPreferenceDao) : this(
         userPreferenceDao = userPreferenceDao,
-        sessionManager = com.example.madverse.core.data.repository.DefaultSessionManager(),
-        syncService = com.example.madverse.core.data.repository.NoOpCloudSyncService()
+        sessionManager = DefaultSessionManager(),
+        syncService = NoOpCloudSyncService(),
+        pendingSyncDao = NoOpPendingSyncDao(),
+        transactionRunner = DirectTransactionRunner()
     )
 
     override fun hasSavedProfile(): Flow<Boolean> =
@@ -64,29 +88,59 @@ class QuizRepositoryImpl @Inject constructor(
 
     override suspend fun saveUserPreferenceProfile(profile: UserPreferenceProfile) {
         val userId = sessionManager.currentUserId
-        userPreferenceDao.saveUserPreferenceProfile(
-            UserPreferenceEntity.fromDomain(profile, userId = userId)
-        )
-        syncService.pushPreferences(userId, profile)
+        var actionId = 0L
+        transactionRunner.runInTransaction {
+            userPreferenceDao.saveUserPreferenceProfile(
+                UserPreferenceEntity.fromDomain(profile, userId = userId)
+            )
+            if (userId != "guest") {
+                actionId = pendingSyncDao.insertAction(
+                    PendingSyncEntity(
+                        userId = userId,
+                        actionType = "UPSERT",
+                        entityType = "PREFERENCE",
+                        itemId = "current",
+                        payloadJson = SyncPayloadSerializer.preferenceToJson(profile)
+                    )
+                )
+            }
+        }
+        if (userId != "guest") {
+            val result = syncService.pushPreferences(userId, profile, enqueueOnFailure = false)
+            if (result.isSuccess && actionId != 0L) {
+                pendingSyncDao.deleteActionById(actionId)
+            }
+            syncService.processPendingSyncActions(userId)
+        }
     }
 
     override suspend fun clearUserPreferenceProfile() {
         val userId = sessionManager.currentUserId
-        userPreferenceDao.clearUserPreferenceProfile(userId)
+        var actionId = 0L
+        transactionRunner.runInTransaction {
+            userPreferenceDao.clearUserPreferenceProfile(userId)
+            if (userId != "guest") {
+                actionId = pendingSyncDao.insertAction(
+                    PendingSyncEntity(
+                        userId = userId,
+                        actionType = "DELETE",
+                        entityType = "PREFERENCE",
+                        itemId = "current",
+                        payloadJson = null
+                    )
+                )
+            }
+        }
+        if (userId != "guest") {
+            syncService.processPendingSyncActions(userId)
+        }
     }
 
     // -------------------------------------------------------------------------
     // Quiz Question Set  —  canonical definition shared by Quiz + Recommendations
     // -------------------------------------------------------------------------
 
-    /**
-     * Returns the ordered list of preference quiz questions.
-     * Shraddha's QuizScreen iterates through these in sequence.
-     * Ritunjay's RecommendationEngine reads the resulting profile.
-     */
     override fun getQuizQuestions(): List<QuizQuestion> = listOf(
-
-        // Step 1 — Genre Selection (multi-select)
         QuizQuestion(
             id = "q_genre",
             title = "What genres do you love?",
@@ -107,8 +161,6 @@ class QuizRepositoryImpl @Inject constructor(
                 QuizOption(id = "crime",     label = "Crime",        subtitle = "Heists, detectives & capers",  genreIds = listOf(80))
             )
         ),
-
-        // Step 2 — Mood / Viewing Intent (single select)
         QuizQuestion(
             id = "q_mood",
             title = "What's your viewing mood?",
@@ -122,8 +174,6 @@ class QuizRepositoryImpl @Inject constructor(
                 )
             }
         ),
-
-        // Step 3 — Movie Era (single select)
         QuizQuestion(
             id = "q_era",
             title = "Which era of cinema?",
@@ -137,8 +187,6 @@ class QuizRepositoryImpl @Inject constructor(
                 )
             }
         ),
-
-        // Step 4 — Runtime Preference (single select)
         QuizQuestion(
             id = "q_runtime",
             title = "How long do you want to watch?",

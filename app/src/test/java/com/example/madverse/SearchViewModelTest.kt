@@ -243,6 +243,31 @@ class SearchViewModelTest {
         assertTrue(state.searchState is UiState.Empty)
     }
 
+    @Test
+    fun staleQuery_newerQueryTakesPrecedence_ignoresStaleResults() = runTest(testDispatcher) {
+        val movie1 = createMovie(1, "First")
+        val movie2 = createMovie(2, "Second")
+
+        fakeMovieRepository.searchResults = listOf(movie1)
+
+        val viewModel = SearchViewModel(fakeMovieRepository)
+        viewModel.debounceDurationMillis = 0L
+
+        // Trigger first query
+        viewModel.onQueryChanged("First")
+        advanceUntilIdle()
+        assertEquals("First", viewModel.uiState.value.activeQuery)
+
+        // Now trigger second query
+        fakeMovieRepository.searchResults = listOf(movie2)
+        viewModel.onQueryChanged("Second")
+        advanceUntilIdle()
+
+        assertEquals("Second", viewModel.uiState.value.activeQuery)
+        val successState = viewModel.uiState.value.searchState as UiState.Success
+        assertEquals("Second", successState.data.first().title)
+    }
+
     private class FakeMovieRepository : MovieRepository {
         var searchResults: List<Movie> = emptyList()
         var searchError: Resource.Error? = null

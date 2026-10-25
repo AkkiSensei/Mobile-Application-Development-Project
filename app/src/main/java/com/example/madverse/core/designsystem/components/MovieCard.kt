@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -107,15 +108,8 @@ fun MoviePosterCard(
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .background(ObsidianSurfaceVariant),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                color = CinematicCrimson,
-                                strokeWidth = 2.dp
-                            )
-                        }
+                                .background(ObsidianSurfaceVariant)
+                        )
                     },
                     error = {
                         MoviePosterFallback(title = movie.title)
@@ -218,14 +212,8 @@ fun HeroFeaturedMovieCard(
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(ObsidianSurfaceVariant),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(32.dp),
-                            color = CinematicCrimson
-                        )
-                    }
+                            .background(ObsidianSurfaceVariant)
+                    )
                 },
                 error = {
                     MoviePosterFallback(title = movie.title)
@@ -381,6 +369,13 @@ fun MovieHorizontalCard(
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
+                    loading = {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(ObsidianSurfaceVariant)
+                        )
+                    },
                     error = { MoviePosterFallback(title = movie.title) }
                 )
             }
@@ -710,15 +705,20 @@ fun SectionErrorCard(
                     contentColor = ContentHighEmphasis
                 ),
                 shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.height(36.dp)
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .semantics {
+                        role = Role.Button
+                        contentDescription = "Retry loading section"
+                    }
             ) {
                 Icon(
                     imageVector = Icons.Filled.Refresh,
                     contentDescription = null,
-                    modifier = Modifier.size(14.dp)
+                    modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Retry", fontSize = 12.sp)
+                Text("Retry", fontSize = 13.sp)
             }
         }
     }

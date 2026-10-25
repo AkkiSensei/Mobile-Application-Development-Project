@@ -38,9 +38,12 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
@@ -86,6 +89,7 @@ fun SearchScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
+    val focusRequester = remember { FocusRequester() }
 
     Column(
         modifier = modifier
@@ -98,8 +102,16 @@ fun SearchScreen(
         // Search Input Bar
         SearchBarInput(
             query = uiState.query,
+            focusRequester = focusRequester,
             onQueryChanged = { viewModel.onQueryChanged(it) },
-            onClearQuery = { viewModel.onClearQuery() },
+            onClearQuery = {
+                viewModel.onClearQuery()
+                try {
+                    focusRequester.requestFocus()
+                } catch (_: Exception) {
+                    // Focus request safety guard
+                }
+            },
             onSearchSubmitted = {
                 keyboardController?.hide()
                 focusManager.clearFocus()
@@ -143,7 +155,14 @@ fun SearchScreen(
                 SearchEmptyContent(
                     message = emptyState.message,
                     query = uiState.activeQuery.ifBlank { uiState.query },
-                    onClearQuery = { viewModel.onClearQuery() }
+                    onClearQuery = {
+                        viewModel.onClearQuery()
+                        try {
+                            focusRequester.requestFocus()
+                        } catch (_: Exception) {
+                            // Focus request safety guard
+                        }
+                    }
                 )
             }
             uiState.searchState is UiState.Success -> {
@@ -151,7 +170,11 @@ fun SearchScreen(
                 SearchResultsContent(
                     movies = movies,
                     activeQuery = uiState.activeQuery,
-                    onMovieClick = onMovieClick
+                    onMovieClick = { movieId ->
+                        keyboardController?.hide()
+                        focusManager.clearFocus()
+                        onMovieClick(movieId)
+                    }
                 )
             }
         }
@@ -167,12 +190,15 @@ private fun SearchBarInput(
     onQueryChanged: (String) -> Unit,
     onClearQuery: () -> Unit,
     onSearchSubmitted: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    focusRequester: FocusRequester? = null
 ) {
     OutlinedTextField(
         value = query,
         onValueChange = onQueryChanged,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
         placeholder = {
             Text(
                 text = "Search movies by title, e.g. Inception...",
@@ -192,7 +218,10 @@ private fun SearchBarInput(
         },
         trailingIcon = {
             if (query.isNotEmpty()) {
-                IconButton(onClick = onClearQuery) {
+                IconButton(
+                    onClick = onClearQuery,
+                    modifier = Modifier.size(48.dp)
+                ) {
                     Icon(
                         imageVector = Icons.Filled.Close,
                         contentDescription = "Clear search query",

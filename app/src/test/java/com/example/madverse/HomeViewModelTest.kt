@@ -151,6 +151,20 @@ class HomeViewModelTest {
     }
 
     @Test
+    fun isAnyOffline_whenOfflineErrorPresent_returnsTrue() = runTest(testDispatcher) {
+        fakeMovieRepository.trendingFlow = flowOf(Resource.Error("Network error", java.io.IOException("Offline")))
+        fakeMovieRepository.topRatedFlow = flowOf(Resource.Error("Generic server error"))
+        fakeMovieRepository.upcomingFlow = flowOf(Resource.Error("Generic server error"))
+
+        val viewModel = HomeViewModel(fakeMovieRepository)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.isFullError)
+        assertTrue(state.isAnyOffline)
+    }
+
+    @Test
     fun retryTrending_recoversFromError() = runTest(testDispatcher) {
         fakeMovieRepository.trendingFlow = flowOf(Resource.Error("Initial failure"))
         fakeMovieRepository.topRatedFlow = flowOf(Resource.Success(listOf(createMovie(1, "Top Rated"))))
@@ -250,6 +264,26 @@ class HomeViewModelTest {
         val trendingState = viewModel.uiState.value.trendingState
         assertTrue(trendingState is UiState.Success)
         assertEquals("New Movie", (trendingState as UiState.Success).data.first().title)
+    }
+
+    @Test
+    fun init_observesRecentlyViewedMoviesFromRepository() = runTest(testDispatcher) {
+        val recentMovies = listOf(createMovie(10, "Recent 1"), createMovie(11, "Recent 2"))
+        val fakeRecentRepo = object : com.example.madverse.core.data.repository.RecentlyViewedRepository {
+            override fun getRecentlyViewed(limit: Int) = flowOf(recentMovies)
+            override suspend fun getRecentlyViewedOnce(limit: Int) = recentMovies
+            override suspend fun recordMovieView(movie: Movie) {}
+            override suspend fun clearHistory() {}
+        }
+
+        val viewModel = HomeViewModel(
+            movieRepository = fakeMovieRepository,
+            recentlyViewedRepository = fakeRecentRepo
+        )
+        advanceUntilIdle()
+
+        assertEquals(2, viewModel.uiState.value.recentlyViewed.size)
+        assertEquals("Recent 1", viewModel.uiState.value.recentlyViewed[0].title)
     }
 
     private class FakeMovieRepository : MovieRepository {

@@ -81,9 +81,14 @@ fun DiscoverScreen(
             .background(ObsidianBackground)
     ) {
         if (uiState.isFullError) {
+            val isOffline = uiState.isAnyOffline
             MADVerseErrorView(
-                title = "Unable to Load Movies",
-                message = "Could not fetch trending and discovery feeds. Please check your internet connection or TMDB API configuration.",
+                title = if (isOffline) "No Internet Connection" else "Unable to Load Movies",
+                message = if (isOffline)
+                    "You are currently offline. Please check your connection to browse trending and upcoming movies."
+                else
+                    "Could not fetch trending and discovery feeds. Please check your internet connection or TMDB API configuration.",
+                isOffline = isOffline,
                 retryLabel = "Retry Discovery Feed",
                 onRetry = { viewModel.loadAllSections() }
             )
@@ -115,22 +120,23 @@ private fun DiscoverContent(
         // -------------------------------------------------------------
         // Featured Spotlight Hero
         // -------------------------------------------------------------
-        item(key = "featured_spotlight") {
-            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                when {
-                    uiState.featuredMovie != null -> {
-                        HeroFeaturedMovieCard(
-                            movie = uiState.featuredMovie!!,
-                            onClick = { onMovieClick(uiState.featuredMovie!!.id) }
-                        )
+        if (uiState.featuredMovie != null || uiState.trendingState is UiState.Loading) {
+            item(key = "featured_spotlight") {
+                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    when {
+                        uiState.featuredMovie != null -> {
+                            HeroFeaturedMovieCard(
+                                movie = uiState.featuredMovie!!,
+                                onClick = { onMovieClick(uiState.featuredMovie!!.id) }
+                            )
+                        }
+                        uiState.trendingState is UiState.Loading -> {
+                            HeroFeaturedMovieSkeleton()
+                        }
                     }
-                    uiState.trendingState is UiState.Loading -> {
-                        HeroFeaturedMovieSkeleton()
-                    }
-                    // If trending failed or empty, omit hero banner smoothly
                 }
+                Spacer(modifier = Modifier.height(20.dp))
             }
-            Spacer(modifier = Modifier.height(20.dp))
         }
 
         // -------------------------------------------------------------
@@ -173,6 +179,24 @@ private fun DiscoverContent(
         }
 
         // -------------------------------------------------------------
+        // Section: Recently Viewed (Local History)
+        // -------------------------------------------------------------
+        if (uiState.recentlyViewed.isNotEmpty()) {
+            item(key = "section_recently_viewed") {
+                SectionHeader(
+                    title = "Recently Viewed",
+                    subtitle = "Pick up where you left off"
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                MovieHorizontalCarousel(
+                    movies = uiState.recentlyViewed,
+                    onMovieClick = onMovieClick
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+        }
+
+        // -------------------------------------------------------------
         // Section 2: Top Rated Movies
         // -------------------------------------------------------------
         item(key = "section_top_rated") {
@@ -187,10 +211,14 @@ private fun DiscoverContent(
                     MovieCarouselLoadingSkeleton()
                 }
                 is UiState.Success -> {
-                    MovieHorizontalCarousel(
-                        movies = state.data,
-                        onMovieClick = onMovieClick
-                    )
+                    if (state.data.isEmpty()) {
+                        SectionEmptyCard(message = "No top-rated movies found at this time.")
+                    } else {
+                        MovieHorizontalCarousel(
+                            movies = state.data,
+                            onMovieClick = onMovieClick
+                        )
+                    }
                 }
                 is UiState.Empty -> {
                     SectionEmptyCard(message = state.message)
@@ -221,10 +249,14 @@ private fun DiscoverContent(
                     MovieCarouselLoadingSkeleton()
                 }
                 is UiState.Success -> {
-                    MovieHorizontalCarousel(
-                        movies = state.data,
-                        onMovieClick = onMovieClick
-                    )
+                    if (state.data.isEmpty()) {
+                        SectionEmptyCard(message = "No upcoming releases scheduled.")
+                    } else {
+                        MovieHorizontalCarousel(
+                            movies = state.data,
+                            onMovieClick = onMovieClick
+                        )
+                    }
                 }
                 is UiState.Empty -> {
                     SectionEmptyCard(message = state.message)

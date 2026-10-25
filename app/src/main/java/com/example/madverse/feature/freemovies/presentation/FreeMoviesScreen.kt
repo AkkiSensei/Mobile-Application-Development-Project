@@ -45,6 +45,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -254,7 +258,11 @@ fun FreeMoviesScreen(
                                 enabled = film.isEligibleForYouTube,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .defaultMinSize(minHeight = 48.dp),
+                                    .defaultMinSize(minHeight = 48.dp)
+                                    .semantics {
+                                        role = Role.Button
+                                        contentDescription = if (film.isEligibleForYouTube) "Play ${film.title} complete film in app" else "${film.title} playback unavailable"
+                                    },
                                 shape = RoundedCornerShape(10.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = CinematicCrimson,
@@ -314,7 +322,12 @@ fun FreeMoviesScreen(
                                         onClick = { openEvidence(film.sourceUrl) },
                                         shape = RoundedCornerShape(8.dp),
                                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                                        modifier = Modifier.defaultMinSize(minHeight = 36.dp),
+                                        modifier = Modifier
+                                            .defaultMinSize(minHeight = 44.dp)
+                                            .semantics {
+                                                role = Role.Button
+                                                contentDescription = "Open ${film.title} publisher page in browser"
+                                            },
                                         border = BorderStroke(1.dp, ObsidianCardBorder)
                                     ) {
                                         Text(
@@ -334,7 +347,12 @@ fun FreeMoviesScreen(
                                         onClick = { openEvidence(film.rightsUrl) },
                                         shape = RoundedCornerShape(8.dp),
                                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                                        modifier = Modifier.defaultMinSize(minHeight = 36.dp),
+                                        modifier = Modifier
+                                            .defaultMinSize(minHeight = 44.dp)
+                                            .semantics {
+                                                role = Role.Button
+                                                contentDescription = "Open ${film.title} rights evidence in browser"
+                                            },
                                         border = BorderStroke(1.dp, ObsidianCardBorder)
                                     ) {
                                         Text(
@@ -354,7 +372,12 @@ fun FreeMoviesScreen(
                                         onClick = { openEvidence(film.licenseUrl) },
                                         shape = RoundedCornerShape(8.dp),
                                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                                        modifier = Modifier.defaultMinSize(minHeight = 36.dp),
+                                        modifier = Modifier
+                                            .defaultMinSize(minHeight = 44.dp)
+                                            .semantics {
+                                                role = Role.Button
+                                                contentDescription = "Open ${film.title} license terms in browser"
+                                            },
                                         border = BorderStroke(1.dp, ObsidianCardBorder)
                                     ) {
                                         Text(
