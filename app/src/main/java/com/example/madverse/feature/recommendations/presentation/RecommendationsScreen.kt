@@ -55,6 +55,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -195,7 +196,7 @@ fun RecommendationsScreen(
                             IconButton(
                                 onClick = viewModel::dismissError,
                                 modifier = Modifier
-                                    .size(36.dp)
+                                    .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                                     .semantics { role = Role.Button }
                             ) {
                                 Icon(
@@ -285,7 +286,12 @@ fun RecommendationsScreen(
 
                                 TextButton(
                                     onClick = { onCompare(movie.id) },
-                                    modifier = Modifier.defaultMinSize(minHeight = 36.dp)
+                                    modifier = Modifier
+                                        .defaultMinSize(minHeight = 48.dp)
+                                        .semantics {
+                                            role = Role.Button
+                                            contentDescription = "Compare ${movie.title} with another movie"
+                                        }
                                 ) {
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.CompareArrows,
@@ -335,8 +341,10 @@ fun RecommendationsScreen(
                                     ) {
                                         TextButton(
                                             onClick = { expanded = !expanded },
-                                            modifier = Modifier.fillMaxWidth(),
-                                            contentPadding = PaddingValues(0.dp)
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .defaultMinSize(minHeight = 48.dp),
+                                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
                                         ) {
                                             Row(
                                                 modifier = Modifier.fillMaxWidth(),
@@ -414,7 +422,11 @@ fun RecommendationsScreen(
                                     enabled = !isBusy,
                                     modifier = Modifier
                                         .weight(1f)
-                                        .defaultMinSize(minHeight = 44.dp),
+                                        .defaultMinSize(minHeight = 48.dp)
+                                        .semantics {
+                                            role = Role.Button
+                                            contentDescription = if (isFavorite) "Remove ${movie.title} from favorites" else "Add ${movie.title} to favorites"
+                                        },
                                     shape = RoundedCornerShape(10.dp),
                                     colors = ButtonDefaults.outlinedButtonColors(
                                         contentColor = if (isFavorite) CinematicCrimson else ContentHighEmphasis,
@@ -443,7 +455,11 @@ fun RecommendationsScreen(
                                     enabled = !isBusy,
                                     modifier = Modifier
                                         .weight(1f)
-                                        .defaultMinSize(minHeight = 44.dp),
+                                        .defaultMinSize(minHeight = 48.dp)
+                                        .semantics {
+                                            role = Role.Button
+                                            contentDescription = if (isWatchlist) "Remove ${movie.title} from watchlist" else "Add ${movie.title} to watchlist"
+                                        },
                                     shape = RoundedCornerShape(10.dp),
                                     colors = ButtonDefaults.outlinedButtonColors(
                                         contentColor = if (isWatchlist) CinematicAmber else ContentHighEmphasis,

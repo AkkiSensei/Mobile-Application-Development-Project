@@ -28,9 +28,12 @@ import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -45,8 +48,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -77,6 +86,7 @@ fun ComparisonScreen(
     viewModel: ComparisonViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val focusManager = LocalFocusManager.current
 
     LazyColumn(
         modifier = modifier
@@ -179,7 +189,11 @@ fun ComparisonScreen(
                                                 onClick = { viewModel.replace(entry.id) },
                                                 modifier = Modifier
                                                     .weight(1f)
-                                                    .defaultMinSize(minHeight = 36.dp),
+                                                    .defaultMinSize(minHeight = 44.dp)
+                                                    .semantics {
+                                                        role = Role.Button
+                                                        contentDescription = "Replace movie ${index + 1} (${movie?.title ?: "selected"})"
+                                                    },
                                                 shape = RoundedCornerShape(8.dp),
                                                 border = androidx.compose.foundation.BorderStroke(1.dp, ObsidianCardBorder),
                                                 colors = ButtonDefaults.outlinedButtonColors(
@@ -201,7 +215,12 @@ fun ComparisonScreen(
 
                                             OutlinedButton(
                                                 onClick = { viewModel.remove(entry.id) },
-                                                modifier = Modifier.defaultMinSize(minHeight = 36.dp),
+                                                modifier = Modifier
+                                                    .defaultMinSize(minWidth = 44.dp, minHeight = 44.dp)
+                                                    .semantics {
+                                                        role = Role.Button
+                                                        contentDescription = "Remove movie ${index + 1} (${movie?.title ?: "selected"}) from comparison"
+                                                    },
                                                 shape = RoundedCornerShape(8.dp),
                                                 border = androidx.compose.foundation.BorderStroke(1.dp, ObsidianCardBorder),
                                                 colors = ButtonDefaults.outlinedButtonColors(
@@ -211,7 +230,7 @@ fun ComparisonScreen(
                                             ) {
                                                 Icon(
                                                     imageVector = Icons.Default.Close,
-                                                    contentDescription = "Remove movie ${index + 1}",
+                                                    contentDescription = null,
                                                     modifier = Modifier.size(14.dp),
                                                     tint = ErrorRed
                                                 )
@@ -392,6 +411,12 @@ fun ComparisonScreen(
                         }
                         TextButton(
                             onClick = { viewModel.replace(null) },
+                            modifier = Modifier
+                                .defaultMinSize(minHeight = 48.dp)
+                                .semantics {
+                                    role = Role.Button
+                                    contentDescription = "Cancel replacement mode"
+                                },
                             colors = ButtonDefaults.textButtonColors(contentColor = CinematicAmber)
                         ) {
                             Text("Cancel", fontWeight = FontWeight.Bold, fontSize = 12.sp)
@@ -414,6 +439,27 @@ fun ComparisonScreen(
                         modifier = Modifier.size(20.dp)
                     )
                 },
+                trailingIcon = {
+                    if (state.query.isNotEmpty()) {
+                        IconButton(
+                            onClick = { viewModel.search("") },
+                            modifier = Modifier
+                                .size(48.dp)
+                                .semantics {
+                                    role = Role.Button
+                                    contentDescription = "Clear search input"
+                                }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = null,
+                                tint = ContentMediumEmphasis
+                            )
+                        }
+                    }
+                },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
@@ -489,7 +535,15 @@ fun ComparisonScreen(
                         enabled = canSelect,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .defaultMinSize(minHeight = 44.dp),
+                            .defaultMinSize(minHeight = 48.dp)
+                            .semantics {
+                                role = Role.Button
+                                contentDescription = when {
+                                    selected -> "${movie.title} is already selected for comparison"
+                                    state.replacingId != null -> "Replace selected movie with ${movie.title}"
+                                    else -> "Add ${movie.title} to comparison as Movie ${state.entries.size + 1}"
+                                }
+                            },
                         shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (state.replacingId != null) CinematicAmber else CinematicCrimson,
