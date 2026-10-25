@@ -1,7 +1,10 @@
 package com.example.madverse.core.data.repository.impl
 
 import com.example.madverse.core.common.dispatchers.IoDispatcher
+import com.example.madverse.core.data.account.AccountDeletionJournal
+import com.example.madverse.core.data.account.InMemoryAccountDeletionJournal
 import com.example.madverse.core.data.repository.CloudSyncService
+import com.example.madverse.core.data.sync.SyncPayloadSerializer
 import com.example.madverse.core.database.dao.FavoriteDao
 import com.example.madverse.core.database.dao.PendingSyncDao
 import com.example.madverse.core.database.dao.UserPreferenceDao
@@ -18,8 +21,10 @@ import com.example.madverse.core.model.RuntimePreference
 import com.example.madverse.core.model.SyncState
 import com.example.madverse.core.model.UserPreferenceProfile
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.SetOptions
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -27,7 +32,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.io.IOException
+import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -38,7 +47,8 @@ class FirestoreSyncServiceImpl @Inject constructor(
     private val watchlistDao: WatchlistDao,
     private val userPreferenceDao: UserPreferenceDao,
     private val pendingSyncDao: PendingSyncDao,
-    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
+    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    private val accountDeletionJournal: AccountDeletionJournal = InMemoryAccountDeletionJournal()
 ) : CloudSyncService {
 
     private val scope = CoroutineScope(SupervisorJob() + ioDispatcher)
@@ -46,7 +56,13 @@ class FirestoreSyncServiceImpl @Inject constructor(
     private val _syncState = MutableStateFlow<SyncState>(SyncState.Idle)
     override val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
 
+    @Volatile
     private var activeUserId: String? = null
+    private val sessionGeneration = AtomicLong(0)
+    @Volatile
+    private var currentSessionToken: Long = 0L
+
+    private val drainMutex = Mutex()
     private var isApplyingRemoteUpdate: Boolean = false
 
     private var favoritesListener: ListenerRegistration? = null
@@ -59,20 +75,29 @@ class FirestoreSyncServiceImpl @Inject constructor(
             return
         }
 
-        if (userId == activeUserId) return
-
-        stopUserSession()
-        activeUserId = userId
-        _syncState.value = SyncState.Syncing
-
-        attachListeners(userId)
         scope.launch {
+            if (accountDeletionJournal.isDeletionPending(userId)) {
+                stopUserSession()
+                return@launch
+            }
+
+            if (userId == activeUserId && currentSessionToken != 0L) return@launch
+
+            stopUserSession()
+            activeUserId = userId
+            currentSessionToken = sessionGeneration.incrementAndGet()
+            _syncState.value = SyncState.Syncing
+
+            attachListeners(userId, currentSessionToken)
             processPendingSyncActions(userId)
             syncAll(userId)
         }
     }
 
     override fun stopUserSession() {
+        sessionGeneration.incrementAndGet()
+        currentSessionToken = 0L
+
         favoritesListener?.remove()
         favoritesListener = null
 
@@ -86,7 +111,7 @@ class FirestoreSyncServiceImpl @Inject constructor(
         _syncState.value = SyncState.Idle
     }
 
-    private fun attachListeners(userId: String) {
+    private fun attachListeners(userId: String, token: Long) {
         // Favorites listener
         favoritesListener = firestore.collection("users")
             .document(userId)
@@ -99,14 +124,31 @@ class FirestoreSyncServiceImpl @Inject constructor(
                 if (snapshot == null) return@addSnapshotListener
 
                 scope.launch {
+                    if (activeUserId != userId || currentSessionToken != token) return@launch
+                    if (accountDeletionJournal.isDeletionPending(userId)) return@launch
+
                     isApplyingRemoteUpdate = true
                     try {
+                        val pendingActions = pendingSyncDao.getPendingActionsForUser(userId)
+                        val pendingUpsertIds = pendingActions
+                            .filter { it.entityType == "FAVORITE" && it.actionType == "UPSERT" }
+                            .mapNotNull { it.itemId.toIntOrNull() }
+                            .toSet()
+                        val pendingDeleteIds = pendingActions
+                            .filter { it.entityType == "FAVORITE" && it.actionType == "DELETE" }
+                            .mapNotNull { it.itemId.toIntOrNull() }
+                            .toSet()
+
                         val remoteMovieIds = snapshot.documents.mapNotNull { it.getLong("movieId")?.toInt() }.toSet()
                         val localFavs = favoriteDao.getAllFavoritesOnce(userId)
 
-                        // Insert or update remote documents
+                        // Insert or update remote documents, protecting local pending removals
                         for (doc in snapshot.documents) {
                             val movieId = doc.getLong("movieId")?.toInt() ?: continue
+                            if (movieId in pendingDeleteIds) {
+                                // User deleted this locally while offline; do not resurrect it
+                                continue
+                            }
                             val title = doc.getString("title") ?: "Untitled"
                             val posterPath = doc.getString("posterPath")
                             val backdropPath = doc.getString("backdropPath")
@@ -130,9 +172,13 @@ class FirestoreSyncServiceImpl @Inject constructor(
                             )
                         }
 
-                        // Remove locally cached records that no longer exist remotely
+                        // Remove locally cached records that no longer exist remotely, protecting local pending additions
                         for (local in localFavs) {
                             if (local.movieId !in remoteMovieIds) {
+                                if (local.movieId in pendingUpsertIds) {
+                                    // User added this locally; do not erase it!
+                                    continue
+                                }
                                 favoriteDao.deleteFavoriteById(local.movieId, userId)
                             }
                         }
@@ -155,13 +201,30 @@ class FirestoreSyncServiceImpl @Inject constructor(
                 if (snapshot == null) return@addSnapshotListener
 
                 scope.launch {
+                    if (activeUserId != userId || currentSessionToken != token) return@launch
+                    if (accountDeletionJournal.isDeletionPending(userId)) return@launch
+
                     isApplyingRemoteUpdate = true
                     try {
+                        val pendingActions = pendingSyncDao.getPendingActionsForUser(userId)
+                        val pendingUpsertIds = pendingActions
+                            .filter { it.entityType == "WATCHLIST" && it.actionType == "UPSERT" }
+                            .mapNotNull { it.itemId.toIntOrNull() }
+                            .toSet()
+                        val pendingDeleteIds = pendingActions
+                            .filter { it.entityType == "WATCHLIST" && it.actionType == "DELETE" }
+                            .mapNotNull { it.itemId.toIntOrNull() }
+                            .toSet()
+
                         val remoteMovieIds = snapshot.documents.mapNotNull { it.getLong("movieId")?.toInt() }.toSet()
                         val localWatch = watchlistDao.getAllWatchlistOnce(userId)
 
                         for (doc in snapshot.documents) {
                             val movieId = doc.getLong("movieId")?.toInt() ?: continue
+                            if (movieId in pendingDeleteIds) {
+                                // User deleted this locally while offline; do not resurrect it
+                                continue
+                            }
                             val title = doc.getString("title") ?: "Untitled"
                             val posterPath = doc.getString("posterPath")
                             val backdropPath = doc.getString("backdropPath")
@@ -187,6 +250,10 @@ class FirestoreSyncServiceImpl @Inject constructor(
 
                         for (local in localWatch) {
                             if (local.movieId !in remoteMovieIds) {
+                                if (local.movieId in pendingUpsertIds) {
+                                    // User added this locally; do not erase it!
+                                    continue
+                                }
                                 watchlistDao.deleteMovieById(local.movieId, userId)
                             }
                         }
@@ -197,7 +264,7 @@ class FirestoreSyncServiceImpl @Inject constructor(
                 }
             }
 
-        // Preferences listener
+        // Preferences listener (Contract: /users/{uid}/preferences/current)
         preferencesListener = firestore.collection("users")
             .document(userId)
             .collection("preferences")
@@ -210,6 +277,16 @@ class FirestoreSyncServiceImpl @Inject constructor(
                 if (snapshot == null || !snapshot.exists()) return@addSnapshotListener
 
                 scope.launch {
+                    if (activeUserId != userId || currentSessionToken != token) return@launch
+                    if (accountDeletionJournal.isDeletionPending(userId)) return@launch
+
+                    val pendingActions = pendingSyncDao.getPendingActionsForUser(userId)
+                    val hasPendingPrefMutation = pendingActions.any { it.entityType == "PREFERENCE" }
+                    if (hasPendingPrefMutation) {
+                        // Pending local preference mutations take precedence until synchronized
+                        return@launch
+                    }
+
                     isApplyingRemoteUpdate = true
                     try {
                         val genreIds = (snapshot.get("genreIds") as? List<*>)?.mapNotNull { (it as? Number)?.toInt() } ?: emptyList()
@@ -246,37 +323,49 @@ class FirestoreSyncServiceImpl @Inject constructor(
         enqueueOnFailure: Boolean
     ): Result<Unit> = withContext(ioDispatcher) {
         if (userId == "guest" || isApplyingRemoteUpdate) return@withContext Result.success(Unit)
-        runCatching {
-            val data = hashMapOf(
-                "movieId" to movie.id,
-                "title" to movie.title,
-                "posterPath" to movie.posterUrl,
-                "backdropPath" to movie.backdropUrl,
-                "releaseDate" to movie.releaseDate,
-                "voteAverage" to movie.voteAverage,
-                "overview" to movie.overview,
-                "savedTimestamp" to System.currentTimeMillis()
-            )
-            firestore.collection("users")
-                .document(userId)
-                .collection("favorites")
-                .document(movie.id.toString())
-                .set(data, SetOptions.merge())
-                .awaitTask()
+        if (accountDeletionJournal.isDeletionPending(userId)) {
+            return@withContext Result.failure(IllegalStateException("Account deletion pending for $userId"))
+        }
 
-            _syncState.value = SyncState.Synced
-        }.onFailure {
+        try {
+            val classification = pushFavoriteRemote(userId, movie)
+            when (classification) {
+                is OperationClassification.Success -> {
+                    _syncState.value = SyncState.Synced
+                    Result.success(Unit)
+                }
+                else -> {
+                    if (enqueueOnFailure) {
+                        pendingSyncDao.insertAction(
+                            PendingSyncEntity(
+                                userId = userId,
+                                actionType = "UPSERT",
+                                entityType = "FAVORITE",
+                                itemId = movie.id.toString(),
+                                payloadJson = SyncPayloadSerializer.movieToJson(movie)
+                            )
+                        )
+                    }
+                    _syncState.value = SyncState.OfflinePending
+                    Result.failure(IOException("Failed to push favorite: $classification"))
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
             if (enqueueOnFailure) {
                 pendingSyncDao.insertAction(
                     PendingSyncEntity(
                         userId = userId,
                         actionType = "UPSERT",
                         entityType = "FAVORITE",
-                        itemId = movie.id.toString()
+                        itemId = movie.id.toString(),
+                        payloadJson = SyncPayloadSerializer.movieToJson(movie)
                     )
                 )
             }
             _syncState.value = SyncState.OfflinePending
+            Result.failure(e)
         }
     }
 
@@ -286,16 +375,35 @@ class FirestoreSyncServiceImpl @Inject constructor(
         enqueueOnFailure: Boolean
     ): Result<Unit> = withContext(ioDispatcher) {
         if (userId == "guest" || isApplyingRemoteUpdate) return@withContext Result.success(Unit)
-        runCatching {
-            firestore.collection("users")
-                .document(userId)
-                .collection("favorites")
-                .document(movieId.toString())
-                .delete()
-                .awaitTask()
+        if (accountDeletionJournal.isDeletionPending(userId)) {
+            return@withContext Result.failure(IllegalStateException("Account deletion pending for $userId"))
+        }
 
-            _syncState.value = SyncState.Synced
-        }.onFailure {
+        try {
+            val classification = deleteFavoriteRemote(userId, movieId)
+            when (classification) {
+                is OperationClassification.Success -> {
+                    _syncState.value = SyncState.Synced
+                    Result.success(Unit)
+                }
+                else -> {
+                    if (enqueueOnFailure) {
+                        pendingSyncDao.insertAction(
+                            PendingSyncEntity(
+                                userId = userId,
+                                actionType = "DELETE",
+                                entityType = "FAVORITE",
+                                itemId = movieId.toString()
+                            )
+                        )
+                    }
+                    _syncState.value = SyncState.OfflinePending
+                    Result.failure(IOException("Failed to delete favorite: $classification"))
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
             if (enqueueOnFailure) {
                 pendingSyncDao.insertAction(
                     PendingSyncEntity(
@@ -307,6 +415,7 @@ class FirestoreSyncServiceImpl @Inject constructor(
                 )
             }
             _syncState.value = SyncState.OfflinePending
+            Result.failure(e)
         }
     }
 
@@ -316,37 +425,49 @@ class FirestoreSyncServiceImpl @Inject constructor(
         enqueueOnFailure: Boolean
     ): Result<Unit> = withContext(ioDispatcher) {
         if (userId == "guest" || isApplyingRemoteUpdate) return@withContext Result.success(Unit)
-        runCatching {
-            val data = hashMapOf(
-                "movieId" to movie.id,
-                "title" to movie.title,
-                "posterPath" to movie.posterUrl,
-                "backdropPath" to movie.backdropUrl,
-                "releaseDate" to movie.releaseDate,
-                "voteAverage" to movie.voteAverage,
-                "overview" to movie.overview,
-                "savedTimestamp" to System.currentTimeMillis()
-            )
-            firestore.collection("users")
-                .document(userId)
-                .collection("watchlist")
-                .document(movie.id.toString())
-                .set(data, SetOptions.merge())
-                .awaitTask()
+        if (accountDeletionJournal.isDeletionPending(userId)) {
+            return@withContext Result.failure(IllegalStateException("Account deletion pending for $userId"))
+        }
 
-            _syncState.value = SyncState.Synced
-        }.onFailure {
+        try {
+            val classification = pushWatchlistRemote(userId, movie)
+            when (classification) {
+                is OperationClassification.Success -> {
+                    _syncState.value = SyncState.Synced
+                    Result.success(Unit)
+                }
+                else -> {
+                    if (enqueueOnFailure) {
+                        pendingSyncDao.insertAction(
+                            PendingSyncEntity(
+                                userId = userId,
+                                actionType = "UPSERT",
+                                entityType = "WATCHLIST",
+                                itemId = movie.id.toString(),
+                                payloadJson = SyncPayloadSerializer.movieToJson(movie)
+                            )
+                        )
+                    }
+                    _syncState.value = SyncState.OfflinePending
+                    Result.failure(IOException("Failed to push watchlist: $classification"))
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
             if (enqueueOnFailure) {
                 pendingSyncDao.insertAction(
                     PendingSyncEntity(
                         userId = userId,
                         actionType = "UPSERT",
                         entityType = "WATCHLIST",
-                        itemId = movie.id.toString()
+                        itemId = movie.id.toString(),
+                        payloadJson = SyncPayloadSerializer.movieToJson(movie)
                     )
                 )
             }
             _syncState.value = SyncState.OfflinePending
+            Result.failure(e)
         }
     }
 
@@ -356,16 +477,35 @@ class FirestoreSyncServiceImpl @Inject constructor(
         enqueueOnFailure: Boolean
     ): Result<Unit> = withContext(ioDispatcher) {
         if (userId == "guest" || isApplyingRemoteUpdate) return@withContext Result.success(Unit)
-        runCatching {
-            firestore.collection("users")
-                .document(userId)
-                .collection("watchlist")
-                .document(movieId.toString())
-                .delete()
-                .awaitTask()
+        if (accountDeletionJournal.isDeletionPending(userId)) {
+            return@withContext Result.failure(IllegalStateException("Account deletion pending for $userId"))
+        }
 
-            _syncState.value = SyncState.Synced
-        }.onFailure {
+        try {
+            val classification = deleteWatchlistRemote(userId, movieId)
+            when (classification) {
+                is OperationClassification.Success -> {
+                    _syncState.value = SyncState.Synced
+                    Result.success(Unit)
+                }
+                else -> {
+                    if (enqueueOnFailure) {
+                        pendingSyncDao.insertAction(
+                            PendingSyncEntity(
+                                userId = userId,
+                                actionType = "DELETE",
+                                entityType = "WATCHLIST",
+                                itemId = movieId.toString()
+                            )
+                        )
+                    }
+                    _syncState.value = SyncState.OfflinePending
+                    Result.failure(IOException("Failed to delete watchlist: $classification"))
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
             if (enqueueOnFailure) {
                 pendingSyncDao.insertAction(
                     PendingSyncEntity(
@@ -377,6 +517,7 @@ class FirestoreSyncServiceImpl @Inject constructor(
                 )
             }
             _syncState.value = SyncState.OfflinePending
+            Result.failure(e)
         }
     }
 
@@ -386,45 +527,60 @@ class FirestoreSyncServiceImpl @Inject constructor(
         enqueueOnFailure: Boolean
     ): Result<Unit> = withContext(ioDispatcher) {
         if (userId == "guest" || isApplyingRemoteUpdate) return@withContext Result.success(Unit)
-        runCatching {
-            val data = hashMapOf(
-                "genreIds" to profile.selectedGenreIds.toList(),
-                "mood" to profile.mood.name,
-                "era" to profile.era.name,
-                "runtimePreference" to profile.runtimePreference.name,
-                "preferredLanguage" to profile.preferredLanguage,
-                "minRatingThreshold" to profile.minRatingThreshold,
-                "updatedTimestamp" to profile.updatedAtTimestamp
-            )
-            firestore.collection("users")
-                .document(userId)
-                .collection("preferences")
-                .document("current")
-                .set(data, SetOptions.merge())
-                .awaitTask()
+        if (accountDeletionJournal.isDeletionPending(userId)) {
+            return@withContext Result.failure(IllegalStateException("Account deletion pending for $userId"))
+        }
 
-            _syncState.value = SyncState.Synced
-        }.onFailure {
+        try {
+            val classification = pushPreferencesRemote(userId, profile)
+            when (classification) {
+                is OperationClassification.Success -> {
+                    _syncState.value = SyncState.Synced
+                    Result.success(Unit)
+                }
+                else -> {
+                    if (enqueueOnFailure) {
+                        pendingSyncDao.insertAction(
+                            PendingSyncEntity(
+                                userId = userId,
+                                actionType = "UPSERT",
+                                entityType = "PREFERENCE",
+                                itemId = "current",
+                                payloadJson = SyncPayloadSerializer.preferenceToJson(profile)
+                            )
+                        )
+                    }
+                    _syncState.value = SyncState.OfflinePending
+                    Result.failure(IOException("Failed to push preferences: $classification"))
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
             if (enqueueOnFailure) {
                 pendingSyncDao.insertAction(
                     PendingSyncEntity(
                         userId = userId,
                         actionType = "UPSERT",
                         entityType = "PREFERENCE",
-                        itemId = "current"
+                        itemId = "current",
+                        payloadJson = SyncPayloadSerializer.preferenceToJson(profile)
                     )
                 )
             }
             _syncState.value = SyncState.OfflinePending
+            Result.failure(e)
         }
     }
 
     override suspend fun syncAll(userId: String): Result<Unit> = withContext(ioDispatcher) {
         if (userId == "guest") return@withContext Result.success(Unit)
+        if (accountDeletionJournal.isDeletionPending(userId)) {
+            return@withContext Result.failure(IllegalStateException("Account deletion pending for $userId"))
+        }
         _syncState.value = SyncState.Syncing
 
-        runCatching {
-            // Update root user document
+        try {
             firestore.collection("users")
                 .document(userId)
                 .set(
@@ -437,15 +593,19 @@ class FirestoreSyncServiceImpl @Inject constructor(
                 .awaitTask()
 
             _syncState.value = SyncState.Synced
-        }.onFailure { error ->
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (error: Exception) {
             _syncState.value = SyncState.Error(error.localizedMessage ?: "Sync error")
+            Result.failure(error)
         }
     }
 
     override suspend fun mergeGuestDataIntoAccount(
         authenticatedUserId: String
     ): Result<MergeSummary> = withContext(ioDispatcher) {
-        runCatching {
+        try {
             require(authenticatedUserId.isNotBlank() && authenticatedUserId != "guest") {
                 "Target merge account must be an authenticated user"
             }
@@ -502,16 +662,22 @@ class FirestoreSyncServiceImpl @Inject constructor(
             }
 
             _syncState.value = SyncState.Synced
-            MergeSummary(
-                favoritesMerged = favCount,
-                watchlistMerged = watchCount,
-                preferencesMerged = prefMerged
+            Result.success(
+                MergeSummary(
+                    favoritesMerged = favCount,
+                    watchlistMerged = watchCount,
+                    preferencesMerged = prefMerged
+                )
             )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 
     override suspend fun deleteAllUserData(userId: String): Result<Unit> = withContext(ioDispatcher) {
-        runCatching {
+        try {
             stopUserSession()
 
             // Delete remote favorites
@@ -555,66 +721,272 @@ class FirestoreSyncServiceImpl @Inject constructor(
             pendingSyncDao.deleteActionsForUser(userId)
 
             _syncState.value = SyncState.Idle
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 
     override suspend fun processPendingSyncActions(userId: String) = withContext(ioDispatcher) {
-        if (userId == "guest") return@withContext
-        val pending = pendingSyncDao.getPendingActionsForUser(userId)
-        if (pending.isEmpty()) return@withContext
+        if (userId.isBlank() || userId == "guest") return@withContext
+        if (accountDeletionJournal.isDeletionPending(userId)) return@withContext
 
-        for (action in pending) {
-            // Guard: ensure action strictly belongs to the target userId
-            if (action.userId != userId) continue
-            try {
-                val result: Result<Unit> = when (action.entityType) {
+        drainMutex.withLock {
+            val currentToken = currentSessionToken
+            if (activeUserId != userId || currentToken != sessionGeneration.get()) return@withLock
+
+            val pending = pendingSyncDao.getPendingActionsForUser(userId)
+            if (pending.isEmpty()) return@withLock
+
+            for (action in pending) {
+                // Pre-execution session & deletion verification
+                if (activeUserId != userId || currentSessionToken != currentToken) return@withLock
+                if (accountDeletionJournal.isDeletionPending(userId)) return@withLock
+                if (action.userId != userId) continue
+
+                val result: OperationClassification = when (action.entityType) {
                     "FAVORITE" -> {
                         val movieId = action.itemId.toIntOrNull()
                         if (movieId == null) {
-                            Result.success(Unit) // corrupted itemId, drop it
+                            OperationClassification.UnsupportedOrMalformed("Invalid itemId '${action.itemId}' for FAVORITE")
                         } else if (action.actionType == "DELETE") {
-                            deleteFavorite(userId, movieId, enqueueOnFailure = false)
-                        } else {
-                            val local = favoriteDao.getFavoriteById(movieId, userId)
-                            if (local != null) {
-                                pushFavorite(userId, local.toDomain(), enqueueOnFailure = false)
+                            deleteFavoriteRemote(userId, movieId)
+                        } else if (action.actionType == "UPSERT") {
+                            val movie = action.payloadJson?.let { SyncPayloadSerializer.jsonToMovie(it) }
+                                ?: favoriteDao.getFavoriteById(movieId, userId)?.toDomain()
+                            if (movie != null) {
+                                pushFavoriteRemote(userId, movie)
                             } else {
-                                Result.success(Unit) // obsolete upsert for deleted local item
+                                // Obsolete upsert for local item that has since been purged
+                                OperationClassification.Success
                             }
+                        } else {
+                            OperationClassification.UnsupportedOrMalformed("Unsupported actionType '${action.actionType}' for FAVORITE")
                         }
                     }
                     "WATCHLIST" -> {
                         val movieId = action.itemId.toIntOrNull()
                         if (movieId == null) {
-                            Result.success(Unit)
+                            OperationClassification.UnsupportedOrMalformed("Invalid itemId '${action.itemId}' for WATCHLIST")
                         } else if (action.actionType == "DELETE") {
-                            deleteWatchlist(userId, movieId, enqueueOnFailure = false)
-                        } else {
-                            val local = watchlistDao.getWatchlistMovieById(movieId, userId)
-                            if (local != null) {
-                                pushWatchlist(userId, local.toDomain(), enqueueOnFailure = false)
+                            deleteWatchlistRemote(userId, movieId)
+                        } else if (action.actionType == "UPSERT") {
+                            val movie = action.payloadJson?.let { SyncPayloadSerializer.jsonToMovie(it) }
+                                ?: watchlistDao.getWatchlistMovieById(movieId, userId)?.toDomain()
+                            if (movie != null) {
+                                pushWatchlistRemote(userId, movie)
                             } else {
-                                Result.success(Unit)
+                                OperationClassification.Success
                             }
+                        } else {
+                            OperationClassification.UnsupportedOrMalformed("Unsupported actionType '${action.actionType}' for WATCHLIST")
                         }
                     }
                     "PREFERENCE" -> {
-                        val local = userPreferenceDao.getUserPreferenceProfileOnce(userId)
-                        if (local != null) {
-                            pushPreferences(userId, local.toDomain(), enqueueOnFailure = false)
+                        if (action.actionType == "DELETE") {
+                            deletePreferencesRemote(userId)
+                        } else if (action.actionType == "UPSERT") {
+                            val pref = action.payloadJson?.let { SyncPayloadSerializer.jsonToPreference(it) }
+                                ?: userPreferenceDao.getUserPreferenceProfileOnce(userId)?.toDomain()
+                            if (pref != null) {
+                                pushPreferencesRemote(userId, pref)
+                            } else {
+                                OperationClassification.Success
+                            }
                         } else {
-                            Result.success(Unit)
+                            OperationClassification.UnsupportedOrMalformed("Unsupported actionType '${action.actionType}' for PREFERENCE")
                         }
                     }
-                    else -> Result.success(Unit)
+                    else -> {
+                        OperationClassification.UnsupportedOrMalformed("Unsupported entityType '${action.entityType}'")
+                    }
                 }
 
-                if (result.isSuccess) {
-                    pendingSyncDao.deleteActionById(action.id)
+                // Post-execution session & deletion verification
+                if (activeUserId != userId || currentSessionToken != currentToken) return@withLock
+                if (accountDeletionJournal.isDeletionPending(userId)) return@withLock
+
+                when (result) {
+                    is OperationClassification.Success -> {
+                        // Exact acknowledgement only upon confirmed remote completion
+                        pendingSyncDao.deleteActionById(action.id)
+                        _syncState.value = SyncState.Synced
+                    }
+                    is OperationClassification.TransientError -> {
+                        _syncState.value = SyncState.OfflinePending
+                        break // Pause drain, retain queued actions for retry
+                    }
+                    is OperationClassification.AuthRequired -> {
+                        _syncState.value = SyncState.Error("Authentication required: ${result.message}")
+                        break // Pause drain, wait for re-authentication
+                    }
+                    is OperationClassification.PermissionDenied -> {
+                        // Do NOT treat as sign-in expiry; retain intent and report actionable diagnostics
+                        _syncState.value = SyncState.Error("Permission denied: ${result.message}. Queue paused.")
+                        break // Pause drain
+                    }
+                    is OperationClassification.UnsupportedOrMalformed -> {
+                        // Never acknowledge unsupported or malformed as success; retain and pause
+                        _syncState.value = SyncState.Error("Sync paused: ${result.message}. Action retained.")
+                        break // Pause drain
+                    }
                 }
-            } catch (_: Exception) {
-                // Keep in pending queue for next retry
             }
         }
+    }
+
+    private suspend fun pushFavoriteRemote(userId: String, movie: Movie): OperationClassification {
+        return try {
+            val data = hashMapOf(
+                "movieId" to movie.id,
+                "title" to movie.title,
+                "posterPath" to movie.posterUrl,
+                "backdropPath" to movie.backdropUrl,
+                "releaseDate" to movie.releaseDate,
+                "voteAverage" to movie.voteAverage,
+                "overview" to movie.overview,
+                "savedTimestamp" to System.currentTimeMillis()
+            )
+            firestore.collection("users")
+                .document(userId)
+                .collection("favorites")
+                .document(movie.id.toString())
+                .set(data, SetOptions.merge())
+                .awaitTask()
+            OperationClassification.Success
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            classifyException(e)
+        }
+    }
+
+    private suspend fun deleteFavoriteRemote(userId: String, movieId: Int): OperationClassification {
+        return try {
+            firestore.collection("users")
+                .document(userId)
+                .collection("favorites")
+                .document(movieId.toString())
+                .delete()
+                .awaitTask()
+            OperationClassification.Success
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            classifyException(e)
+        }
+    }
+
+    private suspend fun pushWatchlistRemote(userId: String, movie: Movie): OperationClassification {
+        return try {
+            val data = hashMapOf(
+                "movieId" to movie.id,
+                "title" to movie.title,
+                "posterPath" to movie.posterUrl,
+                "backdropPath" to movie.backdropUrl,
+                "releaseDate" to movie.releaseDate,
+                "voteAverage" to movie.voteAverage,
+                "overview" to movie.overview,
+                "savedTimestamp" to System.currentTimeMillis()
+            )
+            firestore.collection("users")
+                .document(userId)
+                .collection("watchlist")
+                .document(movie.id.toString())
+                .set(data, SetOptions.merge())
+                .awaitTask()
+            OperationClassification.Success
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            classifyException(e)
+        }
+    }
+
+    private suspend fun deleteWatchlistRemote(userId: String, movieId: Int): OperationClassification {
+        return try {
+            firestore.collection("users")
+                .document(userId)
+                .collection("watchlist")
+                .document(movieId.toString())
+                .delete()
+                .awaitTask()
+            OperationClassification.Success
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            classifyException(e)
+        }
+    }
+
+    private suspend fun pushPreferencesRemote(userId: String, profile: UserPreferenceProfile): OperationClassification {
+        return try {
+            val data = hashMapOf(
+                "genreIds" to profile.selectedGenreIds.toList(),
+                "mood" to profile.mood.name,
+                "era" to profile.era.name,
+                "runtimePreference" to profile.runtimePreference.name,
+                "preferredLanguage" to profile.preferredLanguage,
+                "minRatingThreshold" to profile.minRatingThreshold,
+                "updatedTimestamp" to profile.updatedAtTimestamp
+            )
+            firestore.collection("users")
+                .document(userId)
+                .collection("preferences")
+                .document("current")
+                .set(data, SetOptions.merge())
+                .awaitTask()
+            OperationClassification.Success
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            classifyException(e)
+        }
+    }
+
+    private suspend fun deletePreferencesRemote(userId: String): OperationClassification {
+        return try {
+            firestore.collection("users")
+                .document(userId)
+                .collection("preferences")
+                .document("current")
+                .delete()
+                .awaitTask()
+            OperationClassification.Success
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            classifyException(e)
+        }
+    }
+
+    private fun classifyException(e: Exception): OperationClassification {
+        if (e is FirebaseFirestoreException) {
+            return when (e.code) {
+                FirebaseFirestoreException.Code.UNAUTHENTICATED ->
+                    OperationClassification.AuthRequired(e.localizedMessage ?: "Unauthenticated")
+                FirebaseFirestoreException.Code.PERMISSION_DENIED ->
+                    OperationClassification.PermissionDenied(e.localizedMessage ?: "Permission denied")
+                FirebaseFirestoreException.Code.UNAVAILABLE,
+                FirebaseFirestoreException.Code.DEADLINE_EXCEEDED ->
+                    OperationClassification.TransientError(e.localizedMessage ?: "Network unavailable")
+                else ->
+                    OperationClassification.TransientError(e.localizedMessage ?: "Firestore error: ${e.code}")
+            }
+        }
+        if (e is IOException) {
+            return OperationClassification.TransientError(e.localizedMessage ?: "I/O connection error")
+        }
+        return OperationClassification.TransientError(e.localizedMessage ?: "Unknown error")
+    }
+
+    private sealed class OperationClassification {
+        object Success : OperationClassification()
+        data class TransientError(val message: String) : OperationClassification()
+        data class AuthRequired(val message: String) : OperationClassification()
+        data class PermissionDenied(val message: String) : OperationClassification()
+        data class UnsupportedOrMalformed(val message: String) : OperationClassification()
     }
 }

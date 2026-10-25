@@ -2,7 +2,10 @@ package com.example.madverse.core.database
 
 import android.content.Context
 import androidx.room.Room
+import com.example.madverse.core.data.account.AccountDeletionJournal
+import com.example.madverse.core.data.account.SharedPreferencesAccountDeletionJournal
 import com.example.madverse.core.database.dao.FavoriteDao
+import com.example.madverse.core.database.dao.PendingSyncDao
 import com.example.madverse.core.database.dao.UserPreferenceDao
 import com.example.madverse.core.database.dao.WatchlistDao
 import dagger.Module
@@ -48,7 +51,19 @@ object DatabaseModule {
 
     @Provides
     @Singleton
-    fun providePendingSyncDao(database: MADVerseDatabase): com.example.madverse.core.database.dao.PendingSyncDao {
+    fun providePendingSyncDao(database: MADVerseDatabase): PendingSyncDao {
         return database.pendingSyncDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideDatabaseTransactionRunner(database: MADVerseDatabase): DatabaseTransactionRunner {
+        return RoomTransactionRunner(database)
+    }
+
+    @Provides
+    @Singleton
+    fun provideAccountDeletionJournal(@ApplicationContext context: Context): AccountDeletionJournal {
+        return SharedPreferencesAccountDeletionJournal(context)
     }
 }
