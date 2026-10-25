@@ -324,6 +324,24 @@ class ReliabilityAndOfflineFoundationsTest {
         assertTrue(cloudSyncService.remoteFavorites["user_123"]?.containsKey(303) == true)
     }
 
+    @Test
+    fun transientFailure_schedulesRetry_andClearsOnSessionStop() = runTest(testDispatcher) {
+        cloudSyncService.shouldFailRemote = true
+        cloudSyncService.remoteException = IOException("Connection timed out")
+
+        favoritesRepository.addToFavorites(sampleMovie(304))
+
+        // Trigger drain which hits transient error
+        cloudSyncService.processPendingSyncActions("user_123")
+
+        assertEquals(SyncState.OfflinePending, cloudSyncService.syncState.value)
+        assertTrue("Transient retry must be scheduled upon transient failure", cloudSyncService.retryJobScheduled)
+
+        // Stop session / logout cancels retry
+        cloudSyncService.stopUserSession()
+        assertFalse("Retry must be cancelled and cleared upon session stop", cloudSyncService.retryJobScheduled)
+    }
+
     // =========================================================================
     // 6. PERMISSION DENIED QUEUE RETENTION & PAUSE
     // =========================================================================
@@ -711,9 +729,13 @@ class ReliabilityAndOfflineFoundationsTest {
         var simulateCancellation = false
         var failOnItemId: String? = null
         var remoteException: Exception = IOException("Connection lost")
+        var retryJobScheduled: Boolean = false
 
         override fun startUserSession(userId: String) { _syncState.value = SyncState.Synced }
-        override fun stopUserSession() { _syncState.value = SyncState.Idle }
+        override fun stopUserSession() {
+            retryJobScheduled = false
+            _syncState.value = SyncState.Idle
+        }
 
         override suspend fun pushFavorite(userId: String, movie: Movie, enqueueOnFailure: Boolean): Result<Unit> {
             if (simulateCancellation) throw CancellationException("Operation cancelled")
@@ -770,6 +792,7 @@ class ReliabilityAndOfflineFoundationsTest {
                         _syncState.value = SyncState.Error(remoteException.message ?: "Permission denied")
                     } else {
                         _syncState.value = SyncState.OfflinePending
+                        retryJobScheduled = true
                     }
                     break
                 }

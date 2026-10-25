@@ -27,7 +27,9 @@ import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -72,6 +74,11 @@ class FirestoreSyncServiceImpl @Inject constructor(
     private var watchlistListener: ListenerRegistration? = null
     private var preferencesListener: ListenerRegistration? = null
 
+    private var retryJob: Job? = null
+    private var retryAttempt: Int = 0
+
+    internal fun hasActiveTransientRetry(): Boolean = retryJob?.isActive == true
+
     override fun startUserSession(userId: String) {
         if (userId.isBlank() || userId == "guest") {
             stopUserSession()
@@ -100,6 +107,10 @@ class FirestoreSyncServiceImpl @Inject constructor(
     override fun stopUserSession() {
         sessionGeneration.incrementAndGet()
         currentSessionToken = 0L
+
+        retryJob?.cancel()
+        retryJob = null
+        retryAttempt = 0
 
         favoritesListener?.remove()
         favoritesListener = null
@@ -907,6 +918,7 @@ class FirestoreSyncServiceImpl @Inject constructor(
                     }
                     is OperationClassification.TransientError -> {
                         _syncState.value = SyncState.OfflinePending
+                        scheduleTransientRetry(userId, currentToken)
                         break // Pause drain, retain queued actions for retry
                     }
                     is OperationClassification.AuthRequired -> {
@@ -924,6 +936,30 @@ class FirestoreSyncServiceImpl @Inject constructor(
                         break // Pause drain
                     }
                 }
+            }
+
+            val remainingPending = pendingSyncDao.getPendingActionsForUser(userId)
+            if (remainingPending.isEmpty()) {
+                retryAttempt = 0
+            }
+        }
+    }
+
+    private fun scheduleTransientRetry(userId: String, token: Long) {
+        if (retryJob?.isActive == true) return
+        val currentAttempt = retryAttempt
+        retryAttempt++
+        // Exponential backoff: 5s, 10s, 20s, 40s, capped at 60s
+        val delayMs = (5000L * (1L shl minOf(currentAttempt, 4))).coerceAtMost(60000L)
+
+        retryJob = scope.launch {
+            try {
+                delay(delayMs)
+                if (activeUserId == userId && currentSessionToken == token && !accountDeletionJournal.isDeletionPending(userId)) {
+                    processPendingSyncActions(userId)
+                }
+            } catch (e: CancellationException) {
+                throw e
             }
         }
     }
