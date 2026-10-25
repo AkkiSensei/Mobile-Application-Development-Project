@@ -313,7 +313,9 @@ fun StreamingProvidersSection(
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedButton(
                 onClick = { onOpenWatchLink(watchLink) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .defaultMinSize(minHeight = 48.dp),
                 shape = RoundedCornerShape(10.dp),
                 border = androidx.compose.foundation.BorderStroke(1.dp, ObsidianCardBorder),
                 colors = ButtonDefaults.outlinedButtonColors(
@@ -333,5 +335,17 @@ fun StreamingProvidersSection(
                 )
             }
         }
+
+        // External provider reference disclosure
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Streaming availability is provided for informational reference via TMDB/JustWatch. Provider badges reflect external subscription and rental options rather than direct in-app playback.",
+            style = MaterialTheme.typography.bodySmall.copy(
+                color = ContentLowEmphasis,
+                fontSize = 11.sp,
+                lineHeight = 15.sp
+            ),
+            modifier = Modifier.padding(horizontal = 2.dp)
+        )
     }
 }

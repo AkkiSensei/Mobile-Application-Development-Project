@@ -122,7 +122,7 @@ fun WatchProviderBadge(
 
         // Provider Name Label
         Text(
-            text = provider.providerName,
+            text = provider.providerName.ifBlank { "Unknown" },
             style = MaterialTheme.typography.labelSmall.copy(
                 fontSize = 10.sp,
                 lineHeight = 12.sp,
