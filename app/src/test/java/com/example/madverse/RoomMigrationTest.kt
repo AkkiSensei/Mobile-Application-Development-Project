@@ -74,4 +74,33 @@ class RoomMigrationTest {
         assertTrue("pending_sync_actions creation missing", syncQueueCreate != null)
         assertTrue("action_type missing in pending_sync_actions", syncQueueCreate!!.contains("`action_type` TEXT NOT NULL"))
     }
+
+    @Test
+    fun migration_2_3_hasCorrectVersionRange() {
+        assertEquals(2, MADVerseDatabase.MIGRATION_2_3.startVersion)
+        assertEquals(3, MADVerseDatabase.MIGRATION_2_3.endVersion)
+    }
+
+    @Test
+    fun migration_2_3_executesNonDestructiveSchemaTransformation() {
+        val executedSqlStatements = mutableListOf<String>()
+
+        val dbProxy = Proxy.newProxyInstance(
+            SupportSQLiteDatabase::class.java.classLoader,
+            arrayOf(SupportSQLiteDatabase::class.java)
+        ) { _, method, args ->
+            if (method.name == "execSQL" && args != null && args.isNotEmpty()) {
+                val sql = args[0] as String
+                executedSqlStatements.add(sql.trim())
+            }
+            null
+        } as SupportSQLiteDatabase
+
+        MADVerseDatabase.MIGRATION_2_3.migrate(dbProxy)
+
+        val tableCreate = executedSqlStatements.find { it.contains("CREATE TABLE IF NOT EXISTS `recently_viewed_movies`") }
+        assertTrue("recently_viewed_movies table creation missing", tableCreate != null)
+        assertTrue("Primary key missing in recently_viewed_movies", tableCreate!!.contains("PRIMARY KEY(`movie_id`)"))
+        assertTrue("viewed_timestamp missing", tableCreate.contains("`viewed_timestamp` INTEGER NOT NULL"))
+    }
 }

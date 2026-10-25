@@ -57,6 +57,12 @@ object DatabaseModule {
 
     @Provides
     @Singleton
+    fun provideRecentlyViewedDao(database: MADVerseDatabase): com.example.madverse.core.database.dao.RecentlyViewedDao {
+        return database.recentlyViewedDao()
+    }
+
+    @Provides
+    @Singleton
     fun provideDatabaseTransactionRunner(database: MADVerseDatabase): DatabaseTransactionRunner {
         return RoomTransactionRunner(database)
     }
