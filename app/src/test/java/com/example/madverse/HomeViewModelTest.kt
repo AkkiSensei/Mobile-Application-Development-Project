@@ -67,6 +67,16 @@ class HomeViewModelTest {
     }
 
     @Test
+    fun remoteShelfFailures_doNotHideLocalViewingHistory() {
+        val failed = com.example.madverse.feature.discover.presentation.HomeUiState(
+            trendingState = UiState.Error("Offline"), topRatedState = UiState.Error("Offline"),
+            upcomingState = UiState.Error("Offline"), recentlyViewed = listOf(createMovie(1, "Saved history")))
+        assertTrue(failed.isFullError)
+        assertFalse(failed.showFullScreenError)
+        assertTrue(failed.copy(recentlyViewed = emptyList()).showFullScreenError)
+    }
+
+    @Test
     fun init_loadsAllSectionsSuccessfully() = runTest(testDispatcher) {
         val trendingMovies = listOf(createMovie(1, "Trending 1"), createMovie(2, "Trending 2"))
         val topRatedMovies = listOf(createMovie(3, "Top Rated 1"))

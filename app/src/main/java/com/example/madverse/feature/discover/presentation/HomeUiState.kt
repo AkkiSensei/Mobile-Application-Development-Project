@@ -28,6 +28,10 @@ data class HomeUiState(
                 topRatedState is UiState.Error &&
                 upcomingState is UiState.Error
 
+    /** Keep local history visible even when every remote shelf fails. */
+    val showFullScreenError: Boolean
+        get() = isFullError && recentlyViewed.isEmpty()
+
     /** Featured hero movie selected from the top of the trending list, if available. */
     val featuredMovie: Movie?
         get() = (trendingState as? UiState.Success)?.data?.firstOrNull()

@@ -80,7 +80,7 @@ fun DiscoverScreen(
             .fillMaxSize()
             .background(ObsidianBackground)
     ) {
-        if (uiState.isFullError) {
+        if (uiState.showFullScreenError) {
             val isOffline = uiState.isAnyOffline
             MADVerseErrorView(
                 title = if (isOffline) "No Internet Connection" else "Unable to Load Movies",
