@@ -84,11 +84,10 @@ class FavoritesRepositoryImpl @Inject constructor(
 
     override suspend fun addToFavorites(movie: Movie) {
         val userId = sessionManager.currentUserId
-        var actionId = 0L
         transactionRunner.runInTransaction {
             favoriteDao.insertFavorite(FavoriteEntity.fromDomain(movie, userId = userId))
             if (userId != "guest") {
-                actionId = pendingSyncDao.insertAction(
+                pendingSyncDao.insertAction(
                     PendingSyncEntity(
                         userId = userId,
                         actionType = "UPSERT",
@@ -100,21 +99,16 @@ class FavoritesRepositoryImpl @Inject constructor(
             }
         }
         if (userId != "guest") {
-            val result = syncService.pushFavorite(userId, movie, enqueueOnFailure = false)
-            if (result.isSuccess && actionId != 0L) {
-                pendingSyncDao.deleteActionById(actionId)
-            }
             syncService.processPendingSyncActions(userId)
         }
     }
 
     override suspend fun removeFromFavorites(movieId: Int) {
         val userId = sessionManager.currentUserId
-        var actionId = 0L
         transactionRunner.runInTransaction {
             favoriteDao.deleteFavoriteById(movieId, userId)
             if (userId != "guest") {
-                actionId = pendingSyncDao.insertAction(
+                pendingSyncDao.insertAction(
                     PendingSyncEntity(
                         userId = userId,
                         actionType = "DELETE",
@@ -126,10 +120,6 @@ class FavoritesRepositoryImpl @Inject constructor(
             }
         }
         if (userId != "guest") {
-            val result = syncService.deleteFavorite(userId, movieId, enqueueOnFailure = false)
-            if (result.isSuccess && actionId != 0L) {
-                pendingSyncDao.deleteActionById(actionId)
-            }
             syncService.processPendingSyncActions(userId)
         }
     }

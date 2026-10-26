@@ -9,7 +9,7 @@ import com.example.madverse.core.database.entity.PendingSyncEntity
 @Dao
 interface PendingSyncDao {
 
-    @Query("SELECT * FROM pending_sync_actions WHERE user_id = :userId ORDER BY created_at ASC, id ASC")
+    @Query("SELECT * FROM pending_sync_actions WHERE user_id = :userId ORDER BY id ASC")
     suspend fun getPendingActionsForUser(userId: String): List<PendingSyncEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -30,7 +30,7 @@ class NoOpPendingSyncDao : PendingSyncDao {
     private var nextId = 1L
 
     override suspend fun getPendingActionsForUser(userId: String): List<PendingSyncEntity> {
-        return actions.filter { it.userId == userId }.sortedWith(compareBy({ it.createdAt }, { it.id }))
+        return actions.filter { it.userId == userId }.sortedBy { it.id }
     }
 
     override suspend fun insertAction(action: PendingSyncEntity): Long {

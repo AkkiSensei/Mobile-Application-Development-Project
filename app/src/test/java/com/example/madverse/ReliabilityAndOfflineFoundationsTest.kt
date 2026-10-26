@@ -523,7 +523,7 @@ class ReliabilityAndOfflineFoundationsTest {
         // 3. Journal records failure stage
         val journalEntry = accountDeletionJournal.getJournalEntry("user_delete_me")
         assertNotNull(journalEntry)
-        assertEquals(DeletionStage.STARTED, journalEntry!!.stage)
+        assertEquals(DeletionStage.AUTH_DELETE_REQUESTED, journalEntry!!.stage)
 
         // 4. UI shows user-friendly recovery instructions
         val uiMessage = viewModel.uiState.value.errorMessage
@@ -592,7 +592,7 @@ class ReliabilityAndOfflineFoundationsTest {
         }
     }
 
-    private class TestFavoriteDao : FavoriteDao {
+    internal class TestFavoriteDao : FavoriteDao {
         val items = mutableMapOf<Pair<Int, String>, FavoriteEntity>()
         val flow = MutableStateFlow<List<FavoriteEntity>>(emptyList())
 
@@ -640,7 +640,7 @@ class ReliabilityAndOfflineFoundationsTest {
             items.values.count { it.userId == userId }
     }
 
-    private class TestWatchlistDao : WatchlistDao {
+    internal class TestWatchlistDao : WatchlistDao {
         val items = mutableMapOf<Pair<Int, String>, WatchlistEntity>()
         val flow = MutableStateFlow<List<WatchlistEntity>>(emptyList())
 
@@ -688,7 +688,7 @@ class ReliabilityAndOfflineFoundationsTest {
             items.values.count { it.userId == userId }
     }
 
-    private class TestUserPreferenceDao : UserPreferenceDao {
+    internal class TestUserPreferenceDao : UserPreferenceDao {
         val prefs = mutableMapOf<String, UserPreferenceEntity>()
         val flow = MutableStateFlow<Map<String, UserPreferenceEntity>>(emptyMap())
 
@@ -782,6 +782,7 @@ class ReliabilityAndOfflineFoundationsTest {
 
         override suspend fun syncAll(userId: String): Result<Unit> = Result.success(Unit)
         override suspend fun mergeGuestDataIntoAccount(authenticatedUserId: String) = Result.success(com.example.madverse.core.model.MergeSummary())
+        override suspend fun purgeRemoteUserData(userId: String): Result<Unit> = Result.success(Unit)
         override suspend fun deleteAllUserData(userId: String): Result<Unit> = Result.success(Unit)
 
         override suspend fun processPendingSyncActions(userId: String) {

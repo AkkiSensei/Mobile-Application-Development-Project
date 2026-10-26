@@ -16,6 +16,8 @@ interface CloudSyncService {
     fun startUserSession(userId: String)
     fun stopUserSession()
 
+    // Compatibility enqueue methods: success means durably accepted, not remote acknowledgement.
+    // enqueueOnFailure is retained for source compatibility; production always queues before sending.
     suspend fun pushFavorite(userId: String, movie: Movie, enqueueOnFailure: Boolean = true): Result<Unit>
     suspend fun deleteFavorite(userId: String, movieId: Int, enqueueOnFailure: Boolean = true): Result<Unit>
     suspend fun pushWatchlist(userId: String, movie: Movie, enqueueOnFailure: Boolean = true): Result<Unit>
@@ -24,6 +26,9 @@ interface CloudSyncService {
 
     suspend fun syncAll(userId: String): Result<Unit>
     suspend fun mergeGuestDataIntoAccount(authenticatedUserId: String): Result<MergeSummary>
+    suspend fun purgeRemoteUserData(userId: String): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Remote deletion is unavailable"))
+    // Local cleanup only, permitted after journaled cloud purge AND confirmed Auth deletion.
     suspend fun deleteAllUserData(userId: String): Result<Unit>
     suspend fun processPendingSyncActions(userId: String)
 }

@@ -88,13 +88,12 @@ class QuizRepositoryImpl @Inject constructor(
 
     override suspend fun saveUserPreferenceProfile(profile: UserPreferenceProfile) {
         val userId = sessionManager.currentUserId
-        var actionId = 0L
         transactionRunner.runInTransaction {
             userPreferenceDao.saveUserPreferenceProfile(
                 UserPreferenceEntity.fromDomain(profile, userId = userId)
             )
             if (userId != "guest") {
-                actionId = pendingSyncDao.insertAction(
+                pendingSyncDao.insertAction(
                     PendingSyncEntity(
                         userId = userId,
                         actionType = "UPSERT",
@@ -106,21 +105,16 @@ class QuizRepositoryImpl @Inject constructor(
             }
         }
         if (userId != "guest") {
-            val result = syncService.pushPreferences(userId, profile, enqueueOnFailure = false)
-            if (result.isSuccess && actionId != 0L) {
-                pendingSyncDao.deleteActionById(actionId)
-            }
             syncService.processPendingSyncActions(userId)
         }
     }
 
     override suspend fun clearUserPreferenceProfile() {
         val userId = sessionManager.currentUserId
-        var actionId = 0L
         transactionRunner.runInTransaction {
             userPreferenceDao.clearUserPreferenceProfile(userId)
             if (userId != "guest") {
-                actionId = pendingSyncDao.insertAction(
+                pendingSyncDao.insertAction(
                     PendingSyncEntity(
                         userId = userId,
                         actionType = "DELETE",

@@ -24,4 +24,7 @@ interface AuthRepository {
     suspend fun reloadUser(): Result<AuthUser?>
     suspend fun signOut()
     suspend fun deleteAccount(): Result<Unit>
+    suspend fun deleteAccountForUser(expectedUserId: String): Result<Unit> =
+        if (currentUserId == expectedUserId && expectedUserId != "guest") deleteAccount()
+        else Result.failure(IllegalStateException("Deletion target is not signed in"))
 }

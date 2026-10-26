@@ -104,11 +104,11 @@ class EndToEndUserJourneysTest {
         Dispatchers.setMain(testDispatcher)
 
         authRepository = FakeAuthRepository(AuthState.Guest)
-        cloudSyncService = FakeCloudSyncService()
         favoriteDao = InMemoryFavoriteDao()
         watchlistDao = InMemoryWatchlistDao()
         userPreferenceDao = InMemoryUserPreferenceDao()
         pendingSyncDao = InMemoryPendingSyncDao()
+        cloudSyncService = FakeCloudSyncService(pendingSyncDao)
 
         sessionManager = SessionManagerImpl(
             authRepository = authRepository,
@@ -122,19 +122,25 @@ class EndToEndUserJourneysTest {
         favoritesRepository = FavoritesRepositoryImpl(
             favoriteDao = favoriteDao,
             sessionManager = sessionManager,
-            syncService = cloudSyncService
+            syncService = cloudSyncService,
+            pendingSyncDao = pendingSyncDao,
+            transactionRunner = com.example.madverse.core.database.DirectTransactionRunner()
         )
 
         watchlistRepository = WatchlistRepositoryImpl(
             watchlistDao = watchlistDao,
             sessionManager = sessionManager,
-            syncService = cloudSyncService
+            syncService = cloudSyncService,
+            pendingSyncDao = pendingSyncDao,
+            transactionRunner = com.example.madverse.core.database.DirectTransactionRunner()
         )
 
         quizRepository = QuizRepositoryImpl(
             userPreferenceDao = userPreferenceDao,
             sessionManager = sessionManager,
-            syncService = cloudSyncService
+            syncService = cloudSyncService,
+            pendingSyncDao = pendingSyncDao,
+            transactionRunner = com.example.madverse.core.database.DirectTransactionRunner()
         )
 
         fakeMovieRepository = FakeE2EMovieRepository()
@@ -449,9 +455,6 @@ class EndToEndUserJourneysTest {
         assertTrue(favoritesRepository.isFavoriteOnce(777))
 
         // Pending sync queue contains the action
-        pendingSyncDao.insertAction(
-            PendingSyncEntity(userId = uid, actionType = "UPSERT", entityType = "FAVORITE", itemId = "777")
-        )
         val pendingList = pendingSyncDao.getPendingActionsForUser(uid)
         assertEquals(1, pendingList.size)
         assertEquals("777", pendingList.first().itemId)
@@ -460,10 +463,7 @@ class EndToEndUserJourneysTest {
         cloudSyncService.shouldFailNextOperation = false
 
         // 4. Replay pending queue
-        val pendingAction = pendingList.first()
-        val pushResult = cloudSyncService.pushFavorite(uid, movie)
-        assertTrue(pushResult.isSuccess)
-        pendingSyncDao.deleteActionById(pendingAction.id)
+        cloudSyncService.processPendingSyncActions(uid)
 
         // Queue is now empty and remote cloud has the movie
         assertTrue(pendingSyncDao.getPendingActionsForUser(uid).isEmpty())

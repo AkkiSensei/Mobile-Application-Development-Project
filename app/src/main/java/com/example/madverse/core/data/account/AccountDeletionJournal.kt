@@ -13,6 +13,10 @@ import javax.inject.Singleton
 enum class DeletionStage {
     IDLE,
     STARTED,
+    CLOUD_PURGED,
+    AUTH_DELETE_REQUESTED,
+    REMOTE_AUTH_CONFIRMED,
+    ACCOUNT_DATA_CLEANED,
     REMOTE_AUTH_DELETED,
     REMOTE_DATA_DELETED,
     LOCAL_DATA_CLEANED,
@@ -38,6 +42,7 @@ interface AccountDeletionJournal {
     suspend fun getJournalEntry(userId: String): DeletionJournalEntry?
     suspend fun isDeletionPending(userId: String): Boolean
     suspend fun clearJournal(userId: String)
+    suspend fun pendingEntries(): List<DeletionJournalEntry>
 }
 
 /**
@@ -52,11 +57,11 @@ class SharedPreferencesAccountDeletionJournal @Inject constructor(
     private val mutex = Mutex()
 
     override suspend fun recordStage(userId: String, stage: DeletionStage, error: String?) = mutex.withLock {
-        prefs.edit()
+        check(prefs.edit()
             .putString("stage_$userId", stage.name)
             .putLong("timestamp_$userId", System.currentTimeMillis())
             .putString("error_$userId", error)
-            .apply()
+            .commit()) { "Could not persist deletion journal" }
     }
 
     override suspend fun getJournalEntry(userId: String): DeletionJournalEntry? = mutex.withLock {
@@ -64,7 +69,7 @@ class SharedPreferencesAccountDeletionJournal @Inject constructor(
         val stage = try {
             DeletionStage.valueOf(stageName)
         } catch (_: Exception) {
-            DeletionStage.IDLE
+            DeletionStage.STARTED
         }
         val timestamp = prefs.getLong("timestamp_$userId", 0L)
         val error = prefs.getString("error_$userId", null)
@@ -76,17 +81,22 @@ class SharedPreferencesAccountDeletionJournal @Inject constructor(
         val stage = try {
             DeletionStage.valueOf(stageName)
         } catch (_: Exception) {
-            DeletionStage.IDLE
+            DeletionStage.STARTED
         }
         stage != DeletionStage.IDLE && stage != DeletionStage.COMPLETED
     }
 
     override suspend fun clearJournal(userId: String) = mutex.withLock {
-        prefs.edit()
+        check(prefs.edit()
             .remove("stage_$userId")
             .remove("timestamp_$userId")
             .remove("error_$userId")
-            .apply()
+            .commit()) { "Could not persist deletion journal" }
+    }
+
+    override suspend fun pendingEntries(): List<DeletionJournalEntry> {
+        val ids = mutex.withLock { prefs.all.keys.filter { it.startsWith("stage_") }.map { it.removePrefix("stage_") } }
+        return ids.mapNotNull { getJournalEntry(it) }.filter { it.stage != DeletionStage.IDLE && it.stage != DeletionStage.COMPLETED }
     }
 }
 
@@ -118,5 +128,9 @@ class InMemoryAccountDeletionJournal : AccountDeletionJournal {
     override suspend fun clearJournal(userId: String) = mutex.withLock {
         entries.remove(userId)
         Unit
+    }
+
+    override suspend fun pendingEntries(): List<DeletionJournalEntry> = mutex.withLock {
+        entries.values.filter { it.stage != DeletionStage.IDLE && it.stage != DeletionStage.COMPLETED }
     }
 }

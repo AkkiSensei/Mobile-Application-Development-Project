@@ -176,7 +176,7 @@ fun ProfileScreen(
             },
             text = {
                 Text(
-                    text = "Warning: This action is irreversible. All your cloud favorites, watchlist, quiz preferences, and Firebase profile data will be permanently wiped.",
+                    text = "This permanently removes this account’s cloud favorites, watchlist and quiz preferences, then its sign-in identity. If interrupted, deletion may be incomplete; local account data is kept for recovery. Shared device viewing history and data on other devices are not covered.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = ContentMediumEmphasis
                 )
@@ -188,7 +188,7 @@ fun ProfileScreen(
                         .defaultMinSize(minHeight = 48.dp)
                         .semantics {
                             role = Role.Button
-                            contentDescription = "Permanently delete account and all cloud data"
+                            contentDescription = "Delete account and its saved cloud library"
                         },
                     colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
                 ) {
@@ -836,7 +836,7 @@ fun ProfileScreen(
                     .defaultMinSize(minHeight = 48.dp)
                     .semantics {
                         role = Role.Button
-                        contentDescription = "Permanently delete account and all cloud data"
+                        contentDescription = "Delete account and its saved cloud library"
                     },
                 colors = ButtonDefaults.textButtonColors(contentColor = ErrorRed)
             ) {

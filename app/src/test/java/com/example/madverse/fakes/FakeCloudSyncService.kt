@@ -5,11 +5,13 @@ import com.example.madverse.core.model.MergeSummary
 import com.example.madverse.core.model.Movie
 import com.example.madverse.core.model.SyncState
 import com.example.madverse.core.model.UserPreferenceProfile
+import com.example.madverse.core.database.dao.PendingSyncDao
+import com.example.madverse.core.data.sync.SyncOperation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-class FakeCloudSyncService : CloudSyncService {
+class FakeCloudSyncService(private val queue: PendingSyncDao? = null) : CloudSyncService {
 
     private val _syncState = MutableStateFlow<SyncState>(SyncState.Idle)
     override val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
@@ -140,6 +142,11 @@ class FakeCloudSyncService : CloudSyncService {
         )
     }
 
+    override suspend fun purgeRemoteUserData(userId: String): Result<Unit> {
+        if (shouldFailNextOperation) return Result.failure(failureException)
+        return deleteAllUserData(userId)
+    }
+
     override suspend fun deleteAllUserData(userId: String): Result<Unit> {
         syncedFavorites.remove(userId)
         syncedWatchlist.remove(userId)
@@ -148,5 +155,21 @@ class FakeCloudSyncService : CloudSyncService {
         return Result.success(Unit)
     }
 
-    override suspend fun processPendingSyncActions(userId: String) {}
+    override suspend fun processPendingSyncActions(userId: String) {
+        val dao = queue ?: return
+        for (row in dao.getPendingActionsForUser(userId).sortedBy { it.id }) {
+            if (activeSessionUserId != userId) return
+            val op = SyncOperation.decode(row) ?: return
+            val result = when (op.collection) {
+                "favorites" -> if (op.delete) deleteFavorite(userId, op.documentId.toInt(), false) else pushFavorite(userId, op.movie!!, false)
+                "watchlist" -> if (op.delete) deleteWatchlist(userId, op.documentId.toInt(), false) else pushWatchlist(userId, op.movie!!, false)
+                else -> if (op.delete) {
+                    if (shouldFailNextOperation) Result.failure(failureException)
+                    else { syncedPreferences.remove(userId); Result.success(Unit) }
+                } else pushPreferences(userId, op.preference!!, false)
+            }
+            if (result.isFailure) return
+            dao.deleteActionById(row.id)
+        }
+    }
 }

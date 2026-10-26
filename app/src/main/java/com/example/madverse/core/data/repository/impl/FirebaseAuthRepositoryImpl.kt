@@ -10,6 +10,9 @@ import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.UserProfileChangeRequest
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -161,13 +164,19 @@ class FirebaseAuthRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun deleteAccount(): Result<Unit> = withContext(ioDispatcher) {
-        runCatching {
+    override suspend fun deleteAccount(): Result<Unit> = deleteAccountForUser(currentUserId)
+
+    override suspend fun deleteAccountForUser(expectedUserId: String): Result<Unit> = withContext(ioDispatcher) {
+        try {
             val user = firebaseAuth.currentUser ?: error("No authenticated user to delete")
-            user.delete().awaitTask()
-            _authState.value = AuthState.Guest
-            Unit
-        }
+            check(user.uid == expectedUserId) { "Deletion target is not signed in" }
+            withTimeout(30000) { user.delete().awaitTask() }
+            if (firebaseAuth.currentUser == null) _authState.value = AuthState.Guest
+            Result.success(Unit)
+        } catch (e: TimeoutCancellationException) {
+            Result.failure(IllegalStateException("Identity deletion outcome is unconfirmed. Sign in to the same account to retry or request administrator verification.", e))
+        } catch (e: CancellationException) { throw e }
+        catch (e: Exception) { Result.failure(e) }
     }
 }
 

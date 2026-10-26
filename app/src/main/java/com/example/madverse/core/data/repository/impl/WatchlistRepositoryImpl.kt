@@ -84,11 +84,10 @@ class WatchlistRepositoryImpl @Inject constructor(
 
     override suspend fun addToWatchlist(movie: Movie) {
         val userId = sessionManager.currentUserId
-        var actionId = 0L
         transactionRunner.runInTransaction {
             watchlistDao.insertMovie(WatchlistEntity.fromDomain(movie, userId = userId))
             if (userId != "guest") {
-                actionId = pendingSyncDao.insertAction(
+                pendingSyncDao.insertAction(
                     PendingSyncEntity(
                         userId = userId,
                         actionType = "UPSERT",
@@ -100,21 +99,16 @@ class WatchlistRepositoryImpl @Inject constructor(
             }
         }
         if (userId != "guest") {
-            val result = syncService.pushWatchlist(userId, movie, enqueueOnFailure = false)
-            if (result.isSuccess && actionId != 0L) {
-                pendingSyncDao.deleteActionById(actionId)
-            }
             syncService.processPendingSyncActions(userId)
         }
     }
 
     override suspend fun removeFromWatchlist(movieId: Int) {
         val userId = sessionManager.currentUserId
-        var actionId = 0L
         transactionRunner.runInTransaction {
             watchlistDao.deleteMovieById(movieId, userId)
             if (userId != "guest") {
-                actionId = pendingSyncDao.insertAction(
+                pendingSyncDao.insertAction(
                     PendingSyncEntity(
                         userId = userId,
                         actionType = "DELETE",
@@ -126,10 +120,6 @@ class WatchlistRepositoryImpl @Inject constructor(
             }
         }
         if (userId != "guest") {
-            val result = syncService.deleteWatchlist(userId, movieId, enqueueOnFailure = false)
-            if (result.isSuccess && actionId != 0L) {
-                pendingSyncDao.deleteActionById(actionId)
-            }
             syncService.processPendingSyncActions(userId)
         }
     }
