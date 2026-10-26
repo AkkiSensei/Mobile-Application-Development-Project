@@ -717,6 +717,9 @@ class EndToEndUserJourneysTest {
         override suspend fun getPendingActionsForUser(userId: String): List<PendingSyncEntity> =
             actions.filter { it.userId == userId }.sortedBy { it.createdAt }
 
+        override suspend fun getNextPendingActionForUser(userId: String): PendingSyncEntity? =
+            actions.asSequence().filter { it.userId == userId }.minByOrNull { it.id }
+
         override suspend fun insertAction(action: PendingSyncEntity): Long {
             val id = nextId++
             actions.add(action.copy(id = id))

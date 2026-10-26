@@ -88,7 +88,7 @@ internal class SyncQueueWorker(
             var attempt = 0
             try {
                 while (isCurrent()) {
-                    val row = dao.getPendingActionsForUser(userId).minByOrNull { it.id }
+                    val row = dao.getNextPendingActionForUser(userId)
                     if (row == null) {
                         if (isCurrent()) publish(SyncState.Synced)
                         break

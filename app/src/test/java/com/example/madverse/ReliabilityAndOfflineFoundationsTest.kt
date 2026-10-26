@@ -574,6 +574,9 @@ class ReliabilityAndOfflineFoundationsTest {
             return actions.filter { it.userId == userId }.sortedWith(compareBy({ it.createdAt }, { it.id }))
         }
 
+        override suspend fun getNextPendingActionForUser(userId: String): PendingSyncEntity? =
+            actions.asSequence().filter { it.userId == userId }.minByOrNull { it.id }
+
         override suspend fun insertAction(action: PendingSyncEntity): Long {
             if (shouldFailInsert) {
                 throw IOException("Simulated SQLite queue insertion failure")

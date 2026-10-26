@@ -22,6 +22,25 @@ class SyncReliabilityRepairTest {
     private fun worker(dao: NoOpPendingSyncDao, uid: String = "A", current: suspend () -> Boolean = { true }, publish: (SyncState) -> Unit = {}, execute: suspend (PendingSyncEntity, SyncOperation) -> ReplayResult) =
         SyncQueueWorker(uid, dao, DirectTransactionRunner(), current, publish, execute, backoff = { 1000L })
 
+    @Test fun drainMaterializesOnlyOnePayloadPerAction() = runTest {
+        val storage = NoOpPendingSyncDao()
+        repeat(50) { storage.insertAction(action(operation = "DELETE")) }
+        var materialized = 0
+        val dao = object : com.example.madverse.core.database.dao.PendingSyncDao by storage {
+            override suspend fun getPendingActionsForUser(userId: String): List<PendingSyncEntity> =
+                storage.getPendingActionsForUser(userId).also { materialized += it.size }
+            override suspend fun getNextPendingActionForUser(userId: String): PendingSyncEntity? =
+                storage.getNextPendingActionForUser(userId).also { if (it != null) materialized++ }
+        }
+        var replayed = 0
+        SyncQueueWorker("A", dao, DirectTransactionRunner(), { true }, {}, { _, _ ->
+            replayed++; ReplayResult.Success
+        }).start(backgroundScope)
+        runCurrent()
+        assertEquals(50, replayed)
+        assertEquals("Payload rows materialized during drain", 50, materialized)
+    }
+
     @Test fun allSixOperationsReplayInDurableIdOrderDespiteClockReversal() = runTest {
         val dao = NoOpPendingSyncDao()
         val seen = mutableListOf<Pair<String, Boolean>>()

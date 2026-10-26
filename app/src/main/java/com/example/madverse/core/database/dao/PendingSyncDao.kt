@@ -12,6 +12,10 @@ interface PendingSyncDao {
     @Query("SELECT * FROM pending_sync_actions WHERE user_id = :userId ORDER BY id ASC")
     suspend fun getPendingActionsForUser(userId: String): List<PendingSyncEntity>
 
+    /** Read only the next immutable payload; acknowledgement still targets its exact ID. */
+    @Query("SELECT * FROM pending_sync_actions WHERE user_id = :userId ORDER BY id ASC LIMIT 1")
+    suspend fun getNextPendingActionForUser(userId: String): PendingSyncEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAction(action: PendingSyncEntity): Long
 
@@ -32,6 +36,9 @@ class NoOpPendingSyncDao : PendingSyncDao {
     override suspend fun getPendingActionsForUser(userId: String): List<PendingSyncEntity> {
         return actions.filter { it.userId == userId }.sortedBy { it.id }
     }
+
+    override suspend fun getNextPendingActionForUser(userId: String): PendingSyncEntity? =
+        actions.asSequence().filter { it.userId == userId }.minByOrNull { it.id }
 
     override suspend fun insertAction(action: PendingSyncEntity): Long {
         val id = if (action.id == 0L) nextId++ else action.id
