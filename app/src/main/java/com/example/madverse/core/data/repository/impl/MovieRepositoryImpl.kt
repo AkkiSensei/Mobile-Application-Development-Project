@@ -25,7 +25,8 @@ import javax.inject.Singleton
  * DTOs are mapped to domain models before emission so callers never
  * depend on network layer types.
  *
- * No local caching is applied at this layer intentionally:
+ * Public genre metadata is cached for this process; other requests follow HTTP freshness.
+ * Private library state is never cached here:
  * Library persistence (Favorites / Watchlist) lives in [FavoritesRepositoryImpl]
  * and [WatchlistRepositoryImpl] which operate on their own Room DAOs.
  */
@@ -156,7 +157,7 @@ class MovieRepositoryImpl @Inject constructor(
 
     @Volatile
     private var cachedGenres: List<Genre>? = null
-    private val genresMutex = kotlinx.coroutines.sync.Mutex()
+    private val genresMutex = Mutex()
 
     override fun getGenres(): Flow<Resource<List<Genre>>> = flow {
         val cached = cachedGenres
@@ -165,16 +166,15 @@ class MovieRepositoryImpl @Inject constructor(
             return@flow
         }
         emit(Resource.Loading)
-        val result = safeApiCall {
-            tmdbApi.getMovieGenres()
-                .genres
-                .orEmpty()
-                .map { it.toDomain() }
-        }
-        if (result is Resource.Success && result.data.isNotEmpty()) {
-            genresMutex.withLock {
-                cachedGenres = result.data
-            }
+        // Recheck after acquiring the lock: a concurrent collector may have populated it.
+        // The owning coroutine performs the request; cancellation releases the lock for waiters.
+        val result = genresMutex.withLock {
+            cachedGenres?.takeIf { it.isNotEmpty() }?.let { Resource.Success(it) }
+                ?: safeApiCall {
+                    tmdbApi.getMovieGenres().genres.orEmpty().map { it.toDomain() }
+                }.also { result ->
+                    if (result is Resource.Success && result.data.isNotEmpty()) cachedGenres = result.data
+                }
         }
         emit(result)
     }

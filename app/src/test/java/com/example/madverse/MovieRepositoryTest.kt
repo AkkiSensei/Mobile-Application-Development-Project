@@ -4,9 +4,12 @@ import com.example.madverse.core.common.result.Resource
 import com.example.madverse.core.data.repository.impl.MovieRepositoryImpl
 import com.example.madverse.core.network.api.TmdbApi
 import com.example.madverse.core.network.model.*
+import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.ResponseBody.Companion.toResponseBody
@@ -181,6 +184,67 @@ class MovieRepositoryTest {
         assertEquals(1, (secondEmissions[0] as Resource.Success).data.size)
         assertEquals("Action", (secondEmissions[0] as Resource.Success).data[0].name)
         assertEquals(1, apiCalls) // API was not called again
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun concurrentColdGenreCollectorsShareOneApiRequest() = runTest {
+        var calls = 0
+        val release = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val api = object : FakeBaseTmdbApi() {
+            override suspend fun getMovieGenres(): GenresResponseDto {
+                calls++
+                release.await()
+                return GenresResponseDto(listOf(GenreDto(28, "Action")))
+            }
+        }
+        val repository = createRepository(api)
+        val first = async { repository.getGenres().toList() }
+        val second = async { repository.getGenres().toList() }
+        runCurrent()
+        release.complete(Unit)
+        first.await(); second.await()
+        assertEquals("Concurrent cold requests must coalesce", 1, calls)
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun cancelledGenreRequestReleasesWaiterWithoutCachingFailure() = runTest {
+        var calls = 0
+        var cancelled = false
+        val api = object : FakeBaseTmdbApi() {
+            override suspend fun getMovieGenres(): GenresResponseDto {
+                calls++
+                if (calls == 1) {
+                    try { kotlinx.coroutines.awaitCancellation() }
+                    finally { cancelled = true }
+                }
+                return GenresResponseDto(listOf(GenreDto(28, "Action")))
+            }
+        }
+        val repository = createRepository(api)
+        val first = launch { repository.getGenres().toList() }
+        runCurrent()
+        val second = async { repository.getGenres().toList() }
+        runCurrent()
+        first.cancel(); first.join()
+        assertTrue(second.await().last() is Resource.Success)
+        assertTrue(cancelled)
+        repository.getGenres().toList()
+        assertEquals(2, calls)
+    }
+
+    @Test fun emptyAndFailedGenreResponsesAreNotCached() = runTest {
+        var calls = 0
+        val api = object : FakeBaseTmdbApi() {
+            override suspend fun getMovieGenres(): GenresResponseDto {
+                calls++
+                if (calls == 1) throw IOException("Temporary failure")
+                return GenresResponseDto(if (calls == 2) emptyList() else listOf(GenreDto(28, "Action")))
+            }
+        }
+        val repository = createRepository(api)
+        assertTrue(repository.getGenres().toList().last() is Resource.Error)
+        repeat(3) { repository.getGenres().toList() }
+        assertEquals(3, calls)
     }
 
     private open class FakeBaseTmdbApi : TmdbApi {
