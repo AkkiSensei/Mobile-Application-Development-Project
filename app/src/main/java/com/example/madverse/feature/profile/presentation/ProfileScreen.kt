@@ -68,6 +68,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -126,7 +128,7 @@ fun ProfileScreen(
             },
             text = {
                 Text(
-                    text = "Are you sure you want to sign out? Your cloud data will remain safely synchronized on Firebase, and you will return to guest mode.",
+                    text = "Are you sure you want to sign out? You will return to guest mode. Changes waiting to sync stay on this device and can resume when you sign in to the same account.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = ContentMediumEmphasis
                 )
@@ -134,6 +136,7 @@ fun ProfileScreen(
             confirmButton = {
                 Button(
                     onClick = { viewModel.signOut(onSignedOut) },
+                    enabled = !uiState.isLoading,
                     modifier = Modifier
                         .defaultMinSize(minHeight = 48.dp)
                         .semantics {
@@ -176,7 +179,7 @@ fun ProfileScreen(
             },
             text = {
                 Text(
-                    text = "This permanently removes this account’s cloud favorites, watchlist and quiz preferences, then its sign-in identity. If interrupted, deletion may be incomplete; local account data is kept for recovery. Shared device viewing history and data on other devices are not covered.",
+                    text = "This permanently removes this account's cloud favorites, watchlist and quiz preferences, then its sign-in identity. If interrupted, deletion may be incomplete; local account data is kept for recovery. Shared device viewing history and data on other devices are not covered.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = ContentMediumEmphasis
                 )
@@ -184,6 +187,7 @@ fun ProfileScreen(
             confirmButton = {
                 Button(
                     onClick = { viewModel.deleteAccount(onSignedOut) },
+                    enabled = !uiState.isLoading,
                     modifier = Modifier
                         .defaultMinSize(minHeight = 48.dp)
                         .semantics {
@@ -192,7 +196,7 @@ fun ProfileScreen(
                         },
                     colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
                 ) {
-                    Text("Delete Everything", color = Color.White)
+                    Text("Delete Account", color = Color.White)
                 }
             },
             dismissButton = {
@@ -219,6 +223,20 @@ fun ProfileScreen(
             .padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        if (uiState.isLoading) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                Text(
+                    text = if (uiState.isDeletingAccount) "Account deletion in progress..." else "Updating account...",
+                    color = ContentHighEmphasis,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
+                )
+            }
+        }
         // Top Banner Messages
         AnimatedVisibility(
             visible = uiState.errorMessage != null,
@@ -246,7 +264,7 @@ fun ProfileScreen(
                         IconButton(
                             onClick = { viewModel.dismissError() },
                             modifier = Modifier
-                                .defaultMinSize(minWidth = 44.dp, minHeight = 44.dp)
+                                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                                 .semantics {
                                     role = Role.Button
                                     contentDescription = "Dismiss error"
@@ -259,20 +277,21 @@ fun ProfileScreen(
                     if (uiState.errorMessage?.contains("recent authentication", ignoreCase = true) == true) {
                         Spacer(modifier = Modifier.height(8.dp))
                         OutlinedButton(
-                            onClick = onNavigateToAuth,
+                            onClick = { viewModel.signOut(onNavigateToAuth) },
+                            enabled = !uiState.isLoading,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .defaultMinSize(minHeight = 44.dp)
+                                .defaultMinSize(minHeight = 48.dp)
                                 .semantics {
                                     role = Role.Button
-                                    contentDescription = "Sign in to verify identity and retry deletion"
+                                    contentDescription = "Sign out and sign in again to retry deletion"
                                 },
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = ErrorRed),
                             border = androidx.compose.foundation.BorderStroke(1.dp, ErrorRed)
                         ) {
                             Icon(Icons.AutoMirrored.Filled.Login, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Sign In to Verify Identity", fontWeight = FontWeight.Bold)
+                            Text("Sign Out and Sign In Again", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -304,7 +323,7 @@ fun ProfileScreen(
                     IconButton(
                         onClick = { viewModel.dismissInfo() },
                         modifier = Modifier
-                            .defaultMinSize(minWidth = 44.dp, minHeight = 44.dp)
+                            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                             .semantics {
                                 role = Role.Button
                                 contentDescription = "Dismiss message"
@@ -369,6 +388,7 @@ fun ProfileScreen(
             Spacer(modifier = Modifier.height(12.dp))
             Button(
                 onClick = onNavigateToAuth,
+                enabled = !uiState.isLoading,
                 modifier = Modifier
                     .defaultMinSize(minHeight = 48.dp)
                     .semantics {
@@ -391,6 +411,7 @@ fun ProfileScreen(
                     OutlinedTextField(
                         value = uiState.editedName,
                         onValueChange = viewModel::onEditedNameChanged,
+                        enabled = !uiState.isLoading,
                         singleLine = true,
                         label = { Text("Display Name") },
                         modifier = Modifier.weight(1f),
@@ -401,10 +422,10 @@ fun ProfileScreen(
                             unfocusedTextColor = ContentHighEmphasis
                         )
                     )
-                    IconButton(onClick = viewModel::saveDisplayName) {
+                    IconButton(onClick = viewModel::saveDisplayName, enabled = !uiState.isLoading) {
                         Icon(Icons.Default.Check, contentDescription = "Save", tint = SuccessGreen)
                     }
-                    IconButton(onClick = viewModel::cancelEditingName) {
+                    IconButton(onClick = viewModel::cancelEditingName, enabled = !uiState.isLoading) {
                         Icon(Icons.Default.Close, contentDescription = "Cancel", tint = ContentLowEmphasis)
                     }
                 }
@@ -418,7 +439,8 @@ fun ProfileScreen(
                     )
                     IconButton(
                         onClick = viewModel::startEditingName,
-                        modifier = Modifier.size(28.dp)
+                        enabled = !uiState.isLoading,
+                        modifier = Modifier.size(48.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Edit,
@@ -468,7 +490,7 @@ fun ProfileScreen(
                     Surface(
                         color = CinematicAmber.copy(alpha = 0.15f),
                         shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.clickable { viewModel.sendEmailVerification() }
+                        modifier = Modifier.defaultMinSize(minHeight = 48.dp).clickable(enabled = !uiState.isLoading, role = Role.Button) { viewModel.sendEmailVerification() }
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -667,7 +689,7 @@ fun ProfileScreen(
                                     color = ContentMediumEmphasis
                                 )
                             }
-                            IconButton(onClick = viewModel::triggerManualSync) {
+                            IconButton(onClick = viewModel::triggerManualSync, enabled = !uiState.isLoading) {
                                 Icon(Icons.Default.Refresh, contentDescription = "Retry Sync", tint = CinematicAmber)
                             }
                         }
@@ -692,7 +714,7 @@ fun ProfileScreen(
                                     color = ContentMediumEmphasis
                                 )
                             }
-                            IconButton(onClick = viewModel::triggerManualSync) {
+                            IconButton(onClick = viewModel::triggerManualSync, enabled = !uiState.isLoading) {
                                 Icon(Icons.Default.Refresh, contentDescription = "Retry Sync", tint = ContentHighEmphasis)
                             }
                         }
@@ -811,6 +833,7 @@ fun ProfileScreen(
         if (!uiState.isGuest) {
             OutlinedButton(
                 onClick = { viewModel.showSignOutDialog(true) },
+                enabled = !uiState.isLoading,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp)
@@ -831,6 +854,7 @@ fun ProfileScreen(
 
             TextButton(
                 onClick = { viewModel.showDeleteAccountDialog(true) },
+                enabled = !uiState.isLoading,
                 modifier = Modifier
                     .fillMaxWidth()
                     .defaultMinSize(minHeight = 48.dp)

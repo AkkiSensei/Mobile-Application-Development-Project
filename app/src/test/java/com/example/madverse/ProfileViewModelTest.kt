@@ -235,8 +235,49 @@ class ProfileViewModelTest {
         advanceUntilIdle()
 
         assertFalse(deletedCallbackCalled)
+        assertFalse(viewModel.uiState.value.isDeletingAccount)
+        assertFalse(viewModel.uiState.value.isLoading)
         assertNotNull(viewModel.uiState.value.errorMessage)
         assertTrue(viewModel.uiState.value.errorMessage!!.contains("recent authentication", ignoreCase = true))
+    }
+
+    @Test
+    fun deletion_keepsControlsBusyAcrossAuthUpdatesAndBlocksSignOutAndDuplicateDelete() = runTest {
+        val purge = kotlinx.coroutines.CompletableDeferred<Unit>()
+        var purgeCalls = 0
+        val delayedSync = object : com.example.madverse.core.data.repository.CloudSyncService by cloudSyncService {
+            override suspend fun purgeRemoteUserData(userId: String): Result<Unit> {
+                purgeCalls++
+                purge.await()
+                return Result.success(Unit)
+            }
+        }
+        val vm = ProfileViewModel(authRepository, testSessionManager, testFavoritesRepo,
+            testWatchlistRepo, testQuizRepo, delayedSync)
+        authRepository.setAuthenticated(AuthUser("uid_1", "user@test.com", "User", null, true))
+        advanceUntilIdle()
+        var completions = 0
+        vm.deleteAccount { completions++ }
+        assertTrue(vm.uiState.value.isDeletingAccount)
+        advanceUntilIdle()
+        authRepository.setAuthenticated(AuthUser("uid_1", "user@test.com", "Updated", null, true))
+        advanceUntilIdle()
+        assertTrue(vm.uiState.value.isLoading)
+        assertNull(vm.uiState.value.errorMessage)
+        vm.signOut { error("Sign out must not race deletion") }
+        vm.deleteAccount { completions++ }
+        vm.showSignOutDialog(true)
+        vm.startEditingName()
+        advanceUntilIdle()
+        assertEquals("uid_1", authRepository.currentUserId)
+        assertFalse(vm.uiState.value.showSignOutDialog)
+        assertFalse(vm.uiState.value.isEditingName)
+        assertEquals(1, purgeCalls)
+        purge.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(1, completions)
+        assertFalse(vm.uiState.value.isDeletingAccount)
+        assertFalse(vm.uiState.value.isLoading)
     }
 
     private class FakeFavoritesRepository : FavoritesRepository {

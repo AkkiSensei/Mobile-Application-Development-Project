@@ -43,6 +43,7 @@ data class ProfileUiState(
     val isEditingName: Boolean = false,
     val editedName: String = "",
     val isLoading: Boolean = false,
+    val isDeletingAccount: Boolean = false,
     val errorMessage: String? = null,
     val infoMessage: String? = null,
     val showSignOutDialog: Boolean = false,
@@ -84,7 +85,7 @@ class ProfileViewModel @Inject constructor(
                     }
                     accountDeletionJournal.pendingEntries()
                 }
-                if (pending.isNotEmpty()) {
+                if (pending.isNotEmpty() && !_uiState.value.isDeletingAccount) {
                     _uiState.update { it.copy(errorMessage = "Account deletion is unfinished. Local account data is preserved and sync is paused for that account. Sign in to the same account and retry deletion; if sign-in is unavailable, request administrator verification. Signing out does not prove deletion.") }
                 }
                 when (authState) {
@@ -94,7 +95,7 @@ class ProfileViewModel @Inject constructor(
                                 authUser = authState.user,
                                 isGuest = false,
                                 editedName = authState.user.displayName ?: "",
-                                isLoading = false
+                                isLoading = it.isDeletingAccount
                             )
                         }
                     }
@@ -104,7 +105,7 @@ class ProfileViewModel @Inject constructor(
                                 authUser = null,
                                 isGuest = true,
                                 editedName = "",
-                                isLoading = false
+                                isLoading = it.isDeletingAccount
                             )
                         }
                     }
@@ -147,6 +148,7 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun startEditingName() {
+        if (_uiState.value.isDeletingAccount) return
         _uiState.update {
             it.copy(
                 isEditingName = true,
@@ -164,6 +166,7 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun saveDisplayName() {
+        if (_uiState.value.isDeletingAccount) return
         val newName = _uiState.value.editedName.trim()
         if (newName.isBlank()) {
             _uiState.update { it.copy(errorMessage = "Name cannot be empty.") }
@@ -193,6 +196,7 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun sendEmailVerification() {
+        if (_uiState.value.isDeletingAccount) return
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             val result = authRepository.sendEmailVerification()
@@ -215,12 +219,14 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun refreshUser() {
+        if (_uiState.value.isDeletingAccount) return
         viewModelScope.launch {
             authRepository.reloadUser()
         }
     }
 
     fun triggerManualSync() {
+        if (_uiState.value.isDeletingAccount) return
         val uid = authRepository.currentUserId
         if (uid != "guest") {
             viewModelScope.launch {
@@ -231,10 +237,12 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun showSignOutDialog(show: Boolean) {
+        if (show && _uiState.value.isDeletingAccount) return
         _uiState.update { it.copy(showSignOutDialog = show) }
     }
 
     fun showDeleteAccountDialog(show: Boolean) {
+        if (show && _uiState.value.isDeletingAccount) return
         _uiState.update { it.copy(showDeleteAccountDialog = show) }
     }
 
@@ -247,6 +255,7 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun signOut(onSignedOut: () -> Unit) {
+        if (_uiState.value.isDeletingAccount) return
         viewModelScope.launch {
             _uiState.update { it.copy(showSignOutDialog = false, isLoading = true) }
             authRepository.signOut()
@@ -256,9 +265,9 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun deleteAccount(onDeleted: () -> Unit) {
-        if (deletionJob?.isActive == true) return
+        if (deletionJob?.isActive == true || _uiState.value.isLoading) return
+        _uiState.update { it.copy(showDeleteAccountDialog = false, showSignOutDialog = false, isLoading = true, isDeletingAccount = true, errorMessage = null, infoMessage = null) }
         deletionJob = viewModelScope.launch {
-            _uiState.update { it.copy(showDeleteAccountDialog = false, isLoading = true, errorMessage = null) }
             try {
                 val result = withContext(ioDispatcher) {
                     val uid = authRepository.currentUserId
@@ -276,7 +285,7 @@ class ProfileViewModel @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } finally {
-                _uiState.update { it.copy(isLoading = false) }
+                _uiState.update { it.copy(isLoading = false, isDeletingAccount = false) }
             }
         }
     }
