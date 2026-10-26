@@ -577,6 +577,31 @@ class MovieDetailsViewModelTest {
         assertTrue("No movie should be recorded if details load fails", recordedMovies.isEmpty())
     }
 
+    @Test fun sectionRetriesRecoverWithoutReloadingDetailsOrChangingLibrarySelection() = runTest(testDispatcher) {
+        fakeMovieRepository.detailsResult = Resource.Success(createMovieDetails())
+        fakeMovieRepository.castResult = Resource.Error("Cast unavailable")
+        fakeMovieRepository.videosResult = Resource.Error("Videos unavailable")
+        val vm = MovieDetailsViewModel(fakeMovieRepository, fakeFavoritesRepository, fakeWatchlistRepository,
+            SavedStateHandle(mapOf(Screen.ARG_MOVIE_ID to 550)))
+        advanceUntilIdle()
+        vm.toggleFavorite(); advanceUntilIdle()
+        val detailsBefore = vm.uiState.value.detailsState
+        assertTrue(vm.uiState.value.castState is UiState.Error)
+        assertTrue(vm.uiState.value.videosState is UiState.Error)
+        val calls = fakeMovieRepository.detailsCallCount
+        fakeMovieRepository.castResult = Resource.Success(listOf(CastMember(1, "Actor", "Character", null, 0)))
+        fakeMovieRepository.videosResult = Resource.Success(emptyList())
+        vm.retryCast(); vm.retryVideos()
+        assertTrue(vm.uiState.value.castState is UiState.Loading)
+        assertTrue(vm.uiState.value.videosState is UiState.Loading)
+        assertEquals(detailsBefore, vm.uiState.value.detailsState)
+        advanceUntilIdle()
+        assertTrue(vm.uiState.value.castState is UiState.Success)
+        assertTrue(vm.uiState.value.videosState is UiState.Empty)
+        assertTrue(vm.uiState.value.isFavorite)
+        assertEquals(calls, fakeMovieRepository.detailsCallCount)
+    }
+
     private class FakeMovieRepository : MovieRepository {
         var providerDelays: Map<String, Long> = emptyMap()
         var movieDelays: Map<Int, Long> = emptyMap()

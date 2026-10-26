@@ -226,10 +226,20 @@ class MovieDetailsViewModel @Inject constructor(
         }
     }
 
+    fun retryCast() {
+        if (currentMovieId > 0) fetchCast(currentMovieId)
+    }
+
+    fun retryVideos() {
+        if (currentMovieId > 0) fetchVideos(currentMovieId)
+    }
+
     private fun fetchCast(movieId: Int) {
         castJob?.cancel()
+        _uiState.update { it.copy(castState = UiState.Loading) }
         castJob = viewModelScope.launch {
-            movieRepository.getMovieCredits(movieId).collect { resource ->
+            flow { emitAll(movieRepository.getMovieCredits(movieId)) }
+                .catch { emit(Resource.Error("Unable to load cast. Please retry.")) }.collect { resource ->
                 if (currentMovieId != movieId) return@collect
                 _uiState.update { current ->
                     current.copy(
@@ -252,8 +262,10 @@ class MovieDetailsViewModel @Inject constructor(
 
     private fun fetchVideos(movieId: Int) {
         videosJob?.cancel()
+        _uiState.update { it.copy(videosState = UiState.Loading) }
         videosJob = viewModelScope.launch {
-            movieRepository.getMovieVideos(movieId).collect { resource ->
+            flow { emitAll(movieRepository.getMovieVideos(movieId)) }
+                .catch { emit(Resource.Error("Unable to load trailers. Please retry.")) }.collect { resource ->
                 if (currentMovieId != movieId) return@collect
                 _uiState.update { current ->
                     current.copy(

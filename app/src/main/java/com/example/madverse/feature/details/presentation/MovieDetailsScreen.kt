@@ -183,6 +183,8 @@ fun MovieDetailsScreen(
                     onToggleWatchlist = { viewModel.toggleWatchlist() },
                     onSelectRegion = { showRegionSelector = true },
                     onRetryProviders = { viewModel.fetchWatchProviders(movieId) },
+                    onRetryCast = viewModel::retryCast,
+                    onRetryVideos = viewModel::retryVideos,
                     onOpenVideo = { video ->
                         if (!video.isPlayableInApp) {
                             android.widget.Toast.makeText(context, "This video source is not eligible for in-app playback.", android.widget.Toast.LENGTH_LONG).show()
@@ -223,6 +225,8 @@ private fun MovieDetailsContent(
     onToggleFavorite: () -> Unit,
     onToggleWatchlist: () -> Unit,
     onRetryProviders: () -> Unit,
+    onRetryCast: () -> Unit,
+    onRetryVideos: () -> Unit,
     onSelectRegion: (() -> Unit)? = null,
     onOpenVideo: (VideoTrailer) -> Unit = {},
     modifier: Modifier = Modifier
@@ -525,7 +529,7 @@ private fun MovieDetailsContent(
         // 6. Cast & Crew Credits
         // -----------------------------------------------------------------
         item(key = "details_cast") {
-            CastSection(castState = uiState.castState)
+            CastSection(castState = uiState.castState, onRetry = onRetryCast)
         }
 
         // -----------------------------------------------------------------
@@ -534,6 +538,7 @@ private fun MovieDetailsContent(
         item(key = "details_videos") {
             VideosSection(
                 videosState = uiState.videosState,
+                onRetry = onRetryVideos,
                 onOpenVideo = onOpenVideo
             )
         }
@@ -596,7 +601,7 @@ private fun MetaBadge(text: String) {
 }
 
 @Composable
-private fun CastSection(castState: UiState<List<CastMember>>) {
+private fun CastSection(castState: UiState<List<CastMember>>, onRetry: () -> Unit) {
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
         Text(
             text = "Top Cast",
@@ -633,9 +638,9 @@ private fun CastSection(castState: UiState<List<CastMember>>) {
                 )
             }
             is UiState.Error -> {
-                Text(
-                    text = castState.message,
-                    style = MaterialTheme.typography.bodySmall.copy(color = ContentLowEmphasis),
+                SectionErrorCard(
+                    errorMessage = castState.message,
+                    onRetry = onRetry,
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
             }
@@ -706,6 +711,7 @@ private fun CastItemCard(actor: CastMember) {
 @Composable
 private fun VideosSection(
     videosState: UiState<List<VideoTrailer>>,
+    onRetry: () -> Unit,
     onOpenVideo: (VideoTrailer) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
@@ -757,9 +763,9 @@ private fun VideosSection(
                 )
             }
             is UiState.Error -> {
-                Text(
-                    text = videosState.message,
-                    style = MaterialTheme.typography.bodySmall.copy(color = ContentLowEmphasis),
+                SectionErrorCard(
+                    errorMessage = videosState.message,
+                    onRetry = onRetry,
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
             }
