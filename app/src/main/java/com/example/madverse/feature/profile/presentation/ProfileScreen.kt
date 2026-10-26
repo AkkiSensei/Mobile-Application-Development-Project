@@ -433,6 +433,7 @@ fun ProfileScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = uiState.authUser?.displayName?.ifBlank { "Movie Buff" } ?: "Movie Buff",
+                        modifier = Modifier.weight(1f, fill = false),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = ContentHighEmphasis

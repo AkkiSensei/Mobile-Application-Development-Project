@@ -46,6 +46,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -199,6 +200,7 @@ private fun SearchBarInput(
         modifier = modifier
             .fillMaxWidth()
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
+        label = { Text("Movie title") },
         placeholder = {
             Text(
                 text = "Search movies by title, e.g. Inception...",
@@ -211,7 +213,7 @@ private fun SearchBarInput(
         leadingIcon = {
             Icon(
                 imageVector = Icons.Filled.Search,
-                contentDescription = "Search",
+                contentDescription = null,
                 tint = if (query.isNotBlank()) CinematicCrimson else ContentMediumEmphasis,
                 modifier = Modifier.size(22.dp)
             )
@@ -413,6 +415,9 @@ private fun SearchResultsContent(
             ) {
                 Text(
                     text = "Results for \"$activeQuery\"",
+                    modifier = Modifier.weight(1f).padding(end = 8.dp),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.labelLarge.copy(
                         color = ContentMediumEmphasis,
                         fontWeight = FontWeight.Medium,

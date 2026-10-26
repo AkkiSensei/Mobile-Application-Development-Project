@@ -451,6 +451,8 @@ private fun SummaryRow(
         )
         Text(
             text = value,
+            modifier = Modifier.weight(1f).padding(start = 12.dp),
+            textAlign = TextAlign.End,
             style = MaterialTheme.typography.bodySmall.copy(
                 fontWeight = FontWeight.Bold,
                 color = CinematicAmber

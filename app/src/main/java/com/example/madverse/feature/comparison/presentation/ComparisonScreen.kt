@@ -189,7 +189,7 @@ fun ComparisonScreen(
                                                 onClick = { viewModel.replace(entry.id) },
                                                 modifier = Modifier
                                                     .weight(1f)
-                                                    .defaultMinSize(minHeight = 44.dp)
+                                                    .defaultMinSize(minHeight = 48.dp)
                                                     .semantics {
                                                         role = Role.Button
                                                         contentDescription = "Replace movie ${index + 1} (${movie?.title ?: "selected"})"
@@ -216,7 +216,7 @@ fun ComparisonScreen(
                                             OutlinedButton(
                                                 onClick = { viewModel.remove(entry.id) },
                                                 modifier = Modifier
-                                                    .defaultMinSize(minWidth = 44.dp, minHeight = 44.dp)
+                                                    .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                                                     .semantics {
                                                         role = Role.Button
                                                         contentDescription = "Remove movie ${index + 1} (${movie?.title ?: "selected"}) from comparison"
