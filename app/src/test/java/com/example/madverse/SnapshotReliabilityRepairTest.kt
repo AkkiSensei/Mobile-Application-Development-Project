@@ -24,6 +24,36 @@ class SnapshotReliabilityRepairTest {
         pending.insertAction(PendingSyncEntity(userId = "A", actionType = operation, entityType = type, itemId = id.toString()))
     }
 
+    @Test fun identicalSnapshotsPerformNoEntityWritesButKeepTransactionalReads() = runTest {
+        val fav = favorite(1)
+        val watch = watch(1)
+        val pref = UserPreferenceEntity.fromDomain(UserPreferenceProfile(), "A")
+        favorites.insertFavorite(fav); watchlist.insertMovie(watch); preferences.saveUserPreferenceProfile(pref)
+        var writes = 0
+        var transactions = 0
+        val countedFavorites = object : com.example.madverse.core.database.dao.FavoriteDao by favorites {
+            override suspend fun insertFavorite(movie: FavoriteEntity) { writes++; favorites.insertFavorite(movie) }
+            override suspend fun deleteFavoriteById(movieId: Int, userId: String) { writes++; favorites.deleteFavoriteById(movieId, userId) }
+        }
+        val countedWatchlist = object : com.example.madverse.core.database.dao.WatchlistDao by watchlist {
+            override suspend fun insertMovie(movie: WatchlistEntity) { writes++; watchlist.insertMovie(movie) }
+            override suspend fun deleteMovieById(movieId: Int, userId: String) { writes++; watchlist.deleteMovieById(movieId, userId) }
+        }
+        val countedPreferences = object : com.example.madverse.core.database.dao.UserPreferenceDao by preferences {
+            override suspend fun saveUserPreferenceProfile(profile: UserPreferenceEntity) { writes++; preferences.saveUserPreferenceProfile(profile) }
+            override suspend fun clearUserPreferenceProfile(userId: String) { writes++; preferences.clearUserPreferenceProfile(userId) }
+        }
+        val runner = object : DatabaseTransactionRunner {
+            override suspend fun <R> runInTransaction(block: suspend () -> R): R { transactions++; return block() }
+        }
+        val subject = SyncSnapshotReconciler(countedFavorites, countedWatchlist, countedPreferences, pending, runner)
+        subject.favorites("A", listOf(fav)) { true }
+        subject.watchlist("A", listOf(watch)) { true }
+        subject.preferences("A", pref) { true }
+        assertEquals(0, writes)
+        assertEquals(3, transactions)
+    }
+
     @Test fun emptySnapshotsKeepPendingAdditionsAndRemoveOnlyUnrelatedRows() = runTest {
         favorites.insertFavorite(favorite(1)); favorites.insertFavorite(favorite(2))
         favorites.insertFavorite(favorite(3).copy(userId = "B"))
