@@ -1,5 +1,10 @@
 package com.example.madverse.feature.quiz.presentation
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -97,6 +102,9 @@ fun MoviePreferenceQuizScreen(
     viewModel: QuizViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    BackHandler(enabled = uiState.canGoBack && !uiState.showCompletionConfirmation && !uiState.isSaving && !uiState.isLoading) {
+        viewModel.goToPreviousStep()
+    }
 
     Scaffold(
         modifier = modifier
@@ -112,9 +120,9 @@ fun MoviePreferenceQuizScreen(
         },
         bottomBar = {
             QuizActionBar(
-                canGoBack = uiState.canGoBack,
+                canGoBack = uiState.canGoBack && !uiState.isSaving && !uiState.isLoading,
                 isLastStep = uiState.isLastStep,
-                isNextEnabled = uiState.isCurrentStepValid && !uiState.isSaving,
+                isNextEnabled = uiState.isCurrentStepValid && !uiState.isSaving && !uiState.isLoading && uiState.errorMessage == null,
                 onBackClick = viewModel::goToPreviousStep,
                 onNextClick = viewModel::goToNextStep
             )
@@ -204,6 +212,7 @@ fun MoviePreferenceQuizScreen(
                 QuizCompletionConfirmationDialog(
                     answers = uiState.answers,
                     isSaving = uiState.isSaving,
+                    saveErrorMessage = uiState.saveErrorMessage,
                     onConfirm = { viewModel.submitQuiz(onComplete = onQuizCompleted) },
                     onDismiss = viewModel::dismissCompletionDialog
                 )
@@ -297,7 +306,8 @@ fun QuizCompletionConfirmationDialog(
     answers: QuizAnswers,
     isSaving: Boolean,
     onConfirm: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    saveErrorMessage: String? = null
 ) {
     AlertDialog(
         onDismissRequest = { if (!isSaving) onDismiss() },
@@ -331,7 +341,7 @@ fun QuizCompletionConfirmationDialog(
         },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
@@ -343,6 +353,13 @@ fun QuizCompletionConfirmationDialog(
                     textAlign = TextAlign.Center
                 )
 
+                if (saveErrorMessage != null) {
+                    Text(
+                        text = "Not saved: $saveErrorMessage. Your answers are kept here; retry saving or review them.",
+                        color = ErrorRed,
+                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
+                    )
+                }
                 Spacer(modifier = Modifier.height(4.dp))
 
                 // Profile Summary Card
@@ -395,7 +412,7 @@ fun QuizCompletionConfirmationDialog(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Save & Find Matches")
+                    Text(if (saveErrorMessage != null) "Retry Save" else "Save & Find Matches")
                 }
             }
         },

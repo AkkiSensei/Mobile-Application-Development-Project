@@ -72,7 +72,7 @@ class QuizViewModel @Inject constructor(
      */
     fun goToNextStep() {
         val currentState = _uiState.value
-        if (!currentState.isCurrentStepValid) return
+        if (!currentState.isCurrentStepValid || currentState.isLoading || currentState.isSaving) return
 
         if (currentState.isLastStep) {
             _uiState.update { it.copy(showCompletionConfirmation = true) }
@@ -87,7 +87,7 @@ class QuizViewModel @Inject constructor(
      */
     fun goToPreviousStep() {
         val currentState = _uiState.value
-        if (currentState.canGoBack) {
+        if (currentState.canGoBack && !currentState.isSaving && !currentState.isLoading) {
             val prevStep = QuestionStep.entries[currentState.currentStep.ordinal - 1]
             _uiState.update { it.copy(currentStep = prevStep) }
         }
@@ -97,6 +97,7 @@ class QuizViewModel @Inject constructor(
      * Navigates directly to a specific step.
      */
     fun goToStep(step: QuestionStep) {
+        if (_uiState.value.isSaving || _uiState.value.isLoading) return
         _uiState.update { it.copy(currentStep = step) }
     }
 
@@ -164,7 +165,8 @@ class QuizViewModel @Inject constructor(
      * Dismisses the completion confirmation dialog.
      */
     fun dismissCompletionDialog() {
-        _uiState.update { it.copy(showCompletionConfirmation = false) }
+        if (_uiState.value.isSaving) return
+        _uiState.update { it.copy(showCompletionConfirmation = false, saveErrorMessage = null) }
     }
 
     /**
@@ -173,7 +175,7 @@ class QuizViewModel @Inject constructor(
     fun submitQuiz(onComplete: () -> Unit = {}) {
         if (_uiState.value.isSaving || _uiState.value.isLoading) return
         val profile = _uiState.value.answers.toUserPreferenceProfile()
-        _uiState.update { it.copy(isSaving = true, errorMessage = null) }
+        _uiState.update { it.copy(isSaving = true, errorMessage = null, saveErrorMessage = null) }
         viewModelScope.launch {
             try {
                 quizRepository.saveUserPreferenceProfile(profile)
@@ -191,7 +193,8 @@ class QuizViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isSaving = false,
-                        errorMessage = e.localizedMessage ?: "Failed to save preferences."
+                        showCompletionConfirmation = true,
+                        saveErrorMessage = e.localizedMessage ?: "Failed to save preferences."
                     )
                 }
             } finally {
@@ -212,6 +215,8 @@ class QuizViewModel @Inject constructor(
                 isLoading = false,
                 answers = QuizAnswers(),
                 isComplete = false,
+                errorMessage = null,
+                saveErrorMessage = null,
                 showCompletionConfirmation = false
             )
         }

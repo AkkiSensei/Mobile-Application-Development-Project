@@ -138,6 +138,7 @@ data class QuizUiState(
     val isComplete: Boolean = false,
     val showCompletionConfirmation: Boolean = false,
     val errorMessage: String? = null,
+    val saveErrorMessage: String? = null,
     val initialProfileRestored: Boolean = false
 ) {
     val stepIndex: Int

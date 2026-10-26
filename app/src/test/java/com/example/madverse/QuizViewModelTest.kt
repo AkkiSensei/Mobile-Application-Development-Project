@@ -234,8 +234,10 @@ class QuizViewModelTest {
         assertFalse(completedCallbackTriggered)
         assertFalse(viewModel.uiState.value.isComplete)
         assertFalse(viewModel.uiState.value.isSaving)
-        assertNotNull(viewModel.uiState.value.errorMessage)
-        assertTrue(viewModel.uiState.value.errorMessage!!.contains("Disk write failure"))
+        assertNotNull(viewModel.uiState.value.saveErrorMessage)
+        assertTrue(viewModel.uiState.value.saveErrorMessage!!.contains("Disk write failure"))
+        assertNull(viewModel.uiState.value.errorMessage)
+        assertTrue(viewModel.uiState.value.showCompletionConfirmation)
     }
 
     @Test
@@ -285,6 +287,42 @@ class QuizViewModelTest {
         assertNull(vm.uiState.value.errorMessage)
         vm.resetQuiz()
         assertFalse(vm.uiState.value.isLoading)
+    }
+
+    @Test
+    fun retrySave_preservesEditedAnswersInsteadOfRestoringOldProfile() = runTest {
+        fakeQuizRepository.saveUserPreferenceProfile(UserPreferenceProfile(selectedGenreIds = setOf(18)))
+        val vm = QuizViewModel(fakeQuizRepository); advanceUntilIdle()
+        vm.toggleGenre(28)
+        vm.goToStep(QuestionStep.RATING)
+        vm.setMinRatingThreshold(8.5)
+        val edited = vm.uiState.value.answers
+        fakeQuizRepository.shouldThrowOnSave = true
+        vm.submitQuiz(); advanceUntilIdle()
+        assertEquals(edited, vm.uiState.value.answers)
+        assertEquals(QuestionStep.RATING, vm.uiState.value.currentStep)
+        assertTrue(vm.uiState.value.showCompletionConfirmation)
+        fakeQuizRepository.shouldThrowOnSave = false
+        var completed = false
+        vm.submitQuiz { completed = true }; advanceUntilIdle()
+        assertTrue(completed)
+        assertEquals(edited.selectedGenreIds, fakeQuizRepository.getUserPreferenceProfileOnce().selectedGenreIds)
+        assertEquals(8.5, fakeQuizRepository.getUserPreferenceProfileOnce().minRatingThreshold, 0.0)
+        assertNull(vm.uiState.value.saveErrorMessage)
+    }
+
+    @Test
+    fun reviewAfterSaveFailure_keepsAnswersAndClearsOnlySaveError() = runTest {
+        val vm = QuizViewModel(fakeQuizRepository); advanceUntilIdle()
+        vm.toggleGenre(28)
+        fakeQuizRepository.shouldThrowOnSave = true
+        vm.submitQuiz(); advanceUntilIdle()
+        vm.dismissCompletionDialog()
+        assertFalse(vm.uiState.value.showCompletionConfirmation)
+        assertEquals(setOf(28), vm.uiState.value.answers.selectedGenreIds)
+        assertNull(vm.uiState.value.saveErrorMessage)
+        vm.resetQuiz()
+        assertNull(vm.uiState.value.errorMessage)
     }
 
     @Test
