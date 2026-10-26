@@ -194,6 +194,7 @@ class MovieDetailsViewModel @Inject constructor(
     private fun fetchDetails(movieId: Int) {
         detailsJob?.cancel()
         detailsJob = viewModelScope.launch {
+            var lastRecordedMovie: com.example.madverse.core.model.Movie? = null
             flow { emitAll(movieRepository.getMovieDetails(movieId)) }
                 .catch { emit(Resource.Error("Unable to load movie details. Please retry.")) }.collect { resource ->
                 if (currentMovieId != movieId) return@collect
@@ -202,13 +203,6 @@ class MovieDetailsViewModel @Inject constructor(
                         detailsState = when (resource) {
                             is Resource.Loading -> UiState.Loading
                             is Resource.Success -> if (resource.data.id == movieId) {
-                                viewModelScope.launch {
-                                    try {
-                                        recentlyViewedRepository.recordMovieView(resource.data.toMovie())
-                                    } catch (_: Exception) {
-                                        // Local history update should never fail movie details presentation
-                                    }
-                                }
                                 UiState.Success(resource.data)
                             } else {
                                 UiState.Error("Details did not match this movie. Please retry.")
@@ -221,6 +215,21 @@ class MovieDetailsViewModel @Inject constructor(
                             }
                         }
                     )
+                }
+                // StateFlow.update may retry its transform. Keep database side effects outside it,
+                // and owned by this request so a movie switch cancels the real Room operation.
+                if (resource is Resource.Success && resource.data.id == movieId) {
+                    val movie = resource.data.toMovie()
+                    if (movie != lastRecordedMovie) {
+                        try {
+                            recentlyViewedRepository.recordMovieView(movie)
+                            lastRecordedMovie = movie
+                        } catch (error: CancellationException) {
+                            throw error
+                        } catch (_: Exception) {
+                            // A history failure must not replace successfully loaded movie details.
+                        }
+                    }
                 }
             }
         }

@@ -602,6 +602,48 @@ class MovieDetailsViewModelTest {
         assertEquals(calls, fakeMovieRepository.detailsCallCount)
     }
 
+    @Test fun repeatedDetailEmissionRecordsHistoryOnceButChangedMetadataAndRefreshStillRecord() = runTest(testDispatcher) {
+        val original = createMovieDetails()
+        val changed = original.copy(title = "Updated title")
+        fakeMovieRepository.customDetails = flowOf(Resource.Success(original), Resource.Success(original), Resource.Success(changed))
+        val recorded = mutableListOf<Movie>()
+        val history = object : com.example.madverse.core.data.repository.RecentlyViewedRepository {
+            override fun getRecentlyViewed(limit: Int) = flowOf(emptyList<Movie>())
+            override suspend fun getRecentlyViewedOnce(limit: Int) = emptyList<Movie>()
+            override suspend fun recordMovieView(movie: Movie) { recorded += movie }
+            override suspend fun clearHistory() {}
+        }
+        val vm = MovieDetailsViewModel(fakeMovieRepository, fakeFavoritesRepository, fakeWatchlistRepository,
+            history, SavedStateHandle(mapOf(Screen.ARG_MOVIE_ID to 550)))
+        advanceUntilIdle()
+        assertEquals(listOf("Fight Club", "Updated title"), recorded.map { it.title })
+        fakeMovieRepository.customDetails = flowOf(Resource.Success(changed))
+        vm.retry(); advanceUntilIdle()
+        assertEquals(3, recorded.size)
+    }
+
+    @Test fun changingMovieCancelsHistoryWriteOwnedByPreviousDetailsRequest() = runTest(testDispatcher) {
+        fakeMovieRepository.detailsResult = Resource.Success(createMovieDetails())
+        var cancelled = false
+        val history = object : com.example.madverse.core.data.repository.RecentlyViewedRepository {
+            override fun getRecentlyViewed(limit: Int) = flowOf(emptyList<Movie>())
+            override suspend fun getRecentlyViewedOnce(limit: Int) = emptyList<Movie>()
+            override suspend fun recordMovieView(movie: Movie) {
+                try { kotlinx.coroutines.awaitCancellation() } finally { cancelled = true }
+            }
+            override suspend fun clearHistory() {}
+        }
+        val vm = MovieDetailsViewModel(fakeMovieRepository, fakeFavoritesRepository, fakeWatchlistRepository,
+            history, SavedStateHandle(mapOf(Screen.ARG_MOVIE_ID to 550)))
+        runCurrent()
+        assertTrue(vm.uiState.value.detailsState is UiState.Success)
+        vm.loadMovieDetails(0); runCurrent()
+        val didCancelOnSwitch = cancelled
+        androidx.lifecycle.ViewModelStore().also { it.put("details", vm); it.clear() }
+        runCurrent()
+        assertTrue("Old history work must be cancelled by a movie switch", didCancelOnSwitch)
+    }
+
     private class FakeMovieRepository : MovieRepository {
         var providerDelays: Map<String, Long> = emptyMap()
         var movieDelays: Map<Int, Long> = emptyMap()
@@ -612,11 +654,13 @@ class MovieDetailsViewModelTest {
         var providersResult: Resource<MovieWatchProviders> = Resource.Success(
             MovieWatchProviders(0, null, emptyList(), emptyList(), emptyList())
         )
+        var customDetails: Flow<Resource<MovieDetails>>? = null
         var detailsCallCount = 0
         val requestedCountryCodes = mutableListOf<String>()
 
         override fun getMovieDetails(movieId: Int): Flow<Resource<MovieDetails>> {
             detailsCallCount++
+            customDetails?.let { return it }
             if (movieDelays.containsKey(movieId) || movieDetailsMap.containsKey(movieId)) {
                 return kotlinx.coroutines.flow.flow {
                     val delayMs = movieDelays[movieId] ?: 0L
