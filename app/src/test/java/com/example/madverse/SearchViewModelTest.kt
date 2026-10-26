@@ -19,6 +19,7 @@ import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -268,9 +269,100 @@ class SearchViewModelTest {
         assertEquals("Second", successState.data.first().title)
     }
 
+    @Test fun acceptingNewQueryImmediatelyReplacesOldResultsDuringDebounce() = runTest(testDispatcher) {
+        val vm = SearchViewModel(fakeMovieRepository)
+        vm.onSearchSubmitted("Old"); advanceUntilIdle()
+        assertTrue(vm.uiState.value.searchState is UiState.Success || vm.uiState.value.searchState is UiState.Empty)
+        vm.onQueryChanged("New")
+        assertEquals("New", vm.uiState.value.activeQuery)
+        assertTrue(vm.uiState.value.searchState is UiState.Loading)
+        assertEquals(1, fakeMovieRepository.searchCallCount)
+    }
+
+    @Test fun repeatedSubmitDuringActiveRequestDoesNotRestartNetworkWork() = runTest(testDispatcher) {
+        fakeMovieRepository.customSearch = { kotlinx.coroutines.flow.flow {
+            kotlinx.coroutines.delay(1000)
+            emit(Resource.Success(emptyList()))
+        } }
+        val vm = SearchViewModel(fakeMovieRepository)
+        vm.onSearchSubmitted("Dune"); runCurrent()
+        vm.onSearchSubmitted("Dune"); runCurrent()
+        vm.onQueryChanged(" Dune "); runCurrent()
+        advanceUntilIdle()
+        assertEquals(1, fakeMovieRepository.searchCallCount)
+        // Explicit completed-query submit remains a fresh fetch.
+        vm.onSearchSubmitted("Dune"); advanceUntilIdle()
+        assertEquals(2, fakeMovieRepository.searchCallCount)
+    }
+
+    @Test fun clearingAndViewModelRemovalCancelTheActualRepositoryCollection() = runTest(testDispatcher) {
+        var cancelled = 0
+        fakeMovieRepository.customSearch = { kotlinx.coroutines.flow.flow {
+            try { kotlinx.coroutines.awaitCancellation() }
+            finally { cancelled++ }
+        } }
+        val vm = SearchViewModel(fakeMovieRepository)
+        vm.onSearchSubmitted("First"); runCurrent()
+        vm.onClearQuery(); runCurrent()
+        assertEquals(1, cancelled)
+        assertTrue(vm.uiState.value.isIdle)
+        vm.onSearchSubmitted("Second"); runCurrent()
+        val store = androidx.lifecycle.ViewModelStore()
+        store.put("search", vm)
+        store.clear(); runCurrent()
+        assertEquals(2, cancelled)
+    }
+
+    @OptIn(kotlinx.coroutines.InternalCoroutinesApi::class)
+    @Test fun lateCancelledLoadingErrorAndSuccessCannotReplaceNewQueryOrClear() = runTest(testDispatcher) {
+        var lateEmissions = 0
+        fakeMovieRepository.customSearch = { query ->
+            if (query == "Old") object : Flow<Resource<List<Movie>>> {
+                override suspend fun collect(collector: kotlinx.coroutines.flow.FlowCollector<Resource<List<Movie>>>) {
+                    try { kotlinx.coroutines.awaitCancellation() }
+                    catch (_: kotlinx.coroutines.CancellationException) {
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                            kotlinx.coroutines.delay(100)
+                            collector.emit(Resource.Loading)
+                            collector.emit(Resource.Error("Old failure"))
+                            collector.emit(Resource.Success(listOf(createMovie(1, "Old"))))
+                            lateEmissions += 3
+                        }
+                    }
+                }
+            } else flowOf(Resource.Success(listOf(createMovie(2, "New"))))
+        }
+        val vm = SearchViewModel(fakeMovieRepository)
+        vm.onSearchSubmitted("Old"); runCurrent()
+        vm.onSearchSubmitted("New"); advanceUntilIdle()
+        assertEquals(3, lateEmissions)
+        assertEquals("New", vm.uiState.value.activeQuery)
+        assertEquals(2, (vm.uiState.value.searchState as UiState.Success).data.single().id)
+        vm.onSearchSubmitted("Old"); runCurrent()
+        vm.onClearQuery(); advanceUntilIdle()
+        assertEquals(6, lateEmissions)
+        assertTrue(vm.uiState.value.isIdle)
+        assertEquals("", vm.uiState.value.activeQuery)
+        assertTrue(vm.uiState.value.searchState is UiState.Empty)
+    }
+
+    @Test fun thrownSearchFailureCanRetryAndBlankSubmissionCancels() = runTest(testDispatcher) {
+        fakeMovieRepository.customSearch = { throw IOException("offline") }
+        val vm = SearchViewModel(fakeMovieRepository)
+        vm.onSearchSubmitted("Movie"); advanceUntilIdle()
+        assertTrue((vm.uiState.value.searchState as UiState.Error).isOffline)
+        fakeMovieRepository.customSearch = null
+        vm.retry(); advanceUntilIdle()
+        assertTrue(vm.uiState.value.searchState is UiState.Empty)
+        vm.onSearchSubmitted("   "); advanceUntilIdle()
+        assertTrue(vm.uiState.value.isIdle)
+        assertEquals(2, fakeMovieRepository.searchCallCount)
+    }
+
     private class FakeMovieRepository : MovieRepository {
         var searchResults: List<Movie> = emptyList()
         var searchError: Resource.Error? = null
+        var customSearch: ((String) -> Flow<Resource<List<Movie>>>)? = null
         var searchCallCount: Int = 0
         var lastSearchQuery: String? = null
 
@@ -281,6 +373,7 @@ class SearchViewModelTest {
         ): Flow<Resource<List<Movie>>> {
             searchCallCount++
             lastSearchQuery = query
+            customSearch?.let { return it(query) }
             return flowOf(
                 searchError ?: Resource.Success(searchResults)
             )

@@ -7,6 +7,7 @@ import com.example.madverse.core.common.ui.UiState
 import com.example.madverse.core.data.repository.MovieRepository
 import com.example.madverse.core.model.Movie
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,6 +39,7 @@ class SearchViewModel @Inject constructor(
 
     private var searchJob: Job? = null
     private var currentQuerySequence: Long = 0L
+    private var executingQuery: String? = null
 
     /**
      * Configurable debounce duration to support immediate execution in unit tests.
@@ -50,93 +52,66 @@ class SearchViewModel @Inject constructor(
      * and triggers a debounced search query.
      */
     fun onQueryChanged(newQuery: String) {
-        val sequence = ++currentQuerySequence
-        _uiState.update { it.copy(query = newQuery) }
-
-        val trimmed = newQuery.trim()
-        if (trimmed.isEmpty()) {
-            searchJob?.cancel()
-            searchJob = null
-            _uiState.update {
-                it.copy(
-                    searchState = UiState.Empty(SearchUiState.DEFAULT_EMPTY_PROMPT),
-                    activeQuery = ""
-                )
-            }
+        if (newQuery.trim() == _uiState.value.query.trim()) {
+            _uiState.update { it.copy(query = newQuery) }
             return
         }
-
-        // Cancel obsolete in-flight or pending search job
-        searchJob?.cancel()
-        searchJob = viewModelScope.launch {
-            if (debounceDurationMillis > 0) {
-                delay(debounceDurationMillis)
-            }
-            executeSearch(trimmed, sequence)
-        }
+        startSearch(newQuery, debounceDurationMillis)
     }
 
-    /**
-     * Instantly triggers search without waiting for debounce, e.g. when user presses
-     * Search/Enter on software keyboard or selects a quick suggestion chip.
-     */
+    /** IME submit skips debounce; repeated submits share an already-running request. */
     fun onSearchSubmitted(submittedQuery: String = _uiState.value.query) {
         val trimmed = submittedQuery.trim()
-        if (trimmed.isEmpty()) return
-
-        val sequence = ++currentQuerySequence
-        _uiState.update { it.copy(query = submittedQuery) }
-        searchJob?.cancel()
-        searchJob = viewModelScope.launch {
-            executeSearch(trimmed, sequence)
+        if (trimmed.isNotEmpty() && executingQuery == trimmed && searchJob?.isActive == true) {
+            _uiState.update { it.copy(query = submittedQuery) }
+            return
         }
+        startSearch(submittedQuery, 0)
     }
 
-    /**
-     * Clears the search input and cancels any pending or active search.
-     */
-    fun onClearQuery() {
-        ++currentQuerySequence
+    fun onClearQuery() = startSearch("", 0)
+
+    /** Explicit retry remains a fresh attempt; there is no result cache for search. */
+    fun retry() = onSearchSubmitted()
+
+    private fun startSearch(query: String, debounceMillis: Long) {
+        val sequence = ++currentQuerySequence
         searchJob?.cancel()
         searchJob = null
+        executingQuery = null
+        val trimmed = query.trim()
         _uiState.update {
-            it.copy(
-                query = "",
-                activeQuery = "",
-                searchState = UiState.Empty(SearchUiState.DEFAULT_EMPTY_PROMPT)
-            )
+            it.copy(query = query, activeQuery = trimmed,
+                searchState = if (trimmed.isEmpty()) UiState.Empty(SearchUiState.DEFAULT_EMPTY_PROMPT) else UiState.Loading)
         }
-    }
-
-    /**
-     * Retries search with the current query.
-     */
-    fun retry() {
-        val trimmed = _uiState.value.query.trim()
-        if (trimmed.isNotEmpty()) {
-            val sequence = ++currentQuerySequence
-            searchJob?.cancel()
-            searchJob = viewModelScope.launch {
+        if (trimmed.isEmpty()) return
+        searchJob = viewModelScope.launch {
+            if (debounceMillis > 0) delay(debounceMillis)
+            if (sequence != currentQuerySequence) return@launch
+            executingQuery = trimmed
+            try {
                 executeSearch(trimmed, sequence)
+            } finally {
+                if (sequence == currentQuerySequence) executingQuery = null
             }
         }
     }
 
     private suspend fun executeSearch(queryToSearch: String, sequence: Long) {
-        _uiState.update { it.copy(searchState = UiState.Loading) }
-
-        movieRepository.searchMovies(query = queryToSearch).collect { resource ->
-            // Guard against stale results: must match active sequence and current query
-            if (sequence != currentQuerySequence || _uiState.value.query.trim() != queryToSearch) {
-                return@collect
+        try {
+            movieRepository.searchMovies(query = queryToSearch).collect { resource ->
+                if (sequence != currentQuerySequence || _uiState.value.query.trim() != queryToSearch) return@collect
+                _uiState.update { it.copy(activeQuery = queryToSearch, searchState = resource.toUiState(queryToSearch)) }
             }
-
-            _uiState.update { current ->
-                current.copy(
-                    activeQuery = queryToSearch,
-                    searchState = resource.toUiState(queryToSearch)
-                )
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            if (sequence == currentQuerySequence) {
+                _uiState.update { it.copy(searchState = Resource.Error("Search failed. Please retry.", error).toUiState(queryToSearch)) }
             }
+        }
+        if (sequence == currentQuerySequence && _uiState.value.searchState is UiState.Loading) {
+            _uiState.update { it.copy(searchState = UiState.Error("Search returned no response. Please retry.")) }
         }
     }
 
