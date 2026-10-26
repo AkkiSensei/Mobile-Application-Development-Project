@@ -66,6 +66,7 @@ import com.example.madverse.core.model.Movie
 @Composable
 fun WatchlistScreen(
     onMovieClick: (Int) -> Unit,
+    onExploreMovies: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: WatchlistViewModel = hiltViewModel()
 ) {
@@ -80,6 +81,7 @@ fun WatchlistScreen(
         selectedSort = sortOption,
         onSortSelected = viewModel::setSortOption,
         onMovieClick = onMovieClick,
+        onExploreMovies = onExploreMovies,
         onRemoveMovie = viewModel::removeFromWatchlist,
         onRetry = viewModel::retry,
         modifier = modifier
@@ -97,6 +99,7 @@ fun WatchlistContent(
     onMovieClick: (Int) -> Unit,
     onRemoveMovie: (Int) -> Unit,
     onRetry: () -> Unit,
+    onExploreMovies: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -118,7 +121,7 @@ fun WatchlistContent(
             }
 
             is UiState.Empty -> {
-                WatchlistEmptyState()
+                WatchlistEmptyState(onExploreMovies = onExploreMovies)
             }
 
             is UiState.Error -> {
@@ -166,7 +169,7 @@ fun WatchlistContent(
                                     modifier = Modifier
                                         .align(Alignment.TopEnd)
                                         .padding(6.dp)
-                                        .size(44.dp)
+                                        .size(48.dp)
                                         .clip(CircleShape)
                                         .background(ObsidianSurface.copy(alpha = 0.9f))
                                         .border(1.dp, ObsidianCardBorder, CircleShape)
@@ -294,6 +297,7 @@ private fun WatchlistHeader(
 
 @Composable
 fun WatchlistEmptyState(
+    onExploreMovies: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     MADVerseEmptyState(
@@ -301,6 +305,8 @@ fun WatchlistEmptyState(
         title = "Your Watchlist is Empty",
         message = "Save movies you intend to watch later. Watchlist items are preserved locally on this device for instant offline access.",
         iconTint = CinematicAmber,
+        actionLabel = "Explore Movies",
+        onActionClick = onExploreMovies,
         modifier = modifier
     )
 }

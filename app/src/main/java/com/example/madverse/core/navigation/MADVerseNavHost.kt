@@ -90,6 +90,12 @@ fun MADVerseNavHost(
 
         composable(route = Screen.Library.route) {
             LibraryScreen(
+                onExploreMovies = {
+                    navController.navigate(Screen.Discover.route) {
+                        popUpTo(Screen.Discover.route) { inclusive = false }
+                        launchSingleTop = true
+                    }
+                },
                 onMovieClick = { movieId ->
                     navController.navigate(Screen.MovieDetails.createRoute(movieId))
                 }
@@ -98,6 +104,12 @@ fun MADVerseNavHost(
 
         composable(route = Screen.Favorites.route) {
             FavoritesScreen(
+                onExploreMovies = {
+                    navController.navigate(Screen.Discover.route) {
+                        popUpTo(Screen.Discover.route) { inclusive = false }
+                        launchSingleTop = true
+                    }
+                },
                 onMovieClick = { movieId ->
                     navController.navigate(Screen.MovieDetails.createRoute(movieId))
                 }
@@ -106,6 +118,12 @@ fun MADVerseNavHost(
 
         composable(route = Screen.Watchlist.route) {
             WatchlistScreen(
+                onExploreMovies = {
+                    navController.navigate(Screen.Discover.route) {
+                        popUpTo(Screen.Discover.route) { inclusive = false }
+                        launchSingleTop = true
+                    }
+                },
                 onMovieClick = { movieId ->
                     navController.navigate(Screen.MovieDetails.createRoute(movieId))
                 }
@@ -161,6 +179,7 @@ fun MADVerseNavHost(
                 onAuthSuccess = {
                     navController.navigate(Screen.Profile.route) {
                         popUpTo(Screen.Auth.route) { inclusive = true }
+                        launchSingleTop = true
                     }
                 },
                 onContinueAsGuest = {
@@ -172,16 +191,16 @@ fun MADVerseNavHost(
         composable(route = Screen.Profile.route) {
             ProfileScreen(
                 onNavigateToAuth = {
-                    navController.navigate(Screen.Auth.route)
+                    navController.navigate(Screen.Auth.route) { launchSingleTop = true }
                 },
                 onNavigateToFavorites = {
-                    navController.navigate(Screen.Favorites.route)
+                    navController.navigate(Screen.Favorites.route) { launchSingleTop = true }
                 },
                 onNavigateToWatchlist = {
-                    navController.navigate(Screen.Watchlist.route)
+                    navController.navigate(Screen.Watchlist.route) { launchSingleTop = true }
                 },
                 onRetakeQuiz = {
-                    navController.navigate(Screen.Quiz.route)
+                    navController.navigate(Screen.Quiz.route) { launchSingleTop = true }
                 },
                 onSignedOut = {
                     navController.navigate(Screen.Discover.route) {

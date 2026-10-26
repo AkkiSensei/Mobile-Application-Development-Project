@@ -39,6 +39,7 @@ import com.example.madverse.core.designsystem.theme.ObsidianSurface
 @Composable
 fun LibraryScreen(
     onMovieClick: (Int) -> Unit,
+    onExploreMovies: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = hiltViewModel()
 ) {
@@ -120,6 +121,7 @@ fun LibraryScreen(
                         selectedSort = sortOption,
                         onSortSelected = viewModel::setSortOption,
                         onMovieClick = onMovieClick,
+                        onExploreMovies = onExploreMovies,
                         onRemoveMovie = viewModel::removeFromWatchlist,
                         onRetry = viewModel::retryWatchlist
                     )
@@ -131,6 +133,7 @@ fun LibraryScreen(
                         selectedSort = sortOption,
                         onSortSelected = viewModel::setSortOption,
                         onMovieClick = onMovieClick,
+                        onExploreMovies = onExploreMovies,
                         onRemoveMovie = viewModel::removeFromFavorites,
                         onRetry = viewModel::retryFavorites
                     )

@@ -66,6 +66,7 @@ import com.example.madverse.core.model.Movie
 @Composable
 fun FavoritesScreen(
     onMovieClick: (Int) -> Unit,
+    onExploreMovies: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: FavoritesViewModel = hiltViewModel()
 ) {
@@ -80,6 +81,7 @@ fun FavoritesScreen(
         selectedSort = sortOption,
         onSortSelected = viewModel::setSortOption,
         onMovieClick = onMovieClick,
+        onExploreMovies = onExploreMovies,
         onRemoveMovie = viewModel::removeFromFavorites,
         onRetry = viewModel::retry,
         modifier = modifier
@@ -97,6 +99,7 @@ fun FavoritesContent(
     onMovieClick: (Int) -> Unit,
     onRemoveMovie: (Int) -> Unit,
     onRetry: () -> Unit,
+    onExploreMovies: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -118,7 +121,7 @@ fun FavoritesContent(
             }
 
             is UiState.Empty -> {
-                FavoritesEmptyState()
+                FavoritesEmptyState(onExploreMovies = onExploreMovies)
             }
 
             is UiState.Error -> {
@@ -166,7 +169,7 @@ fun FavoritesContent(
                                     modifier = Modifier
                                         .align(Alignment.TopEnd)
                                         .padding(6.dp)
-                                        .size(44.dp)
+                                        .size(48.dp)
                                         .clip(CircleShape)
                                         .background(ObsidianSurface.copy(alpha = 0.9f))
                                         .border(1.dp, ObsidianCardBorder, CircleShape)
@@ -294,6 +297,7 @@ private fun FavoritesHeader(
 
 @Composable
 fun FavoritesEmptyState(
+    onExploreMovies: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     MADVerseEmptyState(
@@ -301,6 +305,8 @@ fun FavoritesEmptyState(
         title = "No Favorites Yet",
         message = "Explore movies and tap the heart icon to save them to your favorites for instant offline access.",
         iconTint = CinematicCrimson,
+        actionLabel = "Explore Movies",
+        onActionClick = onExploreMovies,
         modifier = modifier
     )
 }
