@@ -6,6 +6,7 @@ import com.example.madverse.core.data.repository.AuthRepository
 import com.example.madverse.core.data.repository.CloudSyncService
 import com.example.madverse.core.data.repository.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -208,17 +209,32 @@ class AuthViewModel @Inject constructor(
     }
 
     fun onMergeConfirmed(onFinish: () -> Unit) {
+        if (_uiState.value.isLoading) return
+        _uiState.update { it.copy(isLoading = true, showMergeDialog = true, errorMessage = null) }
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, showMergeDialog = false) }
-            val uid = authRepository.currentUserId
-            cloudSyncService.mergeGuestDataIntoAccount(uid)
-            _uiState.update { it.copy(isLoading = false) }
-            onFinish()
+            val result = try {
+                cloudSyncService.mergeGuestDataIntoAccount(authRepository.currentUserId)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                Result.failure(error)
+            }
+            result.exceptionOrNull()?.let { if (it is CancellationException) throw it }
+            if (result.isSuccess) {
+                _uiState.update { it.copy(isLoading = false, showMergeDialog = false) }
+                onFinish()
+            } else {
+                _uiState.update { it.copy(
+                    isLoading = false,
+                    errorMessage = "Could not merge guest data. Your guest data is still available. Retry or keep it separate."
+                ) }
+            }
         }
     }
 
     fun onMergeDismissed(onFinish: () -> Unit) {
-        _uiState.update { it.copy(showMergeDialog = false) }
+        if (_uiState.value.isLoading) return
+        _uiState.update { it.copy(showMergeDialog = false, errorMessage = null) }
         onFinish()
     }
 }

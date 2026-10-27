@@ -98,7 +98,7 @@ fun AuthScreen(
             containerColor = ObsidianSurface,
             title = {
                 Text(
-                    text = "Import Guest Library?",
+                    text = "Import Guest Data?",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = ContentHighEmphasis
@@ -106,7 +106,7 @@ fun AuthScreen(
             },
             text = {
                 Text(
-                    text = "You have favorites and watchlist movies saved in your guest session. Would you like to merge them into your cloud account, or keep them separate?",
+                    text = uiState.errorMessage ?: "You have saved guest favorites, watchlist movies, or quiz preferences. Merge them into this account for synchronization, or keep them separate?",
                     style = MaterialTheme.typography.bodyMedium,
                     color = ContentMediumEmphasis
                 )
@@ -114,14 +114,16 @@ fun AuthScreen(
             confirmButton = {
                 Button(
                     onClick = { viewModel.onMergeConfirmed(onAuthSuccess) },
+                    enabled = !uiState.isLoading,
                     colors = ButtonDefaults.buttonColors(containerColor = CinematicCrimson)
                 ) {
-                    Text("Merge into Account", color = ContentHighEmphasis)
+                    Text(if (uiState.isLoading) "Merging..." else "Merge into Account", color = ContentHighEmphasis)
                 }
             },
             dismissButton = {
                 OutlinedButton(
                     onClick = { viewModel.onMergeDismissed(onAuthSuccess) },
+                    enabled = !uiState.isLoading,
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = ContentMediumEmphasis)
                 ) {
                     Text("Keep Separate")

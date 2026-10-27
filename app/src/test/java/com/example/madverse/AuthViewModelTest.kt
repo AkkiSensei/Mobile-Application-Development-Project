@@ -210,6 +210,52 @@ class AuthViewModelTest {
         assertFalse(viewModel.uiState.value.showMergeDialog)
     }
 
+    @Test
+    fun failedMergeRetainsChoiceAndRetriesWithoutFalseNavigation() = runTest {
+        authRepository.setAuthenticated(AuthUser("uid_123", "u@e.com", "User", null, true))
+        cloudSyncService.shouldFailNextOperation = true
+        var completions = 0
+        viewModel.onMergeConfirmed { completions++ }
+        advanceUntilIdle()
+        assertEquals(0, completions)
+        assertTrue(viewModel.uiState.value.showMergeDialog)
+        assertFalse(viewModel.uiState.value.isLoading)
+        assertNotNull(viewModel.uiState.value.errorMessage)
+        cloudSyncService.shouldFailNextOperation = false
+        viewModel.onMergeConfirmed { completions++ }
+        advanceUntilIdle()
+        assertEquals(1, completions)
+        assertFalse(viewModel.uiState.value.showMergeDialog)
+        assertNull(viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun mergeBlocksDuplicateRequestsAndDismissalUntilCompletion() = runTest {
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        var calls = 0
+        val delayed = object : com.example.madverse.core.data.repository.CloudSyncService by cloudSyncService {
+            override suspend fun mergeGuestDataIntoAccount(authenticatedUserId: String): Result<com.example.madverse.core.model.MergeSummary> {
+                calls++
+                gate.await()
+                return Result.success(com.example.madverse.core.model.MergeSummary())
+            }
+        }
+        val model = AuthViewModel(authRepository, testSessionManager, delayed)
+        var completions = 0
+        model.onMergeConfirmed { completions++ }
+        model.onMergeConfirmed { completions++ }
+        model.onMergeDismissed { completions++ }
+        advanceUntilIdle()
+        assertEquals(1, calls)
+        assertEquals(0, completions)
+        assertTrue(model.uiState.value.isLoading)
+        assertTrue(model.uiState.value.showMergeDialog)
+        gate.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(1, completions)
+        assertFalse(model.uiState.value.isLoading)
+    }
+
     private class TestSessionManager(
         private val authRepo: FakeAuthRepository
     ) : SessionManager {
