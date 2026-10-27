@@ -1,0 +1,91 @@
+# Shraddha Prompt 03 — Performance verification and targeted optimization
+
+Date: 2026-10-27 (Asia/Calcutta). Author: Shraddha Chandgothia.
+
+## Baseline and scope
+
+- Intended checkout: `C:\MAD\Mobile-Application-Development-Project`, branch `main`, baseline `f2b4a29` (Prompt 2 handoff). Working tree was clean; `git fetch origin` and `git pull --ff-only origin main` reported already up to date. Read `.gitrules`, README, `SAANVI_PROMPT_03_PERFORMANCE.md`, and `SHRADDHA_PROMPT_02_UX_REGRESSION.md` before implementation; investigated actual sources rather than treating reports as proof.
+- Preserved teammate history and the completed reliability/UX changes. Existing local Firebase configuration is ignored; no credentials are included here. No production service configuration, recommendation scoring, media routes, dependencies, database version, schema, indexes, or migrations changed.
+- Environment: Windows/PowerShell, Android Studio JBR, existing Gradle wrapper; running Android 17/API 37 x86_64 emulator. Functional emulator tests are not hardware performance benchmarks. No CPU, heap, frame-time, battery, or live HTTP cache-hit measurements were collected.
+
+## Saanvi claims checked against current source
+
+| Claim | Source-confirmed finding and evidence boundary |
+| --- | --- |
+| 10 MB OkHttp disk cache | Present in `core/network/NetworkModule.kt`, provided with the singleton client. Uses standard response-header caching; no forced freshness override. Logging is disabled because API credentials are attached to requests. Live cache hits and the system Clear Cache action were not tested. A repository refresh can still use a fresh HTTP response cache entry; it does not promise a new wire request. |
+| Mutex prevents duplicate genre requests | **Defect confirmed and repaired.** Previously only cache assignment held the mutex, after the HTTP call. Concurrent cold collectors each requested the endpoint. Now lookup/recheck, request, and successful nonempty cache population share the lock. |
+| Genre calls from Quiz and Search categories | Not supported by current production call sites: Genre Explorer calls `getGenres`; Quiz uses its own genre choices. The concurrency defect is reproducible at the repository boundary, not evidence that every tab transition actually produced duplicate calls. |
+| Genres immutable for a session | Existing public metadata cache lasts for the process, not an auth session. No permanent immutability guarantee is established. Preserved this policy; failures/empty responses are not cached. |
+| Coil/static placeholders improve scrolling | Three movie-card image loading slots use static surfaces and error fallbacks in `core/designsystem/components/MovieCard.kt`. Some other skeleton spinners remain. `MADVerseApp` provides Coil's lazy process singleton, memory capped at the smaller of 32 MiB/one-eighth heap, disk cache 128 MiB, and a client separate from TMDB credentials. Source supports reuse and fewer spinner animations, not claims of eliminated GPU churn, layout shifts, or measured smoother scrolling. |
+| Stable list keys | Search/Home sanitize positive IDs and deduplicate by ID; lazy lists use stable IDs. Home is under `feature/discover`, not the report's `feature/home`. Genre Explorer remembers sorting inputs, guards pagination, and deduplicates appended results. No new list/cache architecture needed. |
+| 300 ms `flatMapLatest` search | Actual implementation uses a Job and sequence guard with **400 ms** debounce. Kept that duration. Repaired stale state during debounce and redundant active-query submissions; strengthened cancellation/stale-event regression tests. |
+| Zero writes/transactions for identical snapshots | `SyncSnapshotReconciler` already skips identical entity writes and protects pending mutations inside Room transactions. New counter test observes **0 entity writes but 3 transactions** for unchanged Favorites, Watchlist, and Preferences. Transactional reads are necessary for consistency. No measured SQLite disk-operation or invalidation-count claim is justified. |
+| Session retry timer, fixed 5/10/20/40/60 seconds | Current Prompt 1 architecture is `SyncQueueWorker`, not the report's `retryJob` scheduler. One owning job/channel per session, exponential cap with jitter in `[cap/2, cap]`, cap 5/10/20/40/60 seconds. Retry follows delay even when Wi-Fi stays connected. Existing reliability tests were rerun. |
+| No dependencies needed | Preserved existing architecture and dependencies. No WorkManager needed for these fixes; the report's general claims that adding it necessarily causes credential leakage or database locking are not established by this audit. |
+| Historical all-tests-pass statement | Historical report only. This pass executed fresh checks below; compilation alone does not establish live acceptance. |
+
+## IMPLEMENTED: demonstrated waste and correctness repairs
+
+1. **Coalesce genre cache misses** (`27a227e`): `MovieRepositoryImpl.getGenres`. Two overlapping cold collectors produced **2 API invocations before / 1 after** in the same deterministic test. A cancelled owner releases the mutex and the waiting collector can fetch. Failed/empty results remain retryable. Holding this one metadata lock during the request intentionally serializes misses; unrelated endpoints are unaffected.
+2. **Keep search state current and share active work** (`5b4fe65`): `SearchViewModel.startSearch/executeSearch/onSearchSubmitted`. New accepted text immediately clears old result/error state to Loading and sets the matching active query, before the unchanged debounce. Repeated submits for an already executing trimmed query produced **3 requests before / 1 after**. Whitespace-only edits do not restart work; submitting during debounce starts immediately. Completed-query submit/retry still performs a fresh repository request. Blank input clears/cancels. Every resource emission is checked against query and sequence, including a deliberately noncooperative late emitter. Thrown failures become retryable UI errors; CancellationException is rethrown.
+3. **Fetch only the next queue payload** (`fc56f17`): `PendingSyncDao.getNextPendingActionForUser`, `SyncQueueWorker.start`. Replaced full remaining-list materialization on each success with `WHERE user_id = :userId ORDER BY id ASC LIMIT 1`. In the same fake-DAO 50-action drain, returned nonnull payload rows were **1,275 before / 50 after**, and all 50 actions replayed. This counts objects returned to the worker, **not SQLite rows scanned, disk I/O, elapsed time, or device speed**. Other-user rows may still require scanning; no speculative index/migration added. Durable order, immutable payloads, exact-ID ack, and transaction boundaries remain unchanged.
+4. **Own and deduplicate history writes** (`2a6c9b1`): `MovieDetailsViewModel.fetchDetails`. Moved Room side effects out of `MutableStateFlow.update`, whose transform may retry. The details request now owns the suspending history write rather than launching a sibling ViewModel job. Switching movies cancels it. Repeating identical success metadata then emitting changed metadata produced **3 writes before / 2 after**; explicit refresh records again. Deduplication is only within the current request and only after successful recording. Details become visible before history storage; history failure does not replace them. This is regression evidence from synthetic emissions, not a measured live frequency.
+5. **Verify unchanged snapshots** (`5ee4360`): added the entity-write/transaction counter regression without altering correct reconciler production code.
+
+## Lifecycle and consistency audit
+
+- **Source-confirmed:** screens use `collectAsStateWithLifecycle`. Requests belong to ViewModels, not collection callbacks. Details' `LaunchedEffect(movieId)` checks the selected ID to avoid repeating its constructor request. Home cancels refresh jobs before replacements; genre pagination guards in-flight loads. Retaining a screen on the navigation back stack may allow its finite request to finish; it does not start a second request merely on state re-collection. Full real-navigation cancellation timing was not measured.
+- **TESTED-PASSED:** search clear and ViewModel removal cancel repository collection. `RetrofitCancellationTest` uses the actual Retrofit suspend adapter and repository with a synthetic `Call.Factory`, verifies enqueue, then verifies the underlying `Call.cancel()`. No HTTP server or credentials involved; this is not a live socket timing test.
+- **Source-confirmed:** private Favorites/Watchlist flows select Room rows by the current user. Public TMDB cache and Coil do not replace those flows. Room suspend DAOs and the production `withTransaction` runner avoid synchronous main-thread DB work. Firestore parsing/reconciliation runs in the session IO scope.
+- **Source-confirmed:** `FirestoreSyncServiceImpl.startUserSession` reuses the current session and only requests another drain for the same UID; a new session creates its own worker/channel. `stopUserSession` increments the generation, cancels the session job, removes all listener registrations, and clears references. Three listeners cover Favorites, Watchlist, and the current Preferences document; callbacks check UID, generation, deletion journal, snapshot sequence, and remote revisions. Cache-only snapshots and pending-write echoes are skipped. Actual Firebase listener removal counts have not been instrumented.
+- **TESTED-PASSED:** worker/reconciler tests retain malformed/permission-denied rows, distinguish auth recovery, retry after backoff, preserve exact acknowledgment and session ownership, protect pending adds/removes/preferences, and cover remote success before failed local acknowledgment. Delay is outside Room transactions and the metadata-cache mutex. A blocked row pauses that user's queue; another UID has its own worker. No retry policy was weakened for fewer operations.
+- **Limitation:** Firebase `awaitTask` ignores late callbacks after coroutine cancellation; it does not promise to cancel a server-side operation already submitted. Cancellation/session guards prevent local stale acknowledgment; remote convergence still depends on idempotent replay and live service behavior. Account-deletion ambiguity and journal recovery limitations from Prompt 1 remain in force.
+- **Source-confirmed media preservation:** separate `free_movie/{catalogueId}` complete-film and `youtube_player/{videoId}` promotional routes remain unchanged. Embedded-player source has lifecycle pause/release and observer cleanup. No playback, live embeddability, or memory-leak proof is claimed.
+
+## Changed files
+
+All paths below are relative to `app/src/` unless noted.
+
+- `main/java/com/example/madverse/core/data/repository/impl/MovieRepositoryImpl.kt`: genre cache miss ownership and corrected cache documentation.
+- `main/java/com/example/madverse/feature/search/presentation/SearchViewModel.kt`: query state/request ownership and retry mapping.
+- `main/java/com/example/madverse/core/database/dao/PendingSyncDao.kt`: bounded user queue-head query and in-memory fallback implementation.
+- `main/java/com/example/madverse/core/data/sync/SyncQueueWorker.kt`: consume queue head.
+- `main/java/com/example/madverse/feature/details/presentation/MovieDetailsViewModel.kt`: pure state transform; history request ownership/deduplication.
+- `test/java/com/example/madverse/`: `MovieRepositoryTest`, `SearchViewModelTest`, new `RetrofitCancellationTest`, `SyncReliabilityRepairTest`, `SnapshotReliabilityRepairTest`, `MovieDetailsViewModelTest`; updated fake DAO implementations in `EndToEndUserJourneysTest` and `ReliabilityAndOfflineFoundationsTest`.
+- `androidTest/java/com/example/madverse/PendingSyncHeadQueryTest.kt`: real Room durable-ID ordering, UID isolation, exact acknowledgment, and empty result.
+- `docs/handoffs/SHRADDHA_PROMPT_03_PERFORMANCE_AUDIT.md`: this evidence record.
+
+## Commands and observed results
+
+PowerShell environment for Gradle: `$env:JAVA_HOME='C:\Program Files\Android\Android Studio\jbr'`. All Gradle commands below used `--console=plain --max-workers=2`.
+
+### TESTED-PASSED
+
+- `.\gradlew.bat testDebugUnitTest --tests '*MovieRepositoryTest' assembleDebug`: **11 tests, 0 failures/errors**; debug build successful.
+- `.\gradlew.bat testDebugUnitTest --tests '*SyncReliabilityRepairTest' --tests '*SnapshotReliabilityRepairTest' --tests '*ReliabilityAndOfflineFoundationsTest' --tests '*EndToEndUserJourneysTest' assembleDebug assembleDebugAndroidTest`: **44 tests, 0 failures/errors**; both APK builds successful. This preceded the new unchanged-snapshot test.
+- `.\gradlew.bat testDebugUnitTest --tests '*MovieDetailsViewModelTest' --tests '*SnapshotReliabilityRepairTest' assembleDebug`: XML confirms **22 + 7 tests, 0 failures/errors**. The tool session ended before its final console summary was recovered; final build validation below supersedes that missing summary.
+- `.\gradlew.bat testDebugUnitTest assembleDebug assembleDebugAndroidTest lintDebug connectedDebugAndroidTest`: full JVM XML confirms **366 tests / 40 suites, 0 failures, 0 errors, 0 skipped**. Connected-test XML confirms **9 tests / 5 suites, 0 failures, 0 errors, 0 skipped**, including the real Room queue-head and atomic-rollback tests; runner exit-code file is **0**. Lint report: **0 errors, 46 warnings**. Gradle's final console summary was lost across the tool interruption; the non-device gate was rerun below. No need to rerun successful emulator tests.
+- Final non-device gate, `.\gradlew.bat testDebugUnitTest assembleDebug assembleDebugAndroidTest lintDebug`: **BUILD SUCCESSFUL in 36s**, exit 0; 96 tasks (1 executed, 95 up-to-date). This confirms both APK builds and the existing successful test/lint outputs against unchanged production/test sources; it is not a second execution of the 366 tests.
+- `python tools/package_submission.py --scan-only`: **PASS, 256 source files**, no detected credentials; local.properties ignored/untracked.
+- `git diff --check f2b4a29`: passed.
+
+### TESTED-FAILED — diagnostic failures, then repaired
+
+- Initial new genre test did not compile because `runCurrent` was referenced incorrectly; fixed its import/call, with no production workaround. Running the cold-concurrency regression on baseline then failed **expected 1 API call, actual 2**. The final repository suite passes.
+- Baseline search regressions failed **old active query instead of new during debounce**, and **3 requests instead of 1** for repeated active submit. Fixed in `5b4fe65`.
+- First search implementation's late-event regression failed: an added `flow { emitAll(...) }` wrapper prevented the deliberately noncooperative fake from exercising its late emissions. Replaced it with direct guarded collection and explicit cancellation/error handling. No assertion weakened.
+- `.\gradlew.bat testDebugUnitTest --tests '*SearchViewModelTest' --tests '*RetrofitCancellationTest' --tests '*SyncReliabilityRepairTest.drainMaterializesOnlyOnePayloadPerAction' --tests '*MovieDetailsViewModelTest.repeatedDetailEmissionRecordsHistoryOnceButChangedMetadataAndRefreshStillRecord' --tests '*MovieDetailsViewModelTest.changingMovieCancelsHistoryWriteOwnedByPreviousDetailsRequest'`: **19 tests, 3 failures** on the deliberately unfixed queue/history baselines. Search's 15 tests and Retrofit's 1 passed. Failures were queue materialization **1,275 vs 50**, duplicate history **3 vs 2**, and previous-movie history cancellation **false vs true**. Subsequent fixes and focused suites pass.
+- These were test authoring/implementation iteration and demonstrated baseline defects, not unresolved environment failures. Do not report those commands as successful.
+
+## NOT-TESTED / RUNTIME-PENDING / BLOCKED
+
+- **NOT-TESTED:** Android Studio CPU/heap profiling, actual HTTP cache-hit rate and eviction, SQLite query-plan/scan timings, Room invalidation counts, actual Firebase listener registration/removal counters, and full navigation stress traces. No percentage speedup established. An emulator was available for functional tests; profiling was not performed.
+- **RUNTIME-PENDING:** Galaxy A13 frame times, repeated scroll/navigation/player release behavior, memory after repeated detail/search transitions, battery impact of sustained retries, live Firebase offline writes/reconnect/auth changes/permission repair/account deletion, and campus Wi-Fi playback of both full films and promotional trailers.
+- **BLOCKED:** no source/build dependency blocker identified. A handoff edit was temporarily prevented by an automatic approval-review usage limit; work resumed after the user's continuation request. Remote identity deletion certainty still cannot be inferred from null local auth state; keep the Prompt 1 journal/recovery contract. Runtime acceptance is incomplete and requires dedicated execution, not a compile-only sign-off.
+
+## Next checks for Prompt 4 and Ritunjay
+
+1. Prompt 4: inspect recommendation evidence and Recently Viewed semantics. History remains device-local/global by the existing design. Test explicit refresh/revisit, changed metadata, history storage failure, and switching movies during a suspended write before adding a clear/remove affordance. This pass did not alter history retention, account scoping, or recommendation scoring.
+2. Reproduce fixed boundaries with the named tests: overlap two cold genre collections; submit an active query repeatedly; change/clear query while an older source emits late Loading/Error/Success; drain 50 queued actions; emit identical details twice then changed metadata. Run the real Room queue-head test with another UID interleaved and timestamps opposite to IDs.
+3. Remaining profiling work: compare cold/warm genre and image loads on the same device/network, capture frame-time/heap traces while repeatedly navigating Search/Details/Genre Explorer, and measure mixed-user large-queue scans before proposing an index. Use sanitized counters/traces; do not log credential-bearing URLs or payloads.
+4. Run live Firebase failure/recovery scenarios and both media routes on the target phone/campus network. Instrument listener attachment/removal if investigating a leak. Preserve pending intent and ambiguous deletion journals throughout. This report does not declare the app submission-ready.
