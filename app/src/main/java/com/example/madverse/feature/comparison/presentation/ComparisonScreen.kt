@@ -2,6 +2,7 @@ package com.example.madverse.feature.comparison.presentation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,12 +20,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -185,48 +187,53 @@ fun ComparisonScreen(
                                             horizontalArrangement = Arrangement.SpaceBetween,
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            OutlinedButton(
-                                                onClick = { viewModel.replace(entry.id) },
+                                            Box(
                                                 modifier = Modifier
                                                     .weight(1f)
                                                     .defaultMinSize(minHeight = 48.dp)
-                                                    .semantics {
-                                                        role = Role.Button
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .border(1.dp, ObsidianCardBorder, RoundedCornerShape(8.dp))
+                                                    .clickable(
+                                                        role = Role.Button,
+                                                        onClick = { viewModel.replace(entry.id) }
+                                                    )
+                                                    .semantics(mergeDescendants = true) {
                                                         contentDescription = "Replace movie ${index + 1} (${movie?.title ?: "selected"})"
-                                                    },
-                                                shape = RoundedCornerShape(8.dp),
-                                                border = androidx.compose.foundation.BorderStroke(1.dp, ObsidianCardBorder),
-                                                colors = ButtonDefaults.outlinedButtonColors(
-                                                    contentColor = ContentHighEmphasis
-                                                ),
-                                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                                                    }
+                                                    .padding(horizontal = 4.dp, vertical = 2.dp),
+                                                contentAlignment = Alignment.Center
                                             ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.SwapHoriz,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(14.dp),
-                                                    tint = CinematicAmber
-                                                )
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Text("Replace", fontSize = 12.sp)
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.SwapHoriz,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(14.dp),
+                                                        tint = CinematicAmber
+                                                    )
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text("Replace", fontSize = 12.sp, color = ContentHighEmphasis)
+                                                }
                                             }
 
                                             Spacer(modifier = Modifier.width(6.dp))
 
-                                            OutlinedButton(
-                                                onClick = { viewModel.remove(entry.id) },
+                                            Box(
                                                 modifier = Modifier
                                                     .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
-                                                    .semantics {
-                                                        role = Role.Button
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .border(1.dp, ObsidianCardBorder, RoundedCornerShape(8.dp))
+                                                    .clickable(
+                                                        role = Role.Button,
+                                                        onClick = { viewModel.remove(entry.id) }
+                                                    )
+                                                    .semantics(mergeDescendants = true) {
                                                         contentDescription = "Remove movie ${index + 1} (${movie?.title ?: "selected"}) from comparison"
-                                                    },
-                                                shape = RoundedCornerShape(8.dp),
-                                                border = androidx.compose.foundation.BorderStroke(1.dp, ObsidianCardBorder),
-                                                colors = ButtonDefaults.outlinedButtonColors(
-                                                    contentColor = ErrorRed
-                                                ),
-                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                                    }
+                                                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                                                contentAlignment = Alignment.Center
                                             ) {
                                                 Icon(
                                                     imageVector = Icons.Default.Close,
@@ -250,12 +257,23 @@ fun ComparisonScreen(
                                                 color = ErrorRed,
                                                 style = MaterialTheme.typography.bodySmall
                                             )
-                                            OutlinedButton(
-                                                onClick = { viewModel.loadDetails(entry.id) },
-                                                shape = RoundedCornerShape(8.dp),
-                                                modifier = Modifier.fillMaxWidth()
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .defaultMinSize(minHeight = 40.dp)
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .border(1.dp, ObsidianCardBorder, RoundedCornerShape(8.dp))
+                                                    .clickable(
+                                                        role = Role.Button,
+                                                        onClick = { viewModel.loadDetails(entry.id) }
+                                                    )
+                                                    .semantics(mergeDescendants = true) {
+                                                        contentDescription = "Retry loading details for movie ${entry.id}"
+                                                    }
+                                                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                                                contentAlignment = Alignment.Center
                                             ) {
-                                                Text("Retry details", fontSize = 11.sp)
+                                                Text("Retry details", fontSize = 11.sp, color = ContentHighEmphasis)
                                             }
                                         }
                                     }
@@ -409,17 +427,21 @@ fun ComparisonScreen(
                                 )
                             )
                         }
-                        TextButton(
-                            onClick = { viewModel.replace(null) },
+                        Box(
                             modifier = Modifier
                                 .defaultMinSize(minHeight = 48.dp)
-                                .semantics {
-                                    role = Role.Button
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable(
+                                    role = Role.Button,
+                                    onClick = { viewModel.replace(null) }
+                                )
+                                .semantics(mergeDescendants = true) {
                                     contentDescription = "Cancel replacement mode"
-                                },
-                            colors = ButtonDefaults.textButtonColors(contentColor = CinematicAmber)
+                                }
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text("Cancel", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text("Cancel", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = CinematicAmber)
                         }
                     }
                 }
@@ -441,14 +463,18 @@ fun ComparisonScreen(
                 },
                 trailingIcon = {
                     if (state.query.isNotEmpty()) {
-                        IconButton(
-                            onClick = { viewModel.search("") },
+                        Box(
                             modifier = Modifier
                                 .size(48.dp)
-                                .semantics {
-                                    role = Role.Button
+                                .clip(CircleShape)
+                                .clickable(
+                                    role = Role.Button,
+                                    onClick = { viewModel.search("") }
+                                )
+                                .semantics(mergeDescendants = true) {
                                     contentDescription = "Clear search input"
-                                }
+                                },
+                            contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
@@ -530,43 +556,58 @@ fun ComparisonScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     MovieHorizontalCard(movie = movie, onClick = { viewModel.select(movie) })
 
-                    Button(
-                        onClick = { viewModel.select(movie) },
-                        enabled = canSelect,
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .defaultMinSize(minHeight = 48.dp)
-                            .semantics {
-                                role = Role.Button
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(
+                                when {
+                                    !canSelect -> ObsidianSurfaceVariant
+                                    state.replacingId != null -> CinematicAmber
+                                    else -> CinematicCrimson
+                                }
+                            )
+                            .clickable(
+                                enabled = canSelect,
+                                role = Role.Button,
+                                onClick = { viewModel.select(movie) }
+                            )
+                            .semantics(mergeDescendants = true) {
                                 contentDescription = when {
                                     selected -> "${movie.title} is already selected for comparison"
                                     state.replacingId != null -> "Replace selected movie with ${movie.title}"
                                     else -> "Add ${movie.title} to comparison as Movie ${state.entries.size + 1}"
                                 }
-                            },
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (state.replacingId != null) CinematicAmber else CinematicCrimson,
-                            contentColor = if (state.replacingId != null) ObsidianBackground else ContentHighEmphasis,
-                            disabledContainerColor = ObsidianSurfaceVariant,
-                            disabledContentColor = ContentLowEmphasis
-                        )
+                            }
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        when {
-                            selected -> {
-                                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Already Selected", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                            }
-                            state.replacingId != null -> {
-                                Icon(Icons.Default.SwapHoriz, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Use as replacement", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                            }
-                            else -> {
-                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Add as Movie ${state.entries.size + 1}", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                        val contentColor = when {
+                            !canSelect -> ContentLowEmphasis
+                            state.replacingId != null -> ObsidianBackground
+                            else -> ContentHighEmphasis
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            when {
+                                selected -> {
+                                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp), tint = contentColor)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Already Selected", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = contentColor)
+                                }
+                                state.replacingId != null -> {
+                                    Icon(Icons.Default.SwapHoriz, contentDescription = null, modifier = Modifier.size(16.dp), tint = contentColor)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Use as replacement", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = contentColor)
+                                }
+                                else -> {
+                                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp), tint = contentColor)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Add as Movie ${state.entries.size + 1}", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = contentColor)
+                                }
                             }
                         }
                     }
