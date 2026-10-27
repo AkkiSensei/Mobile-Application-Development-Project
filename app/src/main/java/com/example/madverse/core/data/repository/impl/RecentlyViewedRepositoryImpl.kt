@@ -24,18 +24,22 @@ class RecentlyViewedRepositoryImpl @Inject constructor(
     )
 
     override fun getRecentlyViewed(limit: Int): Flow<List<Movie>> {
-        return recentlyViewedDao.getRecentlyViewed(limit).map { entities ->
+        return recentlyViewedDao.getRecentlyViewed(limit.coerceIn(0, 20)).map { entities ->
             entities.map { it.toDomain() }
         }
     }
 
     override suspend fun getRecentlyViewedOnce(limit: Int): List<Movie> {
-        return recentlyViewedDao.getRecentlyViewedOnce(limit).map { it.toDomain() }
+        return recentlyViewedDao.getRecentlyViewedOnce(limit.coerceIn(0, 20)).map { it.toDomain() }
     }
 
     override suspend fun recordMovieView(movie: Movie) {
+        require(movie.id > 0) { "History requires a valid movie ID" }
         transactionRunner.runInTransaction {
-            val entity = RecentlyViewedEntity.fromDomain(movie)
+            // Preserve actual view order when wall-clock timestamps tie or move backwards.
+            val latest = recentlyViewedDao.getRecentlyViewedOnce(1).firstOrNull()?.viewedTimestamp ?: 0L
+            val timestamp = maxOf(System.currentTimeMillis(), latest.coerceAtMost(Long.MAX_VALUE - 1) + 1)
+            val entity = RecentlyViewedEntity.fromDomain(movie, timestamp)
             recentlyViewedDao.insertOrUpdate(entity)
             recentlyViewedDao.trimToMaxLimit(keepCount = 20)
         }

@@ -98,10 +98,18 @@ class RecentlyViewedRepositoryTest {
         assertTrue("History should be empty after clear", list.isEmpty())
     }
 
+    @Test fun clockRollbackStillPromotesNewViewAndReadLimitsAreBounded() = runTest {
+        fakeDao.insertOrUpdate(RecentlyViewedEntity.fromDomain(createMovie(1), System.currentTimeMillis() + 1000000))
+        repository.recordMovieView(createMovie(2))
+        assertEquals(listOf(2, 1), repository.getRecentlyViewedOnce().map { it.id })
+        assertTrue(repository.getRecentlyViewedOnce(-1).isEmpty())
+        assertTrue(runCatching { repository.recordMovieView(createMovie(0)) }.isFailure)
+        assertEquals(2, repository.getRecentlyViewedOnce().size)
+    }
+
     private class FakeRecentlyViewedDao : RecentlyViewedDao {
         private val storage = mutableMapOf<Int, RecentlyViewedEntity>()
         private val flow = MutableStateFlow<List<RecentlyViewedEntity>>(emptyList())
-        private var timeCounter = 1000L
 
         private fun updateFlow() {
             flow.value = storage.values.sortedByDescending { it.viewedTimestamp }
@@ -116,8 +124,7 @@ class RecentlyViewedRepositoryTest {
         }
 
         override suspend fun insertOrUpdate(entity: RecentlyViewedEntity) {
-            timeCounter += 10L
-            storage[entity.movieId] = entity.copy(viewedTimestamp = timeCounter)
+            storage[entity.movieId] = entity
             updateFlow()
         }
 
