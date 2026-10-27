@@ -8,7 +8,7 @@
   <a href="https://dagger.dev/hilt/"><img src="https://img.shields.io/badge/Hilt-2.60.1-4338CA?style=for-the-badge&logo=dagger&logoColor=white" alt="Hilt"></a>
   <a href="https://developer.android.com/training/data-storage/room"><img src="https://img.shields.io/badge/Room-SQLite%20Offline-38BDF8?style=for-the-badge&logo=sqlite&logoColor=white" alt="Room"></a>
   <a href="https://firebase.google.com/"><img src="https://img.shields.io/badge/Firebase-Auth%20%26%20Firestore-FFCA28?style=for-the-badge&logo=firebase&logoColor=black" alt="Firebase"></a>
-  <a href="#test-validation--project-status"><img src="https://img.shields.io/badge/Tests-291%20Passed%20(100%25)-10B981?style=for-the-badge&logo=checkmarx&logoColor=white" alt="Tests 291 Passed"></a>
+  <a href="#test-validation--project-status"><img src="https://img.shields.io/badge/Tests-See%20Validation-10B981?style=for-the-badge&logo=checkmarx&logoColor=white" alt="Tests: see validation evidence"></a>
 </p>
 
 <p align="center">
@@ -34,10 +34,10 @@
 
 ## Core Capabilities
 
-* **Discovery & Reactive Search:** Instant title browsing with 300ms debounced search queries and active coroutine flow cancellation to eliminate redundant network overhead.
+* **Discovery & Reactive Search:** Instant title browsing with 400ms debounced search queries and active coroutine flow cancellation to eliminate redundant network overhead.
 * **Deterministic Recommendation Engine:** A transparent 6-factor scoring model (Genre 30%, Mood 20%, Era 15%, Quality 15%, Language 10%, Runtime 10%) providing match percentages and explainable chips locally without external AI latency or costs.
-* **Dual-Route Media Playback:** Two distinct media workflows hardened with strict ID sanitization and YouTube embed validation:
-  1. *Curated Free Movies:* Catalogue-driven routing (`free_movie/{catalogueId}`) for in-app streaming of verified complete films.
+* **Dual-Route Media Playback:** Two distinct media workflows with ID sanitization and playback eligibility checks:
+  1. *Curated Free Movies:* Catalogue-driven routing (`free_movie/{catalogueId}`) for in-app playback of curated complete-film entries; live availability and playback require device verification.
   2. *Trailers & Teasers:* Movie-details routing (`youtube_player/{videoId}`) for in-app promotional media playback.
 * **Offline-First Persistence & Sync:** Room SQLite serves as the single source of truth for isolated Favorites and Watchlist collections, synchronized to user-scoped Firestore documents with offline queue replay.
 * **Comparison & Regional Availability:** Three-way side-by-side spec comparisons with real-time watch providers defaulting to India (`IN`) with region fallback controls.
@@ -101,7 +101,7 @@ graph TD
 
 * **Architecture & Repository Foundation:** Designed the multi-tier Clean Architecture foundation, Hilt dependency injection graphs, and network infrastructure utilizing Retrofit, OkHttp, and a credential-safe `AuthInterceptor`.
 * **Deterministic Recommendation Engine:** Engineered the 6-factor mathematical scoring algorithm, stable tie-breaking logic, deduplication rules, and the `GetPersonalizedRecommendationsUseCase` domain pipeline.
-* **Resilient Networking & Search Debouncing:** Implemented the `safeApiCall` coroutine error boundary and built search with 300ms query debouncing and automatic coroutine job cancellation on rapid keystrokes.
+* **Resilient Networking & Search Debouncing:** Implemented the `safeApiCall` coroutine error boundary and built search with 400ms query debouncing and automatic coroutine job cancellation on rapid keystrokes.
 * **Firebase Auth & Cloud Personalization:** Integrated Firebase Authentication (Credential Manager Google Sign-In) and authored production Firestore security rules (`firestore.rules`) enforcing user-scoped read/write isolation.
 * **Concurrency & Race Condition Hardening:** Resolved movie switch race conditions, synchronized parallel repository requests, and eliminated UI flickers across screen transitions.
 * **Comprehensive Test Suite:** Authored automated unit test suites covering end-to-end user journeys, domain scoring, network mapping, and ViewModel state transitions—driving the test suite to 291 passing unit tests with 100% success.
@@ -157,6 +157,6 @@ graph TD
 
 ## Test Validation & Project Status
 
-* **Automated Test Suite:** **291 unit tests across 33 test suites pass with 100% success rate** (0 failures, 0 skipped), validating domain scoring, ViewModel state flows, account isolation, and network error recovery.
+* **Validation evidence:** See the [Shraddha Prompt 5 handoff](docs/handoffs/SHRADDHA_PROMPT_05_RITUNJAY_HANDOFF.md) for executed JVM, emulator, build and lint results, repaired regressions, and remaining acceptance checks. Fake-service tests do not establish live Firebase behavior. Galaxy A13 playback, campus Wi-Fi, live account deletion and full accessibility acceptance remain pending.
 * **Media Limitations:** In-app video playback requires an active internet connection and relies on third-party YouTube API availability and publisher permissions.
 * **TMDB Attribution:** This product uses the TMDB API but is not endorsed or certified by TMDB. Regional streaming provider data is supplied via JustWatch attribution and serves as informational guidance rather than a viewing entitlement.
