@@ -42,6 +42,7 @@ class GenreExplorerViewModel @Inject constructor(private val repository: MovieRe
     private val _state = MutableStateFlow(GenreExplorerState())
     val state = _state.asStateFlow()
     private var request: Job? = null
+    private var requestGeneration = 0L
     private var genreRequest: Job? = null
     private var applied = GenreExplorerState()
 
@@ -73,6 +74,7 @@ class GenreExplorerViewModel @Inject constructor(private val repository: MovieRe
             return
         }
         applied = filters
+        requestGeneration++
         request?.cancel()
         _state.update { it.copy(movies = emptyList(), page = 0, hasMore = true, filterError = null, loading = false) }
         loadMore()
@@ -82,6 +84,7 @@ class GenreExplorerViewModel @Inject constructor(private val repository: MovieRe
         if (_state.value.loading || !_state.value.hasMore) return
         val page = _state.value.page + 1
         val filters = applied
+        val generation = ++requestGeneration
         _state.update { it.copy(loading = true, error = null) }
         request = viewModelScope.launch {
             repository.discoverCandidateMovies(
@@ -89,6 +92,7 @@ class GenreExplorerViewModel @Inject constructor(private val repository: MovieRe
                 startYear = filters.startYear.toIntOrNull(), endYear = filters.endYear.toIntOrNull(),
                 minRating = filters.minRating.toDouble(), page = page
             ).catch { emit(Resource.Error("Unable to load movies. Please retry.")) }.collect { result ->
+                if (generation != requestGeneration) return@collect
                 when (result) {
                     Resource.Loading -> Unit
                     is Resource.Error -> _state.update { it.copy(loading = false, error = result.message) }

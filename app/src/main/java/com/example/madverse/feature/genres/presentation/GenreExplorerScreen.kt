@@ -326,7 +326,7 @@ fun GenreExplorerScreen(
                         // Sorting chips inside filter card
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(
-                                text = "Sort Results",
+                                text = "Sort loaded movies",
                                 style = MaterialTheme.typography.labelSmall.copy(color = ContentMediumEmphasis)
                             )
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

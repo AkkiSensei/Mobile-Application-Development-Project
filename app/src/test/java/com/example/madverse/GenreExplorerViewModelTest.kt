@@ -41,6 +41,43 @@ class GenreExplorerViewModelTest {
         assertEquals(1, vm.state.value.page)
         assertEquals("1990", vm.state.value.startYear)
     }
+    @Test fun clearingCombinedFiltersRestoresUnfilteredFirstPage() = runTest(dispatcher) {
+        val vm = GenreExplorerViewModel(repository); advanceUntilIdle()
+        vm.editYears("1990", "2014"); vm.setRating(8); vm.selectGenre(28); advanceUntilIdle()
+        vm.loadMore(); advanceUntilIdle()
+        vm.editYears("", ""); vm.setRating(0); vm.selectGenre(null); vm.setSort(MovieSort.POPULARITY)
+        advanceUntilIdle()
+        assertEquals(listOf(emptySet<Int>(), null, null, 0.0, 1), calls.last())
+        assertEquals(listOf(1), vm.state.value.movies.map { it.id })
+        assertNull(vm.state.value.filterError)
+    }
+
+    @OptIn(InternalCoroutinesApi::class)
+    @Test fun lateCancelledFilterResponseCannotAppendMoviesOrSetError() = runTest(dispatcher) {
+        var lateEvents = 0
+        val source = object : DiscoveryTestRepository() {
+            override fun discoverCandidateMovies(genreIds: Set<Int>, startYear: Int?, endYear: Int?, minRating: Double?, page: Int): Flow<Resource<List<Movie>>> =
+                if (genreIds.isNotEmpty()) flowOf(Resource.Success(listOf(discoveryMovie(2))))
+                else object : Flow<Resource<List<Movie>>> {
+                    override suspend fun collect(collector: FlowCollector<Resource<List<Movie>>>) {
+                        try { awaitCancellation() } catch (_: CancellationException) {
+                            withContext(NonCancellable) {
+                                delay(100)
+                                collector.emit(Resource.Success(listOf(discoveryMovie(1))))
+                                collector.emit(Resource.Error("Obsolete failure"))
+                                lateEvents += 2
+                            }
+                        }
+                    }
+                }
+        }
+        val vm = GenreExplorerViewModel(source); runCurrent()
+        vm.selectGenre(28); advanceUntilIdle()
+        assertEquals(2, lateEvents)
+        assertEquals(listOf(2), vm.state.value.movies.map { it.id })
+        assertNull(vm.state.value.error)
+    }
+
     @Test fun invalidYearRangeDoesNotRequestMovies() = runTest(dispatcher) {
         val vm = GenreExplorerViewModel(repository); advanceUntilIdle()
         vm.editYears("2024", "1900"); vm.applyFilters(); advanceUntilIdle()
