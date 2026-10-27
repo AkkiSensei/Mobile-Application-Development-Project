@@ -24,6 +24,20 @@ class RecommendationInsightProviderTest {
         assertTrue(insight.detail.contains("release date, language, runtime"))
         assertFalse(insight.reasons.any { it.contains("language") || it.contains("runtime") })
     }
+    @Test fun malformedYearIsUnknownAndMismatchesNeverBecomeReasons() {
+        val profile = UserPreferenceProfile(selectedGenreIds = setOf(28), mood = MovieMood.ADRENALINE,
+            era = MovieEra.CLASSIC, runtimePreference = RuntimePreference.EPIC, preferredLanguage = "hi")
+        val movie = discoveryMovie().copy(genreIds = listOf(35), releaseDate = "bad-date", runtimeMinutes = 90, originalLanguage = "en")
+        val ranked = DeterministicRecommendationEngine().scoreAndRank(profile, listOf(movie)).single()
+        val insight = provider.explain(ranked, profile)
+        assertTrue(insight.detail.contains("Unavailable metadata: release date"))
+        assertFalse(insight.reasons.any { it.contains("preferred genre") || it.contains("mood") || it.contains("From the") || it.contains("runtime") || it.contains("language") })
+        val mismatch = movie.copy(releaseDate = "2020-01-01")
+        val mismatchRanked = DeterministicRecommendationEngine().scoreAndRank(profile, listOf(mismatch)).single()
+        assertFalse(provider.explain(mismatchRanked, profile).detail.contains("Unavailable metadata"))
+        assertEquals(15, ranked.matchPercentage - mismatchRanked.matchPercentage)
+    }
+
     @Test fun emptyReasonsHaveUsefulLocalFallback() {
         val insight = provider.explain(ScoredMovieRecommendation(discoveryMovie(), 60, listOf("", " ")), UserPreferenceProfile())
         assertEquals(emptyList<String>(), insight.reasons)

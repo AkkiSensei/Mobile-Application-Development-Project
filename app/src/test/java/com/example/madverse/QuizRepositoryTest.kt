@@ -59,7 +59,7 @@ class QuizRepositoryTest {
         assertEquals(MovieEra.ANY, profile.era)
         assertEquals(RuntimePreference.ANY, profile.runtimePreference)
         assertEquals(null, profile.preferredLanguage)
-        assertEquals(6.0, profile.minRatingThreshold, 0.001)
+        assertEquals(6.5, profile.minRatingThreshold, 0.001)
     }
 
     @Test

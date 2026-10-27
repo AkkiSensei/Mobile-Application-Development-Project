@@ -334,6 +334,15 @@ private fun RecommendedMovieCard(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
+                val unavailable = buildList {
+                    if (movie.releaseDate?.take(4)?.toIntOrNull()?.takeIf { it in 1870..2100 } == null) add("release year")
+                    if (movie.runtimeMinutes == null || movie.runtimeMinutes <= 0) add("runtime")
+                }
+                if (unavailable.isNotEmpty()) {
+                    Text("Unknown ${unavailable.joinToString()} - neutral scoring points may apply.",
+                        style = MaterialTheme.typography.bodySmall, color = ContentMediumEmphasis)
+                }
+
                 // Match rationale chips
                 if (recommendation.matchReasons.isNotEmpty()) {
                     FlowRow(

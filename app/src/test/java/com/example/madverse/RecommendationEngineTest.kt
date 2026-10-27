@@ -238,15 +238,14 @@ class RecommendationEngineTest {
     }
 
     @Test
-    fun scoreAndRank_ratingBelowThreshold_disqualifiesQualityScore() {
+    fun scoreAndRank_ratingBelowThreshold_excludesDirectCandidate() {
         val subThresholdProfile = UserPreferenceProfile(
             minRatingThreshold = 7.0
         )
         val lowMovie = lowRatedMovie.copy(voteAverage = 4.5)
 
         val results = engine.scoreAndRank(subThresholdProfile, listOf(lowMovie))
-        assertTrue(results.isNotEmpty())
-        assertFalse(results.first().matchReasons.any { it.contains("Highly rated", ignoreCase = true) || it.contains("Well-rated", ignoreCase = true) })
+        assertTrue(results.isEmpty())
     }
 
     @Test
@@ -484,6 +483,35 @@ class RecommendationEngineTest {
         assertFalse(ranked.any { it.movie.id == lowRatedMovie.id })
     }
 
+    @Test fun hardFloorAndFiniteRatingsApplyEvenWithLegacyLowPreference() {
+        val ratings = listOf(6.49, 6.5, 8.0, Double.NaN, Double.POSITIVE_INFINITY, 10.1)
+        val candidates = ratings.mapIndexed { i, rating -> sciFiActionMovie.copy(id = i + 1, voteAverage = rating) }
+        val profile = UserPreferenceProfile(minRatingThreshold = 0.0)
+        assertEquals(setOf(2, 3), engine.scoreAndRank(profile, candidates).map { it.movie.id }.toSet())
+        assertEquals(listOf(3), engine.scoreAndRank(profile.copy(minRatingThreshold = 8.0), candidates).map { it.movie.id })
+    }
+
+    @Test fun qualityRoundingAndTieBreakRemainStableAtHalfPoint() {
+        val lower = sciFiActionMovie.copy(id = 1, voteAverage = 6.999)
+        val higher = lower.copy(id = 2, voteAverage = 7.0)
+        val profile = UserPreferenceProfile()
+        val results = engine.scoreAndRank(profile, listOf(lower, higher))
+        assertEquals(listOf(2, 1), results.map { it.movie.id })
+        assertEquals(listOf(71, 70), results.map { it.matchPercentage })
+    }
+
+    @Test fun legacyProfileUseCaseAppliesFloorWithoutRewritingStoredProfile() = runTest {
+        val quiz = FakeQuizRepository().apply { profile = UserPreferenceProfile(minRatingThreshold = 5.0) }
+        val movies = FakeMovieRepository().apply { candidates = listOf(lowRatedMovie.copy(voteAverage = 6.4), sciFiActionMovie) }
+        val useCase = GetPersonalizedRecommendationsUseCase(quiz, movies, engine)
+        val saved = useCase().first { it is Resource.Success } as Resource.Success
+        val preview = useCase.invokeWithProfile(quiz.profile).first { it is Resource.Success } as Resource.Success
+        assertEquals(listOf(1), saved.data.map { it.movie.id })
+        assertEquals(saved.data, preview.data)
+        assertEquals(5.0, quiz.profile.minRatingThreshold, 0.0)
+        assertEquals(6.5, movies.requestedRating!!, 0.0)
+    }
+
     private class FakeQuizRepository : QuizRepository {
         var profile: UserPreferenceProfile = UserPreferenceProfile()
 
@@ -507,6 +535,7 @@ class RecommendationEngineTest {
 
     private class FakeMovieRepository : MovieRepository {
         var candidates: List<Movie> = emptyList()
+        var requestedRating: Double? = null
 
         override fun discoverCandidateMovies(
             genreIds: Set<Int>,
@@ -514,7 +543,10 @@ class RecommendationEngineTest {
             endYear: Int?,
             minRating: Double?,
             page: Int
-        ): Flow<Resource<List<Movie>>> = flowOf(Resource.Success(candidates))
+        ): Flow<Resource<List<Movie>>> {
+            requestedRating = minRating
+            return flowOf(Resource.Success(candidates))
+        }
 
         override fun getTrendingMovies(page: Int): Flow<Resource<List<Movie>>> = flowOf(Resource.Success(emptyList()))
         override fun getTopRatedMovies(page: Int): Flow<Resource<List<Movie>>> = flowOf(Resource.Success(emptyList()))

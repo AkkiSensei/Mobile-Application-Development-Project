@@ -195,7 +195,7 @@ fun RatingSelectionStep(
         item {
             StepHeaderBanner(
                 title = "Quality Baseline",
-                subtitle = "Set your minimum acceptable score. Candidates below this threshold will be filtered out.",
+                subtitle = "Recommendations require at least 6.5/10. A higher selection raises that minimum; lower saved selections still use 6.5.",
                 badgeText = String.format("%.1f★+", minRatingThreshold),
                 isBadgeActive = true
             )

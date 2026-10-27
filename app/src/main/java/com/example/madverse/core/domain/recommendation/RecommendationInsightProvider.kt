@@ -17,7 +17,7 @@ class LocalRecommendationInsightProvider @Inject constructor() : RecommendationI
         val reasons = recommendation.matchReasons.map(String::trim).filter(String::isNotEmpty).distinct()
         val movie = recommendation.movie
         val missing = buildList {
-            if (movie.releaseDate.isNullOrBlank()) add("release date")
+            if (movie.releaseDate?.take(4)?.toIntOrNull()?.takeIf { it in 1870..2100 } == null) add("release date")
             if (!profile.preferredLanguage.isNullOrBlank() && movie.originalLanguage.isNullOrBlank()) add("language")
             if (movie.runtimeMinutes == null || movie.runtimeMinutes <= 0) add("runtime")
         }
@@ -27,7 +27,7 @@ class LocalRecommendationInsightProvider @Inject constructor() : RecommendationI
             reasons = reasons,
             detail = "Preference match reflects your saved quiz answers and the engine's scoring rules. " +
                 "TMDB rating reflects audience votes; neither score guarantees you will enjoy a movie. " +
-                "Neutral points may be awarded for unspecified preferences or unavailable metadata." +
+                "Recommendations require at least ${profile.effectiveMinRating}/10. Neutral points may be awarded for unspecified preferences or unavailable metadata." +
                 if (missing.isEmpty()) "" else " Unavailable metadata: ${missing.joinToString()}."
         )
     }

@@ -40,16 +40,14 @@ class GetPersonalizedRecommendationsUseCase @Inject constructor(
             genreIds = profile.selectedGenreIds,
             startYear = profile.era.startYear,
             endYear = profile.era.endYear,
-            minRating = profile.minRatingThreshold
+            minRating = profile.effectiveMinRating
         ).collect { resource ->
             when (resource) {
                 is Resource.Loading -> emit(Resource.Loading)
                 is Resource.Error -> emit(Resource.Error(resource.message, resource.cause))
                 is Resource.Success -> {
-                    val eligibleCandidates = if (profile.minRatingThreshold > 0.0) {
-                        resource.data.filter { it.voteAverage >= profile.minRatingThreshold }
-                    } else {
-                        resource.data
+                    val eligibleCandidates = resource.data.filter {
+                        it.voteAverage.isFinite() && it.voteAverage in profile.effectiveMinRating..10.0
                     }
                     val ranked = recommendationEngine.scoreAndRank(
                         profile = profile,
@@ -75,16 +73,14 @@ class GetPersonalizedRecommendationsUseCase @Inject constructor(
             genreIds = profile.selectedGenreIds,
             startYear = profile.era.startYear,
             endYear = profile.era.endYear,
-            minRating = profile.minRatingThreshold
+            minRating = profile.effectiveMinRating
         ).collect { resource ->
             when (resource) {
                 is Resource.Loading -> emit(Resource.Loading)
                 is Resource.Error -> emit(Resource.Error(resource.message, resource.cause))
                 is Resource.Success -> {
-                    val eligibleCandidates = if (profile.minRatingThreshold > 0.0) {
-                        resource.data.filter { it.voteAverage >= profile.minRatingThreshold }
-                    } else {
-                        resource.data
+                    val eligibleCandidates = resource.data.filter {
+                        it.voteAverage.isFinite() && it.voteAverage in profile.effectiveMinRating..10.0
                     }
                     val ranked = recommendationEngine.scoreAndRank(
                         profile = profile,

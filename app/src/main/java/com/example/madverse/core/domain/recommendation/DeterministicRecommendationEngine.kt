@@ -38,7 +38,8 @@ class DeterministicRecommendationEngine @Inject constructor() : RecommendationEn
         if (candidates.isEmpty() || limit <= 0) return emptyList()
 
         return candidates
-            .distinctBy { it.id } // Deduplicate candidate movies
+            .filter { it.id > 0 && it.voteAverage.isFinite() && it.voteAverage in profile.effectiveMinRating..10.0 }
+            .distinctBy { it.id } // Filter before deduplication so an invalid duplicate cannot hide a valid one.
             .map { movie -> scoreMovie(movie, profile) }
             .sortedWith(
                 compareByDescending<ScoredMovieRecommendation> { it.matchPercentage }
@@ -131,7 +132,7 @@ class DeterministicRecommendationEngine @Inject constructor() : RecommendationEn
         val era = profile.era
         if (era == MovieEra.ANY) return ERA_MAX_PTS // Neutral — award full era points
 
-        val releaseYear = movie.releaseDate?.take(4)?.toIntOrNull()
+        val releaseYear = movie.releaseDate?.take(4)?.toIntOrNull()?.takeIf { it in 1870..2100 }
         // Missing metadata fairness: do not penalize movies with missing release date
         if (releaseYear == null) return ERA_MAX_PTS
 

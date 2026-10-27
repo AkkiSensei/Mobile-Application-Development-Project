@@ -9,9 +9,13 @@ data class UserPreferenceProfile(
     val era: MovieEra = MovieEra.ANY,
     val runtimePreference: RuntimePreference = RuntimePreference.ANY,
     val preferredLanguage: String? = null,
-    val minRatingThreshold: Double = 6.0,
+    val minRatingThreshold: Double = 6.5,
     val updatedAtTimestamp: Long = System.currentTimeMillis()
-)
+) {
+    /** Recommendation eligibility floor; legacy saved preferences are not rewritten. */
+    val effectiveMinRating: Double
+        get() = if (minRatingThreshold.isNaN()) 6.5 else minRatingThreshold.coerceAtLeast(6.5)
+}
 
 typealias RecommendationProfile = UserPreferenceProfile
 

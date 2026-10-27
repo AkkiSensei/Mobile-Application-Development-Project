@@ -101,7 +101,7 @@ data class QuizAnswers(
     val mood: MovieMood = MovieMood.ANY,
     val era: MovieEra = MovieEra.ANY,
     val runtimePreference: RuntimePreference = RuntimePreference.ANY,
-    val minRatingThreshold: Double = 6.0
+    val minRatingThreshold: Double = 6.5
 ) {
     fun isValidForStep(step: QuestionStep): Boolean {
         return when (step) {
