@@ -52,6 +52,17 @@ class HomeViewModel @Inject constructor(
         loadAllSections()
     }
 
+    fun clearHistory() {
+        if (_uiState.value.isClearingHistory) return
+        _uiState.update { it.copy(isClearingHistory = true, historyError = null) }
+        viewModelScope.launch {
+            try { recentlyViewedRepository.clearHistory() }
+            catch (error: kotlinx.coroutines.CancellationException) { throw error }
+            catch (_: Exception) { _uiState.update { it.copy(historyError = "Could not clear history. Please try again.") } }
+            finally { _uiState.update { it.copy(isClearingHistory = false) } }
+        }
+    }
+
     private fun observeRecentlyViewed() {
         viewModelScope.launch {
             recentlyViewedRepository.getRecentlyViewed(limit = 20)

@@ -20,6 +20,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -98,7 +103,8 @@ fun DiscoverScreen(
                 onMovieClick = onMovieClick,
                 onRetryTrending = { viewModel.loadTrending() },
                 onRetryTopRated = { viewModel.loadTopRated() },
-                onRetryUpcoming = { viewModel.loadUpcoming() }
+                onRetryUpcoming = { viewModel.loadUpcoming() },
+                onClearHistory = viewModel::clearHistory
             )
         }
     }
@@ -111,6 +117,7 @@ private fun DiscoverContent(
     onRetryTrending: () -> Unit,
     onRetryTopRated: () -> Unit,
     onRetryUpcoming: () -> Unit,
+    onClearHistory: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -183,15 +190,8 @@ private fun DiscoverContent(
         // -------------------------------------------------------------
         if (uiState.recentlyViewed.isNotEmpty()) {
             item(key = "section_recently_viewed") {
-                SectionHeader(
-                    title = "Recently Viewed",
-                    subtitle = "Pick up where you left off"
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                MovieHorizontalCarousel(
-                    movies = uiState.recentlyViewed,
-                    onMovieClick = onMovieClick
-                )
+                RecentlyViewedSection(uiState.recentlyViewed, uiState.isClearingHistory,
+                    uiState.historyError, onMovieClick, onClearHistory)
                 Spacer(modifier = Modifier.height(24.dp))
             }
         }
@@ -279,6 +279,32 @@ private fun DiscoverContent(
 /**
  * Horizontal scrolling row of movie poster cards.
  */
+@Composable
+internal fun RecentlyViewedSection(
+    movies: List<Movie>, isClearing: Boolean, error: String?,
+    onMovieClick: (Int) -> Unit, onClearHistory: () -> Unit
+) {
+    var confirmClear by rememberSaveable { mutableStateOf(false) }
+    Column {
+        SectionHeader(title = "Recently Viewed", subtitle = "Movie details you opened on this device")
+        TextButton(onClick = { confirmClear = true }, enabled = !isClearing && movies.isNotEmpty(),
+            modifier = Modifier.padding(horizontal = 16.dp)) {
+            Text(if (isClearing) "Clearing history..." else "Clear history")
+        }
+        error?.let { Text(it, color = ErrorRed, modifier = Modifier.padding(horizontal = 16.dp)) }
+        MovieHorizontalCarousel(movies = movies, onMovieClick = onMovieClick)
+    }
+    if (confirmClear) {
+        AlertDialog(
+            onDismissRequest = { confirmClear = false },
+            title = { Text("Clear recently viewed history?") },
+            text = { Text("Remove the movie details history stored on this device. Favorites and Watchlist will stay saved. Movies opened later will appear again.") },
+            confirmButton = { TextButton(onClick = { confirmClear = false; onClearHistory() }, enabled = !isClearing) { Text("Clear") } },
+            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Cancel") } }
+        )
+    }
+}
+
 @Composable
 private fun MovieHorizontalCarousel(
     movies: List<Movie>,

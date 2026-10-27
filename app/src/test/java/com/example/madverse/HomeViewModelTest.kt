@@ -19,6 +19,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -64,6 +65,39 @@ class HomeViewModelTest {
             genreIds = listOf(28, 878),
             popularity = 95.0
         )
+    }
+
+    @Test fun clearHistoryWaitsForStorageAndAllowsRetryWithoutDuplicateWork() = runTest(testDispatcher) {
+        val rows = kotlinx.coroutines.flow.MutableStateFlow(listOf(createMovie(7, "History")))
+        var calls = 0
+        var release = kotlinx.coroutines.CompletableDeferred<Unit>()
+        var fail = true
+        val history = object : com.example.madverse.core.data.repository.RecentlyViewedRepository {
+            override fun getRecentlyViewed(limit: Int) = rows
+            override suspend fun getRecentlyViewedOnce(limit: Int) = rows.value
+            override suspend fun recordMovieView(movie: Movie) {}
+            override suspend fun clearHistory() {
+                calls++; release.await()
+                if (fail) throw java.io.IOException("Storage failure")
+                rows.value = emptyList()
+            }
+        }
+        val vm = HomeViewModel(fakeMovieRepository, history)
+        runCurrent()
+        vm.clearHistory(); vm.clearHistory(); runCurrent()
+        assertEquals(1, calls)
+        assertTrue(vm.uiState.value.isClearingHistory)
+        assertEquals(1, vm.uiState.value.recentlyViewed.size)
+        release.complete(Unit); runCurrent()
+        assertFalse(vm.uiState.value.isClearingHistory)
+        assertTrue(vm.uiState.value.historyError != null)
+        assertEquals(1, vm.uiState.value.recentlyViewed.size)
+        fail = false; release = kotlinx.coroutines.CompletableDeferred(Unit)
+        vm.clearHistory(); runCurrent()
+        assertEquals(2, calls)
+        assertTrue(vm.uiState.value.recentlyViewed.isEmpty())
+        assertEquals(null, vm.uiState.value.historyError)
+        androidx.lifecycle.ViewModelStore().also { it.put("home", vm); it.clear() }
     }
 
     @Test
