@@ -152,6 +152,38 @@ class EndToEndUserJourneysTest {
         Dispatchers.resetMain()
     }
 
+    @Test
+    fun guestPreferencesWithUnrestrictedGenresStillOfferMerge() = runTest {
+        assertFalse(sessionManager.hasGuestData())
+        for (profile in listOf(
+            UserPreferenceProfile(),
+            UserPreferenceProfile(preferredLanguage = "hi"),
+            UserPreferenceProfile(runtimePreference = RuntimePreference.QUICK),
+            UserPreferenceProfile(minRatingThreshold = 8.0)
+        )) {
+            quizRepository.saveUserPreferenceProfile(profile)
+            assertTrue("Every explicitly saved quiz profile is guest data", sessionManager.hasGuestData())
+            val auth = AuthViewModel(authRepository, sessionManager, cloudSyncService)
+            auth.onEmailChanged("guest@example.com")
+            auth.onPasswordChanged("test-password")
+            var navigated = false
+            auth.signInWithEmail { navigated = true }
+            advanceUntilIdle()
+            assertTrue(auth.uiState.value.showMergeDialog)
+            assertFalse(navigated)
+            authRepository.setGuest()
+            advanceUntilIdle()
+        }
+    }
+
+    @Test
+    fun accountPreferencesDoNotCountAsGuestData() = runTest {
+        userPreferenceDao.saveUserPreferenceProfile(UserPreferenceEntity.fromDomain(
+            UserPreferenceProfile(preferredLanguage = "hi"), userId = "account-only"
+        ))
+        assertFalse(sessionManager.hasGuestData())
+    }
+
     private fun sampleMovie(id: Int, title: String) = Movie(
         id = id,
         title = title,

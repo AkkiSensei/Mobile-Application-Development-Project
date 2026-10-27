@@ -63,6 +63,7 @@ class SessionManagerImpl @Inject constructor(
         val watchCount = watchlistDao.getWatchlistCountOnce("guest")
         if (watchCount > 0) return true
         val pref = userPreferenceDao.getUserPreferenceProfileOnce("guest")
-        return pref != null && (pref.genreIdsCsv.isNotBlank() || pref.mood != "ANY" || pref.era != "ANY")
+        // Row existence matches QuizRepository.hasSavedProfile, including unrestricted answers.
+        return pref != null
     }
 }
