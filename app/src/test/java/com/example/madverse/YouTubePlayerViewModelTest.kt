@@ -92,6 +92,22 @@ class YouTubePlayerViewModelTest {
         assertTrue(vm.uiState.value.isAuthorizedFullLength)
         assertTrue(vm.uiState.value.canEmbed)
     }
+    @Test fun rawYouTubeVideoIdAsCatalogueId_failsLookupAndRejectsPlayback() {
+        val repo = FreeMovieRepository()
+        val vm = YouTubePlayerViewModel(SavedStateHandle(mapOf(Screen.ARG_CATALOGUE_ID to "RHAPXlVq5lk")), repo)
+        assertFalse(vm.uiState.value.canEmbed)
+        assertFalse(vm.uiState.value.isLoading)
+        assertEquals("", vm.uiState.value.videoId)
+        assertEquals("", vm.uiState.value.webWatchUrl)
+        assertEquals("This catalogue film is unavailable. Return to Free Movies.", vm.uiState.value.errorMessage)
+    }
+    @Test fun arbitraryVideoIdCannotBypassCatalogueValidation() {
+        val repo = FreeMovieRepository()
+        val vm = YouTubePlayerViewModel(SavedStateHandle(mapOf(Screen.ARG_CATALOGUE_ID to "dQw4w9WgXcQ")), repo)
+        assertFalse(vm.uiState.value.canEmbed)
+        assertEquals("", vm.uiState.value.videoId)
+        assertEquals("This catalogue film is unavailable. Return to Free Movies.", vm.uiState.value.errorMessage)
+    }
     @Test fun unknownCatalogueEntryHasNoFallbackToArbitraryVideo() {
         val vm = YouTubePlayerViewModel(SavedStateHandle(mapOf(Screen.ARG_CATALOGUE_ID to "missing", Screen.ARG_VIDEO_ID to id)), FreeMovieRepository())
         assertFalse(vm.uiState.value.canEmbed); assertEquals("", vm.uiState.value.webWatchUrl)

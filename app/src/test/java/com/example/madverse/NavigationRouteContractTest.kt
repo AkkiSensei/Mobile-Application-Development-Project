@@ -88,6 +88,18 @@ class NavigationRouteContractTest {
         Screen.FreeMoviePlayer.createRoute("star_wreck!")
     }
 
+    @Test(expected = IllegalArgumentException::class)
+    fun freeMoviePlayer_createRoute_rejectsRawYouTubeVideoIdWithUppercase() {
+        // Enforces that raw YouTube IDs like "RHAPXlVq5lk" cannot bypass the slug contract
+        Screen.FreeMoviePlayer.createRoute("RHAPXlVq5lk")
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun freeMoviePlayer_createRoute_rejectsRawYouTubeVideoIdWithUnderscores() {
+        // Enforces that raw YouTube IDs with underscores cannot be injected directly
+        Screen.FreeMoviePlayer.createRoute("aqz_KE_bpKQ")
+    }
+
     @Test
     fun comparison_createRoute_generatesValidRouteWithDefaults() {
         assertEquals("comparison?movieId={movieId}", Screen.Comparison.route)
