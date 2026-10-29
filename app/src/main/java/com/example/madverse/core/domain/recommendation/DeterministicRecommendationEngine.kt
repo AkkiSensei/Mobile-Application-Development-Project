@@ -217,8 +217,9 @@ class DeterministicRecommendationEngine @Inject constructor() : RecommendationEn
         if (pref == RuntimePreference.ANY) return RUNTIME_MAX_PTS
 
         val runtime = movie.runtimeMinutes
-        // Missing metadata fairness: do not penalize movies when runtime is unavailable
-        if (runtime == null || runtime <= 0) return RUNTIME_MAX_PTS
+        // When runtime metadata is unavailable for a specific preference, apply a neutral score (5 pts)
+        // rather than automatically awarding full points:
+        if (runtime == null || runtime <= 0) return RUNTIME_NEUTRAL_PTS
 
         val inRuntime = when (pref) {
             RuntimePreference.QUICK    -> runtime < 100
@@ -246,5 +247,6 @@ class DeterministicRecommendationEngine @Inject constructor() : RecommendationEn
         const val QUALITY_MAX_PTS  = 15
         const val LANGUAGE_MAX_PTS = 10
         const val RUNTIME_MAX_PTS  = 10
+        const val RUNTIME_NEUTRAL_PTS = 5
     }
 }

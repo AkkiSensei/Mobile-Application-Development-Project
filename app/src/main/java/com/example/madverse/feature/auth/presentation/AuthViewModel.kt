@@ -148,12 +148,25 @@ class AuthViewModel @Inject constructor(
     }
 
     fun signInWithGoogle(idToken: String, onSuccess: () -> Unit) {
+        if (idToken.isBlank()) {
+            _uiState.update {
+                it.copy(
+                    isGoogleSignInLoading = false,
+                    errorMessage = "Google sign-in returned an empty credential token."
+                )
+            }
+            return
+        }
         viewModelScope.launch {
             _uiState.update { it.copy(isGoogleSignInLoading = true, errorMessage = null) }
             val result = authRepository.signInWithGoogle(idToken)
             result.onSuccess {
                 handleAuthSuccess(onSuccess)
             }.onFailure { error ->
+                if (error is CancellationException) {
+                    _uiState.update { it.copy(isGoogleSignInLoading = false) }
+                    throw error
+                }
                 _uiState.update {
                     it.copy(
                         isGoogleSignInLoading = false,
@@ -161,6 +174,23 @@ class AuthViewModel @Inject constructor(
                     )
                 }
             }
+        }
+    }
+
+    fun setGoogleSignInLoading(loading: Boolean) {
+        _uiState.update { it.copy(isGoogleSignInLoading = loading, errorMessage = if (loading) null else it.errorMessage) }
+    }
+
+    fun onGoogleCredentialCancelled() {
+        _uiState.update { it.copy(isGoogleSignInLoading = false) }
+    }
+
+    fun onGoogleCredentialError(message: String?) {
+        _uiState.update {
+            it.copy(
+                isGoogleSignInLoading = false,
+                errorMessage = message ?: "Google sign-in could not be completed."
+            )
         }
     }
 

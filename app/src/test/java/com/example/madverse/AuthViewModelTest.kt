@@ -179,6 +179,91 @@ class AuthViewModelTest {
     }
 
     @Test
+    fun googleSignIn_withBlankIdToken_failsGracefully() = runTest {
+        var successCalled = false
+        viewModel.signInWithGoogle("") { successCalled = true }
+        advanceUntilIdle()
+
+        assertFalse(successCalled)
+        assertFalse(viewModel.uiState.value.isGoogleSignInLoading)
+        assertNotNull(viewModel.uiState.value.errorMessage)
+        assertTrue(viewModel.uiState.value.errorMessage!!.contains("empty credential token", ignoreCase = true))
+    }
+
+    @Test
+    fun googleSignIn_cancellationResetsLoadingWithoutSettingErrorMessage() = runTest {
+        authRepository.shouldFailNextOperation = true
+        authRepository.failureException = kotlinx.coroutines.CancellationException("Job was cancelled")
+
+        var successCalled = false
+        try {
+            viewModel.signInWithGoogle("valid_token") { successCalled = true }
+            advanceUntilIdle()
+        } catch (_: kotlinx.coroutines.CancellationException) {
+            // Expected propagation
+        }
+
+        assertFalse(successCalled)
+        assertFalse(viewModel.uiState.value.isGoogleSignInLoading)
+        assertNull(viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun googleSignIn_failureSurfacesErrorMessageAndStopsLoading() = runTest {
+        authRepository.shouldFailNextOperation = true
+        authRepository.failureException = Exception("Backend authentication failed")
+
+        var successCalled = false
+        viewModel.signInWithGoogle("valid_token") { successCalled = true }
+        advanceUntilIdle()
+
+        assertFalse(successCalled)
+        assertFalse(viewModel.uiState.value.isGoogleSignInLoading)
+        assertEquals("Backend authentication failed", viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun googleSignIn_successWithGuestData_showsMergeDialog() = runTest {
+        testSessionManager.hasGuestDataResult = true
+
+        var successCalled = false
+        viewModel.signInWithGoogle("mock_google_id_token") { successCalled = true }
+        advanceUntilIdle()
+
+        assertFalse(successCalled)
+        assertTrue(viewModel.uiState.value.showMergeDialog)
+        assertFalse(viewModel.uiState.value.isGoogleSignInLoading)
+    }
+
+    @Test
+    fun googleSignIn_credentialManagerFlowLoadingAndCancellation() {
+        viewModel.setGoogleSignInLoading(true)
+        assertTrue(viewModel.uiState.value.isGoogleSignInLoading)
+
+        viewModel.onGoogleCredentialCancelled()
+        assertFalse(viewModel.uiState.value.isGoogleSignInLoading)
+        assertNull(viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun googleSignIn_credentialManagerErrorSurfacesMessageAndStopsLoading() {
+        viewModel.setGoogleSignInLoading(true)
+        assertTrue(viewModel.uiState.value.isGoogleSignInLoading)
+
+        viewModel.onGoogleCredentialError("No Google account found on this device.")
+        assertFalse(viewModel.uiState.value.isGoogleSignInLoading)
+        assertEquals("No Google account found on this device.", viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun googleSignIn_credentialManagerNullErrorMessage_defaultsFallback() {
+        viewModel.onGoogleCredentialError(null)
+        assertFalse(viewModel.uiState.value.isGoogleSignInLoading)
+        assertNotNull(viewModel.uiState.value.errorMessage)
+        assertTrue(viewModel.uiState.value.errorMessage!!.contains("Google sign-in could not be completed"))
+    }
+
+    @Test
     fun passwordReset_sendsEmailAndSetsInfoMessage() = runTest {
         viewModel.onEmailChanged("resetme@example.com")
         viewModel.sendPasswordResetEmail()

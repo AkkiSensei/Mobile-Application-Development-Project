@@ -197,7 +197,7 @@ class MovieRepositoryImpl @Inject constructor(
     ): Flow<Resource<List<Movie>>> = flow {
         emit(Resource.Loading)
         emit(safeApiCall {
-            val genreParam = if (genreIds.isNotEmpty()) genreIds.joinToString(",") else null
+            val genreParam = if (genreIds.isNotEmpty()) genreIds.joinToString("|") else null
             val releaseDateGte = startYear?.let { "$it-01-01" }
             val releaseDateLte = endYear?.let { "$it-12-31" }
 

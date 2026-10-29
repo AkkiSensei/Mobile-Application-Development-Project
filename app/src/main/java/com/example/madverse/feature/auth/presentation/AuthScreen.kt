@@ -60,8 +60,17 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.GetCredentialException
+import androidx.credentials.exceptions.GetCredentialProviderConfigurationException
+import androidx.credentials.exceptions.GetCredentialUnsupportedException
+import androidx.credentials.exceptions.NoCredentialException
+import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.madverse.R
@@ -76,6 +85,7 @@ import com.example.madverse.core.designsystem.theme.ObsidianSurface
 import com.example.madverse.core.designsystem.theme.ObsidianSurfaceVariant
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 @Composable
@@ -89,7 +99,11 @@ fun AuthScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
-    val webClientId = stringResource(R.string.default_web_client_id)
+    val webClientId = try {
+        context.getString(R.string.default_web_client_id)
+    } catch (_: Exception) {
+        ""
+    }
 
     // Guest data merge confirmation dialog
     if (uiState.showMergeDialog) {
@@ -244,25 +258,56 @@ fun AuthScreen(
                     // Google Sign-In via Credential Manager
                     Button(
                         onClick = {
-                            val credentialManager = CredentialManager.create(context)
-                            val googleIdOption = GetGoogleIdOption.Builder()
-                                .setFilterByAuthorizedAccounts(false)
-                                .setServerClientId(webClientId)
-                                .setAutoSelectEnabled(false)
-                                .build()
-                            val request = GetCredentialRequest.Builder()
-                                .addCredentialOption(googleIdOption)
-                                .build()
+                            if (uiState.isGoogleSignInLoading) return@Button
+
+                            if (webClientId.isBlank()) {
+                                viewModel.onGoogleCredentialError("Google Sign-In configuration is missing. Web Client ID is not configured.")
+                                return@Button
+                            }
+
+                            val activity = context.findActivity() ?: (context as? Activity)
+                            val targetContext = activity ?: context
+
+                            viewModel.setGoogleSignInLoading(true)
 
                             coroutineScope.launch {
                                 try {
-                                    val result = credentialManager.getCredential(context = context, request = request)
+                                    val credentialManager = CredentialManager.create(targetContext)
+                                    val googleIdOption = GetGoogleIdOption.Builder()
+                                        .setFilterByAuthorizedAccounts(false)
+                                        .setServerClientId(webClientId)
+                                        .setAutoSelectEnabled(false)
+                                        .build()
+                                    val request = GetCredentialRequest.Builder()
+                                        .addCredentialOption(googleIdOption)
+                                        .build()
+
+                                    val result = credentialManager.getCredential(context = targetContext, request = request)
                                     val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(result.credential.data)
-                                    viewModel.signInWithGoogle(googleIdTokenCredential.idToken, onAuthSuccess)
-                                } catch (_: androidx.credentials.exceptions.GetCredentialCancellationException) {
-                                    // User cancelled selection
+                                    val idToken = googleIdTokenCredential.idToken
+                                    if (idToken.isBlank()) {
+                                        viewModel.onGoogleCredentialError("Received empty Google credential token.")
+                                    } else {
+                                        viewModel.signInWithGoogle(idToken, onAuthSuccess)
+                                    }
+                                } catch (_: GetCredentialCancellationException) {
+                                    viewModel.onGoogleCredentialCancelled()
+                                } catch (e: CancellationException) {
+                                    viewModel.onGoogleCredentialCancelled()
+                                    throw e
+                                } catch (e: NoCredentialException) {
+                                    viewModel.onGoogleCredentialError("No Google account found on this device.")
+                                } catch (e: GetCredentialUnsupportedException) {
+                                    viewModel.onGoogleCredentialError("Google Sign-In is not supported on this device.")
+                                } catch (e: GetCredentialProviderConfigurationException) {
+                                    viewModel.onGoogleCredentialError("Google Play Services is not configured for Sign-In.")
+                                } catch (e: GoogleIdTokenParsingException) {
+                                    viewModel.onGoogleCredentialError("Failed to parse Google credential token.")
+                                } catch (e: GetCredentialException) {
+                                    viewModel.onGoogleCredentialError(e.message ?: "Google Sign-In could not be completed.")
                                 } catch (e: Exception) {
-                                    // Show user-friendly error
+                                    if (e is CancellationException) throw e
+                                    viewModel.onGoogleCredentialError(e.localizedMessage ?: "Google Sign-In failed.")
                                 }
                             }
                         },
@@ -777,4 +822,10 @@ fun AuthScreen(
             }
         }
     }
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }

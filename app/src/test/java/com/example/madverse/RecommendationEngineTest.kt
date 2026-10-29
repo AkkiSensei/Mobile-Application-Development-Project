@@ -17,6 +17,8 @@ import com.example.madverse.core.model.UserPreferenceProfile
 import com.example.madverse.core.model.VideoTrailer
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -512,6 +514,214 @@ class RecommendationEngineTest {
         assertEquals(6.5, movies.requestedRating!!, 0.0)
     }
 
+    @Test
+    fun scoreRuntime_matchingPreference_awardsFullPointsAndAddsReason() {
+        val quickMovie = sciFiActionMovie.copy(runtimeMinutes = 85)
+        val profile = UserPreferenceProfile(
+            runtimePreference = RuntimePreference.QUICK,
+            selectedGenreIds = emptySet(),
+            mood = MovieMood.ANY,
+            era = MovieEra.ANY,
+            preferredLanguage = null,
+            minRatingThreshold = 0.0
+        )
+        val results = engine.scoreAndRank(profile, listOf(quickMovie))
+        val scored = results.first()
+        // Baseline: 15 (genre neutral) + 10 (mood neutral) + 15 (era neutral) + 10 (lang neutral) + 12 (quality 8.2->12) + 10 (runtime match) = 72
+        assertEquals(72, scored.matchPercentage)
+        assertTrue(scored.matchReasons.any { it.contains("Matches runtime preference: Brisk", ignoreCase = true) })
+    }
+
+    @Test
+    fun scoreRuntime_nonMatchingPreference_awardsZeroPoints() {
+        val longMovie = sciFiActionMovie.copy(runtimeMinutes = 150)
+        val profile = UserPreferenceProfile(
+            runtimePreference = RuntimePreference.QUICK,
+            selectedGenreIds = emptySet(),
+            mood = MovieMood.ANY,
+            era = MovieEra.ANY,
+            preferredLanguage = null,
+            minRatingThreshold = 0.0
+        )
+        val results = engine.scoreAndRank(profile, listOf(longMovie))
+        val scored = results.first()
+        // Baseline: 15 + 10 + 15 + 10 + 12 + 0 (runtime mismatch) = 62
+        assertEquals(62, scored.matchPercentage)
+        assertFalse(scored.matchReasons.any { it.contains("runtime", ignoreCase = true) })
+    }
+
+    @Test
+    fun scoreRuntime_missingRuntimeWithSpecificPreference_awardsNeutralPointsWithoutReason() {
+        val missingRuntimeMovie = sciFiActionMovie.copy(runtimeMinutes = null)
+        val profile = UserPreferenceProfile(
+            runtimePreference = RuntimePreference.QUICK,
+            selectedGenreIds = emptySet(),
+            mood = MovieMood.ANY,
+            era = MovieEra.ANY,
+            preferredLanguage = null,
+            minRatingThreshold = 0.0
+        )
+        val results = engine.scoreAndRank(profile, listOf(missingRuntimeMovie))
+        val scored = results.first()
+        // Baseline: 15 + 10 + 15 + 10 + 12 + 5 (runtime neutral) = 67
+        assertEquals(67, scored.matchPercentage)
+        assertFalse(scored.matchReasons.any { it.contains("runtime", ignoreCase = true) })
+    }
+
+    @Test
+    fun scoreRuntime_missingRuntimeWithAnyPreference_awardsFullPoints() {
+        val missingRuntimeMovie = sciFiActionMovie.copy(runtimeMinutes = null)
+        val profile = UserPreferenceProfile(
+            runtimePreference = RuntimePreference.ANY,
+            selectedGenreIds = emptySet(),
+            mood = MovieMood.ANY,
+            era = MovieEra.ANY,
+            preferredLanguage = null,
+            minRatingThreshold = 0.0
+        )
+        val results = engine.scoreAndRank(profile, listOf(missingRuntimeMovie))
+        val scored = results.first()
+        // Baseline: 15 + 10 + 15 + 10 + 12 + 10 (runtime ANY) = 72
+        assertEquals(72, scored.matchPercentage)
+    }
+
+    @Test
+    fun useCase_enrichesRuntimesFromRepositoryDetails() = runTest {
+        val fakeQuizRepo = FakeQuizRepository().apply {
+            profile = UserPreferenceProfile(
+                runtimePreference = RuntimePreference.QUICK,
+                selectedGenreIds = emptySet(),
+                mood = MovieMood.ANY,
+                era = MovieEra.ANY,
+                preferredLanguage = null,
+                minRatingThreshold = 0.0
+            )
+        }
+        val candidateWithoutRuntime = sciFiActionMovie.copy(runtimeMinutes = null)
+        val fakeMovieRepo = FakeMovieRepository().apply {
+            candidates = listOf(candidateWithoutRuntime)
+            detailsMap[candidateWithoutRuntime.id] = MovieDetails(
+                id = candidateWithoutRuntime.id,
+                title = candidateWithoutRuntime.title,
+                tagline = null,
+                overview = candidateWithoutRuntime.overview,
+                posterUrl = null,
+                backdropUrl = null,
+                releaseDate = candidateWithoutRuntime.releaseDate,
+                runtimeMinutes = 85,
+                voteAverage = candidateWithoutRuntime.voteAverage,
+                voteCount = candidateWithoutRuntime.voteCount,
+                genres = emptyList(),
+                status = "Released",
+                budget = 0,
+                revenue = 0,
+                originalLanguage = "en"
+            )
+        }
+        val useCase = GetPersonalizedRecommendationsUseCase(fakeQuizRepo, fakeMovieRepo, engine)
+        @Suppress("UNCHECKED_CAST")
+        val result = useCase().first { it is Resource.Success } as Resource.Success<List<com.example.madverse.core.model.ScoredMovieRecommendation>>
+        val recommendation = result.data.first()
+
+        assertEquals(85, recommendation.movie.runtimeMinutes)
+        assertEquals(72, recommendation.matchPercentage)
+        assertTrue(recommendation.matchReasons.any { it.contains("Matches runtime preference: Brisk", ignoreCase = true) })
+    }
+
+    @Test
+    fun useCase_cachesEnrichedRuntimesAcrossMultipleInvocations() = runTest {
+        val fakeQuizRepo = FakeQuizRepository().apply {
+            profile = UserPreferenceProfile(
+                runtimePreference = RuntimePreference.QUICK,
+                selectedGenreIds = emptySet(),
+                mood = MovieMood.ANY,
+                era = MovieEra.ANY,
+                preferredLanguage = null,
+                minRatingThreshold = 0.0
+            )
+        }
+        val candidate = sciFiActionMovie.copy(runtimeMinutes = null)
+        val fakeMovieRepo = FakeMovieRepository().apply {
+            candidates = listOf(candidate)
+            detailsMap[candidate.id] = MovieDetails(
+                id = candidate.id,
+                title = candidate.title,
+                tagline = null,
+                overview = candidate.overview,
+                posterUrl = null,
+                backdropUrl = null,
+                releaseDate = candidate.releaseDate,
+                runtimeMinutes = 88,
+                voteAverage = candidate.voteAverage,
+                voteCount = candidate.voteCount,
+                genres = emptyList(),
+                status = "Released",
+                budget = 0,
+                revenue = 0,
+                originalLanguage = "en"
+            )
+        }
+        val useCase = GetPersonalizedRecommendationsUseCase(fakeQuizRepo, fakeMovieRepo, engine)
+        // First invocation enriches and populates cache
+        useCase().first { it is Resource.Success }
+        assertEquals(1, fakeMovieRepo.detailsCallCount)
+
+        // Clear detailsMap so subsequent network call would fail
+        fakeMovieRepo.detailsMap.clear()
+
+        // Second invocation should use in-memory cache and still produce enriched runtime
+        @Suppress("UNCHECKED_CAST")
+        val secondResult = useCase().first { it is Resource.Success } as Resource.Success<List<com.example.madverse.core.model.ScoredMovieRecommendation>>
+        assertEquals(88, secondResult.data.first().movie.runtimeMinutes)
+        assertEquals(1, fakeMovieRepo.detailsCallCount)
+    }
+
+    @Test
+    fun useCase_detailFailureRetainsCandidateWithoutFailingFlow() = runTest {
+        val fakeQuizRepo = FakeQuizRepository().apply {
+            profile = UserPreferenceProfile(
+                runtimePreference = RuntimePreference.QUICK,
+                minRatingThreshold = 0.0
+            )
+        }
+        val candidate = sciFiActionMovie.copy(runtimeMinutes = null)
+        val fakeMovieRepo = FakeMovieRepository().apply {
+            candidates = listOf(candidate)
+            // No details in detailsMap -> returns Resource.Error
+        }
+        val useCase = GetPersonalizedRecommendationsUseCase(fakeQuizRepo, fakeMovieRepo, engine)
+        @Suppress("UNCHECKED_CAST")
+        val result = useCase().first { it is Resource.Success } as Resource.Success<List<com.example.madverse.core.model.ScoredMovieRecommendation>>
+        // Candidate retained despite detail fetch failure
+        assertEquals(1, result.data.size)
+        assertEquals(candidate.id, result.data.first().movie.id)
+    }
+
+    @Test
+    fun useCase_cancellationPropagatesProperly() = runTest {
+        val fakeQuizRepo = FakeQuizRepository().apply {
+            profile = UserPreferenceProfile(
+                runtimePreference = RuntimePreference.QUICK,
+                minRatingThreshold = 0.0
+            )
+        }
+        val fakeMovieRepo = object : FakeMovieRepository() {
+            override fun getMovieDetails(movieId: Int): Flow<Resource<MovieDetails>> = flow {
+                throw kotlinx.coroutines.CancellationException("Test cancellation")
+            }
+        }.apply {
+            candidates = listOf(sciFiActionMovie.copy(runtimeMinutes = null))
+        }
+        val useCase = GetPersonalizedRecommendationsUseCase(fakeQuizRepo, fakeMovieRepo, engine)
+        var cancelled = false
+        try {
+            useCase().toList()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            cancelled = true
+        }
+        assertTrue("CancellationException must propagate through enrichRuntimes", cancelled)
+    }
+
     private class FakeQuizRepository : QuizRepository {
         var profile: UserPreferenceProfile = UserPreferenceProfile()
 
@@ -533,9 +743,12 @@ class RecommendationEngineTest {
             emptyList()
     }
 
-    private class FakeMovieRepository : MovieRepository {
+    private open class FakeMovieRepository : MovieRepository {
         var candidates: List<Movie> = emptyList()
         var requestedRating: Double? = null
+        var requestedGenres: Set<Int>? = null
+        val detailsMap = mutableMapOf<Int, MovieDetails>()
+        var detailsCallCount: Int = 0
 
         override fun discoverCandidateMovies(
             genreIds: Set<Int>,
@@ -545,6 +758,7 @@ class RecommendationEngineTest {
             page: Int
         ): Flow<Resource<List<Movie>>> {
             requestedRating = minRating
+            requestedGenres = genreIds
             return flowOf(Resource.Success(candidates))
         }
 
@@ -552,7 +766,15 @@ class RecommendationEngineTest {
         override fun getTopRatedMovies(page: Int): Flow<Resource<List<Movie>>> = flowOf(Resource.Success(emptyList()))
         override fun getUpcomingMovies(page: Int): Flow<Resource<List<Movie>>> = flowOf(Resource.Success(emptyList()))
         override fun searchMovies(query: String, page: Int, releaseYear: Int?): Flow<Resource<List<Movie>>> = flowOf(Resource.Success(emptyList()))
-        override fun getMovieDetails(movieId: Int): Flow<Resource<MovieDetails>> = flowOf(Resource.Loading)
+        override fun getMovieDetails(movieId: Int): Flow<Resource<MovieDetails>> = flow {
+            detailsCallCount++
+            val details = detailsMap[movieId]
+            if (details != null) {
+                emit(Resource.Success(details))
+            } else {
+                emit(Resource.Error("Details not found for movie $movieId"))
+            }
+        }
         override fun getMovieCredits(movieId: Int): Flow<Resource<List<CastMember>>> = flowOf(Resource.Success(emptyList()))
         override fun getMovieVideos(movieId: Int): Flow<Resource<List<VideoTrailer>>> = flowOf(Resource.Success(emptyList()))
         override fun getMovieWatchProviders(movieId: Int, countryCode: String): Flow<Resource<MovieWatchProviders>> = flowOf(Resource.Loading)

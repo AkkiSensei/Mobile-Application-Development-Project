@@ -247,6 +247,72 @@ class MovieRepositoryTest {
         assertEquals(3, calls)
     }
 
+    @Test
+    fun discoverCandidateMovies_multipleGenres_joinsWithPipeDelimiterForOrSemantics() = runTest {
+        var capturedWithGenres: String? = null
+        val fakeApi = object : FakeBaseTmdbApi() {
+            override suspend fun discoverMovies(
+                withGenres: String?,
+                releaseDateGte: String?,
+                releaseDateLte: String?,
+                minVoteAverage: Double?,
+                sortBy: String,
+                page: Int
+            ): MovieResponseDto {
+                capturedWithGenres = withGenres
+                return MovieResponseDto(1, emptyList(), 1, 0)
+            }
+        }
+        val repository = createRepository(fakeApi)
+        repository.discoverCandidateMovies(setOf(28, 878, 12)).toList()
+
+        assertEquals("28|878|12", capturedWithGenres)
+    }
+
+    @Test
+    fun discoverCandidateMovies_singleGenre_passesGenreWithoutDelimiter() = runTest {
+        var capturedWithGenres: String? = null
+        val fakeApi = object : FakeBaseTmdbApi() {
+            override suspend fun discoverMovies(
+                withGenres: String?,
+                releaseDateGte: String?,
+                releaseDateLte: String?,
+                minVoteAverage: Double?,
+                sortBy: String,
+                page: Int
+            ): MovieResponseDto {
+                capturedWithGenres = withGenres
+                return MovieResponseDto(1, emptyList(), 1, 0)
+            }
+        }
+        val repository = createRepository(fakeApi)
+        repository.discoverCandidateMovies(setOf(28)).toList()
+
+        assertEquals("28", capturedWithGenres)
+    }
+
+    @Test
+    fun discoverCandidateMovies_emptyGenres_passesNull() = runTest {
+        var capturedWithGenres: String? = null
+        val fakeApi = object : FakeBaseTmdbApi() {
+            override suspend fun discoverMovies(
+                withGenres: String?,
+                releaseDateGte: String?,
+                releaseDateLte: String?,
+                minVoteAverage: Double?,
+                sortBy: String,
+                page: Int
+            ): MovieResponseDto {
+                capturedWithGenres = withGenres
+                return MovieResponseDto(1, emptyList(), 1, 0)
+            }
+        }
+        val repository = createRepository(fakeApi)
+        repository.discoverCandidateMovies(emptySet()).toList()
+
+        assertEquals(null, capturedWithGenres)
+    }
+
     private open class FakeBaseTmdbApi : TmdbApi {
         override suspend fun getTrendingMovies(page: Int): MovieResponseDto =
             MovieResponseDto(1, emptyList(), 1, 0)
